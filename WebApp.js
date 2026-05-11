@@ -239,79 +239,77 @@ function mostrarErrorAcceso(msg) {
 // ============================================================================
 
 function abrirChecadorChoferDirecto(nombre, idUsuario) {
-  // Inyectar estilos si no existen
   if (!document.getElementById('chofer-styles')) {
     var st = document.createElement('style');
     st.id = 'chofer-styles';
     st.textContent =
-      '#chofer-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:700px;}' +
+      '#chofer-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;max-width:680px;}' +
       '@media(max-width:600px){#chofer-grid{grid-template-columns:1fr;}}' +
-      '.chofer-col{display:flex;flex-direction:column;gap:10px;}' +
-      '.chofer-label{color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;}' +
-      '.chofer-foto-box{flex:1;min-height:140px;max-height:180px;border-radius:10px;background:rgba(15,23,42,0.8);border:2px dashed rgba(51,65,85,0.5);display:flex;align-items:center;justify-content:center;overflow:hidden;}' +
-      '.chofer-btn-foto{padding:10px;background:rgba(16,185,129,0.15);border:2px solid #10B981;border-radius:10px;color:#10B981;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}' +
-      '.chofer-btn-gps{padding:10px;background:rgba(245,158,11,0.15);border:2px solid #F59E0B;border-radius:10px;color:#F59E0B;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}' +
-      '.chofer-btn-reg{padding:14px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:15px;cursor:not-allowed;opacity:0.4;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.3s;margin-top:auto;}' +
-      '@keyframes pinShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}';
+      '.chofer-col{display:flex;flex-direction:column;gap:12px;}' +
+      '.chofer-label{color:#64748B;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:2px;}' +
+      '.chofer-foto-box{flex:1;min-height:150px;max-height:190px;border-radius:12px;background:rgba(15,23,42,0.6);border:2px dashed rgba(59,130,246,0.2);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border 0.3s;}' +
+      '.chofer-btn{width:100%;padding:12px 16px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;border:none;}' +
+      '.chofer-btn-foto{background:rgba(16,185,129,0.12);border:1.5px solid #10B981 !important;color:#10B981;}' +
+      '.chofer-btn-foto:hover{background:rgba(16,185,129,0.22);}' +
+      '.chofer-btn-gps{background:rgba(59,130,246,0.12);border:1.5px solid #3B82F6 !important;color:#3B82F6;}' +
+      '.chofer-btn-gps:hover{background:rgba(59,130,246,0.22);}' +
+      '.chofer-btn-reg{background:linear-gradient(135deg,#3B82F6,#06B6D4);color:white;font-size:15px;padding:14px;}' +
+      '.chofer-btn-reg:disabled{opacity:0.35;cursor:not-allowed;}' +
+      '.chofer-btn-reg:not(:disabled):hover{opacity:0.9;transform:translateY(-1px);}' +
+      '.chofer-status{font-size:11px;color:#475569;text-align:center;}' +
+      '@keyframes pinShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}' +
+      '@keyframes countdownPop{0%{transform:scale(0.5);opacity:0}50%{transform:scale(1.3)}100%{transform:scale(1);opacity:1}}';
     document.head.appendChild(st);
   }
+
   document.querySelector('.app-container').style.display = 'none';
   document.getElementById('particles').style.display = 'none';
 
-  const wrapper = document.createElement('div');
+  var wrapper = document.createElement('div');
   wrapper.id = 'chofer-wrapper';
-  wrapper.style.cssText = 'height:100vh;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;';
+  wrapper.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;z-index:1000;';
 
   wrapper.innerHTML =
-    '' +
-
-    // Header compacto
-    '<div style="padding:12px 20px;border-bottom:1px solid rgba(51,65,85,0.5);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
-      '<div style="display:flex;align-items:center;gap:10px;">' +
-        '<span style="font-size:22px;">🚛</span>' +
+    '<div style="padding:14px 20px;border-bottom:1px solid rgba(51,65,85,0.4);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
+      '<div style="display:flex;align-items:center;gap:12px;">' +
+        '<div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#3B82F6,#06B6D4);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🚛</div>' +
         '<div>' +
-          '<div style="color:#F1F5F9;font-size:14px;font-weight:700;line-height:1.2;">Checador de Personal</div>' +
-          '<div style="color:#3B82F6;font-size:11px;font-weight:600;">👤 ' + nombre + '</div>' +
+          '<div style="color:#F1F5F9;font-size:15px;font-weight:700;">Checador de Personal</div>' +
+          '<div style="color:#3B82F6;font-size:12px;font-weight:600;">👤 ' + nombre + '</div>' +
         '</div>' +
       '</div>' +
       '<div style="text-align:right;">' +
-        '<div id="chofer-fecha" style="color:#64748B;font-size:10px;"></div>' +
-        '<div id="chofer-hora" style="color:#3B82F6;font-size:16px;font-weight:700;"></div>' +
+        '<div id="chofer-fecha" style="color:#64748B;font-size:11px;"></div>' +
+        '<div id="chofer-hora" style="color:#F1F5F9;font-size:20px;font-weight:800;letter-spacing:1px;"></div>' +
       '</div>' +
     '</div>' +
-
-    // Contenido centrado
-    '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:14px 20px;overflow:hidden;">' +
+    '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px 20px;overflow:hidden;">' +
       '<div id="chofer-grid">' +
-
-        // Col izquierda — Foto
         '<div class="chofer-col">' +
-          '<div class="chofer-label"><i class="fas fa-camera" style="color:#10B981;margin-right:5px;"></i>Foto <span style="color:#475569;font-weight:400;">(opcional)</span></div>' +
+          '<div class="chofer-label"><i class="fas fa-camera" style="margin-right:5px;color:#10B981;"></i>Foto</div>' +
           '<div id="chofer-foto-preview" class="chofer-foto-box">' +
             '<div style="text-align:center;">' +
-              '<i class="fas fa-image" style="color:#334155;font-size:28px;display:block;margin-bottom:6px;"></i>' +
-              '<span style="color:#475569;font-size:11px;">Sin foto</span>' +
+              '<i class="fas fa-camera" style="color:#1E3A5F;font-size:32px;display:block;margin-bottom:8px;"></i>' +
+              '<span style="color:#334155;font-size:12px;">Sin foto</span>' +
             '</div>' +
           '</div>' +
-          '<button class="chofer-btn-foto" onclick="abrirCamaraChofer()">' +
+          '<button class="chofer-btn chofer-btn-foto" onclick="abrirCamaraChofer()">' +
             '<i class="fas fa-camera"></i> Tomar Foto' +
           '</button>' +
-          '<div id="chofer-foto-status" style="font-size:10px;color:#475569;text-align:center;">Sin foto tomada</div>' +
+          '<div id="chofer-foto-status" class="chofer-status">Sin foto tomada</div>' +
         '</div>' +
-
-        // Col derecha — GPS + Registrar
         '<div class="chofer-col">' +
-          '<div class="chofer-label"><i class="fas fa-map-marker-alt" style="color:#F59E0B;margin-right:5px;"></i>GPS <span style="color:#EF4444;font-weight:400;">*obligatorio</span></div>' +
-          '<button id="btn-gps-chofer" class="chofer-btn-gps" onclick="obtenerGPSChofer()">' +
+          '<div class="chofer-label"><i class="fas fa-map-marker-alt" style="margin-right:5px;color:#3B82F6;"></i>Ubicación GPS</div>' +
+          '<button id="btn-gps-chofer" class="chofer-btn chofer-btn-gps" onclick="obtenerGPSChofer()">' +
             '<i class="fas fa-location-arrow"></i> Obtener Ubicación' +
           '</button>' +
-          '<div id="chofer-gps-resultado" style="flex:1;border-radius:10px;overflow:hidden;font-size:12px;"></div>' +
-          '<button id="btn-registrar-chofer" disabled class="chofer-btn-reg" onclick="registrarChecadaChoferFijo(\'' + nombre + '\',\'' + idUsuario + '\')">' +
-            '<i class="fas fa-check-circle" style="font-size:16px;"></i> Registrar Checada' +
+          '<div id="chofer-gps-resultado" style="border-radius:10px;overflow:hidden;font-size:12px;"></div>' +
+          '<div style="flex:1;"></div>' +
+          '<button id="btn-registrar-chofer" disabled class="chofer-btn chofer-btn-reg" onclick="registrarChecadaChoferFijo(\'' + nombre + '\',\'' + idUsuario + '\')">' +
+            '<i class="fas fa-check-circle" style="font-size:17px;"></i> Registrar Checada' +
           '</button>' +
           '<div id="chofer-resultado" style="display:none;"></div>' +
         '</div>' +
-
       '</div>' +
     '</div>';
 
