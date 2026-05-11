@@ -358,7 +358,7 @@ function registrarChecadaChofer() {
 // ============================================================================
 // CÁMARA getUserMedia
 // ============================================================================
-let _streamCamara = null;
+// _streamCamara declarada en WebApp.js
 
 function abrirCamaraChofer() {
   // Crear modal si no existe
