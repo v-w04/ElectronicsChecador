@@ -3,6 +3,7 @@
 // ============================================================================
 
 function mostrarPantallaPIN() {
+  if (document.getElementById('pin-overlay')) return; // ya existe
   const overlay = document.createElement('div');
   overlay.id = 'pin-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);z-index:99999;display:flex;align-items:center;justify-content:center;';
