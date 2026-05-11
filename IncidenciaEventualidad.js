@@ -7,7 +7,6 @@
 // - Inyectar.html: renderInyectarEventualidades, renderInyectarIncidencias,
 //   cargarEmpleadosParaIncidencia, cargarActividadesIncidencias, registrarIncidencia
 // Este archivo se mantiene vacío intencionalmente para compatibilidad con include()
-</script>
 
 function mostrarPantallaPIN() {
   const overlay = document.createElement('div');
@@ -462,15 +461,3 @@ function forzarDosColumnasMovil() {
     });
   }
 }
-
-</script>
-
-<style>
-@keyframes pinShake {
-  0%, 100% { transform: translateX(0); }
-  20%       { transform: translateX(-10px); }
-  40%       { transform: translateX(10px); }
-  60%       { transform: translateX(-8px); }
-  80%       { transform: translateX(8px); }
-}
-</style>
