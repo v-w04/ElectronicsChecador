@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Control de Asistencias - Electronics México</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="Styles.css">
+
+</head>
+<body>
+
+<script src="api.js"></script>
+<script src="Tablas.js"></script>
+<script src="Mapa.js"></script>
+<script src="Avatares.js"></script>
+<script src="Sidebar.js"></script>
+<script src="Dashboard.js"></script>
+<script src="KPIGauges.js"></script>
+<script src="Filtros.js"></script>
+<script src="Module.js"></script>
+<script src="RenderModule.js"></script>
+<script src="Inyectar.js"></script>
+<script src="IncidenciaEventualidad.js"></script>
+<script src="Productividad.js"></script>
+<script src="Girly.js"></script>
+<script src="TooltipsGauges.js"></script>
+<script src="WebApp.js"></script>
+<script src="ChecadorChoferes.js"></script>
+<script src="Oficina.js"></script>
+
+  <!-- Partículas de fondo -->
+  <div id="particles"></div>
+  
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo-container">
+        <a href="https://script.google.com/macros/s/AKfycbx9y0Nr4thwHCAdQYaeHD_48gCukdPc4PvU8r10vh6RD_qbMRse4j1fReOZEQX2fcs9Wg/exec" target="_blank" title="Ir a Electronics México - Intranet">
+          <img src="https://i.imgur.com/cVfOQOW.jpeg" alt="Logo" class="logo-img">
+        </a>
+        <div class="logo-text">
+          <h1>Electronics México</h1>
+          <p>Control de Asistencias</p>
+        </div>
+      </div>
+
+      <!-- ⭐ CONTROLES -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+  <button class="topbar-btn" onclick="window.open('https://docs.google.com/spreadsheets/d/1V6C5N4JGw8KYWqU0dYxIXdFNRpcivTulO2DCOn8zjCQ/edit?gid=1051150632#gid=1051150632', '_blank')" title="Abrir Sheet" style="padding: 10px; font-size: 13px;">
+    <i class="fas fa-table"></i>
+  </button>
+  <button class="topbar-btn" onclick="loadCurrentModule()" title="Refrescar" style="padding: 10px; font-size: 13px;">
+    <i class="fas fa-sync-alt"></i>
+  </button>
+  <button class="topbar-btn" id="toggle-theme" onclick="toggleGirlyMode()" title="Modo Girly" style="padding: 10px; font-size: 13px;">
+    <i class="fas fa-times"></i>
+  </button>
+  <button class="topbar-btn" id="btn-control-asistencia" onclick="ejecutarControlAsistencia()" title="Control de Asistencia" style="padding: 10px; font-size: 13px;">
+    <i class="fas fa-play-circle"></i>
+  </button>
+</div>
+
+<!-- ⭐ BOTÓN CHECADOR CHOFERES -->
+<button
+  onclick="abrirChecadorChoferes()"
+  title="Checada Choferes"
+  style="
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  "
+  onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(245,158,11,0.5)';"
+  onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)';"
+>
+  <i class="fas fa-truck" style="font-size: 18px;"></i>
+  <span>Checada Choferes</span>
+</button>
+
+<!-- ⭐ BOTÓN WHATSAPP REPORTE -->
+<button 
+  id="btn-whatsapp-reporte" 
+  onclick="enviarReporteWhatsApp()" 
+  title="Enviar Reporte por WhatsApp"
+  style="
+    width: 100%;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+  "
+  onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(37, 211, 102, 0.4)';"
+  onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+>
+  <i class="fab fa-whatsapp" style="font-size: 18px;"></i>
+  <span>Enviar Reporte WhatsApp</span>
+</button>
+
+      <nav>
+
+<!-- ⭐ Indicador de tiempo real -->
+<div style="
+  padding: 12px;
+  margin-bottom: 16px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+">
+  <div class="pulse-indicator"></div>
+  <div style="flex: 1;">
+    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Sistema en Vivo</div>
+    <div id="live-time" style="font-size: 13px; color: var(--primary); font-weight: 600;">--:--:--</div>
+  </div>
+</div>
+
+<div class="nav-section">
+  <div class="nav-title">📊 General</div>
+  <div class="nav-item active" data-module="dashboard">
+    <i class="fas fa-chart-line"></i>
+    <span>Dashboard</span>
+  </div>
+  
+  <div class="nav-item" data-module="inyectar-checadores">
+    <i class="fas fa-upload"></i>
+    <span>Inyectar Checadores</span>
+  </div>
+
+  <div class="nav-item" data-module="inyectar-eventualidades">
+    <i class="fas fa-calendar-plus"></i>
+    <span>Inyectar Eventualidades</span>
+  </div>
+
+  <div class="nav-item" data-module="inyectar-incidencias">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span>Inyectar Incidencias</span>
+  </div>
+</div>
+
+<div class="nav-section">
+  <div class="nav-title">📋 Reportes</div>
+  
+  <div class="nav-item" data-module="alertas">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span>Alertas</span>
+  </div>
+  
+  <div class="nav-item" data-module="bono-puntualidad">
+    <i class="fas fa-trophy"></i>
+    <span>Bono Puntualidad</span>
+  </div>
+  
+  <div class="nav-item" data-module="enfermedades">
+    <i class="fas fa-notes-medical"></i>
+    <span>Enfermedades</span>
+  </div>
+  
+  <div class="nav-item" data-module="excesos">
+    <i class="fas fa-utensils"></i>
+    <span>Excesos Desayuno/Comida</span>
+  </div>
+  
+  <div class="nav-item" data-module="faltas">
+    <i class="fas fa-user-times"></i>
+    <span>Faltas</span>
+  </div>
+  
+  <div class="nav-item" data-module="top-horas-extra">
+    <i class="fas fa-star"></i>
+    <span>Horas Extra</span>
+  </div>
+  
+  <div class="nav-item" data-module="incidencias">
+    <i class="fas fa-clipboard-list"></i>
+    <span>Incidencias</span>
+  </div>
+
+  <div class="nav-item" data-module="retardos">
+    <i class="fas fa-clock"></i>
+    <span>Retardos</span>
+  </div>
+  
+  <div class="nav-item" data-module="vacaciones">
+    <i class="fas fa-umbrella-beach"></i>
+    <span>Vacaciones</span>
+  </div>
+</div>
+</nav>
+    </aside>
+
+    <!-- Main Content -->
+<main class="main-content">
+  <!-- ⭐ Botón menú hamburguesa (solo móvil) -->
+  <button id="mobile-menu-btn" class="mobile-menu-btn" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+  </button>
+
+<div style="
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px 32px;
+  width: 100%;
+  box-sizing: border-box;
+">
+
+  <!-- ⭐ SELECTOR DE FECHA -->
+  <div style="
+    padding: 16px 24px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  ">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <i class="fas fa-calendar-alt" style="color: #F1F5F9; font-size: 24px;"></i>
+      <label for="fecha-dashboard" style="color: #F1F5F9; font-weight: 600; font-size: 14px;">Ver datos del día:</label>
+    </div>
+
+    <input type="date" id="fecha-dashboard" value="" max=""
+      onchange="recargarDashboardPorFecha()"
+      style="padding: 10px 16px; background: rgba(15, 23, 42, 0.8); border: 2px solid rgba(59, 130, 246, 0.5); border-radius: 8px; color: #F1F5F9; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+
+    <button onclick="resetearAHoy()"
+      style="padding: 10px 20px; background: linear-gradient(135deg, #3B82F6, #06B6D4); border: none; border-radius: 8px; color: white; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;"
+      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.4)';"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+      <i class="fas fa-sync-alt"></i>
+      Hoy
+    </button>
+
+    <div id="fecha-seleccionada-info" style="margin-left: auto; padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; color: #94A3B8; font-size: 12px;">
+      Mostrando datos de hoy
+    </div>
+  </div>
+
+  <!-- ⭐ GAUGES -->
+  <div class="gauges-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+
+    <!-- Gauge 1: Asistencia Hoy -->
+    <div class="kpi-card" style="padding: clamp(8px, 2vw, 20px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; position: relative; z-index: 10; cursor: pointer; transition: all 0.3s;"
+    onclick="toggleGaugeTooltip('hoy')"
+    onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='#22C55E';"
+    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(51, 65, 85, 0.5)';">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <i class="fas fa-calendar-check" style="color: #22C55E; font-size: clamp(12px, 3vw, 20px);"></i>
+        <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Asistencia Hoy</div>
+      </div>
+      <div id="kpi-hoy-display" style="font-size: clamp(22px, 5vw, 48px); font-weight: 700; color: #F1F5F9; margin: 8px 0;">0</div>
+      <div style="font-size: 11px; color: #64748B; margin-bottom: 16px; letter-spacing: 0.5px;">PRESENTES HOY</div>
+      <div style="position: relative; width: clamp(70px, 18vw, 140px); height: clamp(40px, 10vw, 80px);">
+        <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
+          <defs><linearGradient id="gradient-hoy" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#10B981;stop-opacity:1" /><stop offset="50%" style="stop-color:#22C55E;stop-opacity:1" /><stop offset="100%" style="stop-color:#16A34A;stop-opacity:1" /></linearGradient></defs>
+          <path d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="rgba(51, 65, 85, 0.3)" stroke-width="8" stroke-linecap="round"/>
+          <path id="gauge-hoy" d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="url(#gradient-hoy)" stroke-width="8" stroke-linecap="round" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2; transition: stroke-dashoffset 2s ease;"/>
+        </svg>
+        <div id="needle-hoy" style="position: absolute; width: 3px; height: 22px; background: white; bottom: 5px; left: 50%; transform-origin: bottom center; transform: rotate(-90deg); transition: transform 2.5s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 4px rgba(255,255,255,0.8); border-radius: 2px;"></div>
+        <div id="percentage-hoy" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: #22C55E;">0%</div>
+      </div>
+    </div>
+
+    <!-- Gauge 2: Faltas -->
+    <div class="kpi-card" style="padding: clamp(8px, 2vw, 20px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; position: relative; z-index: 10; cursor: pointer; transition: all 0.3s;"
+    onclick="toggleGaugeTooltip('faltas')"
+    onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='#EF4444';"
+    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(51, 65, 85, 0.5)';">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <i class="fas fa-ban" style="color: #EF4444; font-size: clamp(12px, 3vw, 20px);"></i>
+        <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Faltas</div>
+      </div>
+      <div id="kpi-faltas-display" style="font-size: clamp(22px, 5vw, 48px); font-weight: 700; color: #F1F5F9; margin: 8px 0;">0</div>
+      <div style="font-size: 11px; color: #64748B; margin-bottom: 16px; letter-spacing: 0.5px;">AUSENCIAS TOTALES</div>
+      <div style="position: relative; width: clamp(70px, 18vw, 140px); height: clamp(40px, 10vw, 80px);">
+        <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
+          <defs><linearGradient id="gradient-faltas" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#DC2626;stop-opacity:1" /><stop offset="50%" style="stop-color:#EF4444;stop-opacity:1" /><stop offset="100%" style="stop-color:#B91C1C;stop-opacity:1" /></linearGradient></defs>
+          <path d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="rgba(51, 65, 85, 0.3)" stroke-width="8" stroke-linecap="round"/>
+          <path id="gauge-faltas" d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="url(#gradient-faltas)" stroke-width="8" stroke-linecap="round" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2; transition: stroke-dashoffset 2s ease;"/>
+        </svg>
+        <div id="needle-faltas" style="position: absolute; width: 3px; height: 22px; background: white; bottom: 5px; left: 50%; transform-origin: bottom center; transform: rotate(-90deg); transition: transform 2.5s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 4px rgba(255,255,255,0.8); border-radius: 2px;"></div>
+        <div id="percentage-faltas" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: #EF4444;">0%</div>
+      </div>
+    </div>
+
+    <!-- Gauge 3: Vacaciones -->
+    <div class="kpi-card" style="padding: clamp(8px, 2vw, 20px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; position: relative; z-index: 10; cursor: pointer; transition: all 0.3s;"
+    onclick="toggleGaugeTooltip('vacaciones')"
+    onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='#10B981';"
+    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(51, 65, 85, 0.5)';">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <i class="fas fa-umbrella-beach" style="color: #10B981; font-size: clamp(12px, 3vw, 20px);"></i>
+        <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Vacaciones</div>
+      </div>
+      <div id="kpi-vacaciones-display" style="font-size: clamp(22px, 5vw, 48px); font-weight: 700; color: #F1F5F9; margin: 8px 0;">0</div>
+      <div style="font-size: 11px; color: #64748B; margin-bottom: 16px; letter-spacing: 0.5px;">DÍAS DE VACACIONES</div>
+      <div style="position: relative; width: clamp(70px, 18vw, 140px); height: clamp(40px, 10vw, 80px);">
+        <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
+          <defs><linearGradient id="gradient-vacaciones" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#06B6D4;stop-opacity:1" /><stop offset="50%" style="stop-color:#10B981;stop-opacity:1" /><stop offset="100%" style="stop-color:#059669;stop-opacity:1" /></linearGradient></defs>
+          <path d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="rgba(51, 65, 85, 0.3)" stroke-width="8" stroke-linecap="round"/>
+          <path id="gauge-vacaciones" d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="url(#gradient-vacaciones)" stroke-width="8" stroke-linecap="round" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2; transition: stroke-dashoffset 2s ease;"/>
+        </svg>
+        <div id="needle-vacaciones" style="position: absolute; width: 3px; height: 22px; background: white; bottom: 5px; left: 50%; transform-origin: bottom center; transform: rotate(-90deg); transition: transform 2.5s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 4px rgba(255,255,255,0.8); border-radius: 2px;"></div>
+        <div id="percentage-vacaciones" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: #10B981;">0%</div>
+      </div>
+    </div>
+
+    <!-- Gauge 4: Retardos -->
+    <div class="kpi-card" style="padding: clamp(8px, 2vw, 20px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; position: relative; z-index: 10; cursor: pointer; transition: all 0.3s;"
+    onclick="toggleGaugeTooltip('retardos')"
+    onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='#F59E0B';"
+    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(51, 65, 85, 0.5)';">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <i class="fas fa-clock" style="color: #F59E0B; font-size: clamp(12px, 3vw, 20px);"></i>
+        <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Retardos</div>
+      </div>
+      <div id="kpi-retardos-display" style="font-size: clamp(22px, 5vw, 48px); font-weight: 700; color: #F1F5F9; margin: 8px 0;">0</div>
+      <div style="font-size: 11px; color: #64748B; margin-bottom: 16px; letter-spacing: 0.5px;">CASOS REGISTRADOS</div>
+      <div style="position: relative; width: clamp(70px, 18vw, 140px); height: clamp(40px, 10vw, 80px);">
+        <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
+          <defs><linearGradient id="gradient-retardos" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#FBBF24;stop-opacity:1" /><stop offset="50%" style="stop-color:#F59E0B;stop-opacity:1" /><stop offset="100%" style="stop-color:#D97706;stop-opacity:1" /></linearGradient></defs>
+          <path d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="rgba(51, 65, 85, 0.3)" stroke-width="8" stroke-linecap="round"/>
+          <path id="gauge-retardos" d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="url(#gradient-retardos)" stroke-width="8" stroke-linecap="round" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2; transition: stroke-dashoffset 2s ease;"/>
+        </svg>
+        <div id="needle-retardos" style="position: absolute; width: 3px; height: 22px; background: white; bottom: 5px; left: 50%; transform-origin: bottom center; transform: rotate(-90deg); transition: transform 2.5s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 4px rgba(255,255,255,0.8); border-radius: 2px;"></div>
+        <div id="percentage-retardos" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: #F59E0B;">0%</div>
+      </div>
+    </div>
+
+    <!-- Gauge 5: Incidencias Empleado -->
+    <div class="kpi-card" style="padding: clamp(8px, 2vw, 20px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; position: relative; z-index: 10; cursor: pointer; transition: all 0.3s;"
+    onclick="toggleGaugeTooltip('incidencias')"
+    onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='#F59E0B';"
+    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(51, 65, 85, 0.5)';">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <i class="fas fa-exclamation-triangle" style="color: #F59E0B; font-size: clamp(12px, 3vw, 20px);"></i>
+        <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 600;">Incidencias Empleado</div>
+      </div>
+      <div id="kpi-incidencias-display" style="font-size: clamp(22px, 5vw, 48px); font-weight: 700; color: #F1F5F9; margin: 8px 0;">0</div>
+      <div style="font-size: 11px; color: #64748B; margin-bottom: 16px;">UNIFORME / BOTAS / CELULAR</div>
+      <div style="position: relative; width: clamp(70px, 18vw, 140px); height: clamp(40px, 10vw, 80px);">
+        <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
+          <defs><linearGradient id="gradient-incidencias" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#10B981;stop-opacity:1" /><stop offset="50%" style="stop-color:#F59E0B;stop-opacity:1" /><stop offset="100%" style="stop-color:#EF4444;stop-opacity:1" /></linearGradient></defs>
+          <path d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="rgba(51, 65, 85, 0.3)" stroke-width="8" stroke-linecap="round"/>
+          <path id="gauge-incidencias" d="M 10,45 A 40,40 0 0,1 90,45" fill="none" stroke="url(#gradient-incidencias)" stroke-width="8" stroke-linecap="round" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2; transition: stroke-dashoffset 2s ease;"/>
+        </svg>
+        <div id="needle-incidencias" style="position: absolute; width: 3px; height: 22px; background: white; bottom: 5px; left: 50%; transform-origin: bottom center; transform: rotate(-90deg); transition: transform 2.5s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 4px rgba(255,255,255,0.8); border-radius: 2px;"></div>
+        <div id="percentage-incidencias" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: #F59E0B;">0%</div>
+      </div>
+    </div>
+
+  </div>
+  <!-- FIN GAUGES -->
+
+  <!-- MAPA DE UBICACIONES -->
+  <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; padding: 24px;">
+    <h3 style="margin-bottom: 16px; color: #F1F5F9; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+      <i class="fas fa-map-marked-alt" style="color: #3B82F6;"></i>
+      Mapa de Ubicaciones
+    </h3>
+    <div id="mapa-marcadores" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 2px solid rgba(59, 130, 246, 0.3); border-radius: 12px;"></div>
+  </div>
+
+  <!-- GRÁFICO DE TENDENCIA -->
+  <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 12px; padding: 24px;">
+    <h3 style="margin-bottom: 16px; color: #F1F5F9; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+      <i class="fas fa-chart-line" style="color: #3B82F6;"></i>
+      Tendencia de Puntualidad Semanal
+    </h3>
+    <div style="height: 320px; position: relative;">
+      <canvas id="chartTendenciaSemanal"></canvas>
+    </div>
+  </div>
+
+</div>
+
+</main>
+
+    <!-- Module Popup -->
+    <div id="module-popup" class="module-popup">
+      <div class="module-header">
+        <h2 class="module-title" id="popup-title"></h2>
+        <button class="close-btn" onclick="closeModulePopup()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="popup-container"></div>
+    </div>
+  </div>
+
+  <!-- TOOLTIPS -->
+  <div id="tooltip-total" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">📊 Total Registros</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('total')">×</button></div>
+    <div id="tooltip-total-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-retardos" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">⏰ Retardos</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('retardos')">×</button></div>
+    <div id="tooltip-retardos-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-faltas" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">❌ Faltas</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('faltas')">×</button></div>
+    <div id="tooltip-faltas-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-alertas" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">⚠️ Alertas</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('alertas')">×</button></div>
+    <div id="tooltip-alertas-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-vacaciones" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">🏖️ Vacaciones</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('vacaciones')">×</button></div>
+    <div id="tooltip-vacaciones-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-horas-extra" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">⭐ Horas Extra</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('horas-extra')">×</button></div>
+    <div id="tooltip-horas-extra-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-hoy" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">👥 Asistencia Hoy</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('hoy')">×</button></div>
+    <div id="tooltip-hoy-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-criticos" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">🚨 Empleados Críticos</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('criticos')">×</button></div>
+    <div id="tooltip-criticos-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-incidencias" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">⚠️ Incidencias Empleado</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('incidencias')">×</button></div>
+    <div id="tooltip-incidencias-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+  <div id="tooltip-promedio" class="gauge-tooltip">
+    <div class="gauge-tooltip-header"><div class="gauge-tooltip-title">📈 Promedio Puntualidad</div><button class="gauge-tooltip-close" onclick="event.stopPropagation(); cerrarGaugeTooltip('promedio')">×</button></div>
+    <div id="tooltip-promedio-content" class="gauge-tooltip-list"><div class="gauge-tooltip-empty">⏳ Cargando...</div></div>
+  </div>
+
+</body>
+</html>
