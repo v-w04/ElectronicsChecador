@@ -244,16 +244,7 @@ function abrirChecadorChoferDirecto(nombre, idUsuario) {
   wrapper.style.cssText = 'height:100vh;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;';
 
   wrapper.innerHTML =
-    '<style>' +
-    '#chofer-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:700px;}' +
-    '@media(max-width:600px){#chofer-grid{grid-template-columns:1fr;}}' +
-    '.chofer-col{display:flex;flex-direction:column;gap:10px;}' +
-    '.chofer-label{color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;}' +
-    '.chofer-foto-box{flex:1;min-height:140px;max-height:180px;border-radius:10px;background:rgba(15,23,42,0.8);border:2px dashed rgba(51,65,85,0.5);display:flex;align-items:center;justify-content:center;overflow:hidden;}' +
-    '.chofer-btn-foto{padding:10px;background:rgba(16,185,129,0.15);border:2px solid #10B981;border-radius:10px;color:#10B981;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}' +
-    '.chofer-btn-gps{padding:10px;background:rgba(245,158,11,0.15);border:2px solid #F59E0B;border-radius:10px;color:#F59E0B;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}' +
-    '.chofer-btn-reg{padding:14px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:15px;cursor:not-allowed;opacity:0.4;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.3s;margin-top:auto;}' +
-    '</style>' +
+    '' +
 
     // Header compacto
     '<div style="padding:12px 20px;border-bottom:1px solid rgba(51,65,85,0.5);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
@@ -722,15 +713,3 @@ function forzarDosColumnasMovil() {
     });
   }
 }
-
-</script>
-
-<style>
-@keyframes pinShake {
-  0%, 100% { transform: translateX(0); }
-  20%       { transform: translateX(-10px); }
-  40%       { transform: translateX(10px); }
-  60%       { transform: translateX(-8px); }
-  80%       { transform: translateX(8px); }
-}
-</style>
