@@ -64,15 +64,12 @@ function mostrarPantallaPIN() {
 }
 
 function onPinInput(el) {
-  // Solo números
   el.value = el.value.replace(/\D/g, '').substring(0, 4);
 
-  // Si llega a 4 dígitos, verificar PIN automáticamente
-  if (el.value.length === 4 && !window._pinVerificado) {
+  if (el.value.length === 4 && !window._pinVerificado && !window._pinVerificando) {
     verificarPIN(el.value);
   }
 
-  // Si borra el PIN ya verificado, resetear
   if (window._pinVerificado && el.value.length < 4) {
     resetearEstadoAcceso();
   }
@@ -96,11 +93,14 @@ function resetearEstadoAcceso() {
 }
 
 function verificarPIN(pin) {
+  if (window._pinVerificando) return;
+  window._pinVerificando = true;
   const btnAcceso = document.getElementById('btn-acceso');
   if (btnAcceso) { btnAcceso.disabled = true; btnAcceso.textContent = 'Verificando...'; }
 
   google.script.run
     .withSuccessHandler(function(result) {
+      window._pinVerificando = false;
       if (btnAcceso) { btnAcceso.disabled = false; btnAcceso.textContent = 'Entrar'; }
 
       if (!result.ok) {
@@ -156,6 +156,7 @@ function verificarPIN(pin) {
       }
     })
     .withFailureHandler(function(err) {
+      window._pinVerificando = false;
       if (btnAcceso) { btnAcceso.disabled = false; btnAcceso.textContent = 'Entrar'; }
       mostrarErrorAcceso('Error de conexión');
     })
@@ -168,7 +169,7 @@ function procesarAcceso() {
 
   // Si el PIN no está verificado aún
   if (!window._pinVerificado) {
-    if (pin.length < 2) { mostrarErrorAcceso('Ingresa tu PIN de 2 dígitos'); return; }
+    if (pin.length < 4) { mostrarErrorAcceso('Ingresa tu PIN de 4 dígitos'); return; }
     verificarPIN(pin);
     return;
   }
