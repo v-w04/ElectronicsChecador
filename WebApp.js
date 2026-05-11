@@ -66,7 +66,7 @@ function mostrarPantallaPIN() {
 function onPinInput(el) {
   el.value = el.value.replace(/\D/g, '').substring(0, 4);
 
-  if (el.value.length === 4 && !window._pinVerificado && !window._pinVerificando) {
+  if (el.value.length === 4 && !window._pinVerificado) {
     verificarPIN(el.value);
   }
 
@@ -93,15 +93,16 @@ function resetearEstadoAcceso() {
 }
 
 function verificarPIN(pin) {
-  if (window._pinVerificando) return;
-  window._pinVerificando = true;
+  if (window._pinVerificado) return;
   const btnAcceso = document.getElementById('btn-acceso');
+  const inputPin = document.getElementById('input-pin');
   if (btnAcceso) { btnAcceso.disabled = true; btnAcceso.textContent = 'Verificando...'; }
+  if (inputPin) inputPin.disabled = true;
 
   google.script.run
     .withSuccessHandler(function(result) {
-      window._pinVerificando = false;
       if (btnAcceso) { btnAcceso.disabled = false; btnAcceso.textContent = 'Entrar'; }
+      if (inputPin) inputPin.disabled = false;
 
       if (!result.ok) {
         mostrarErrorAcceso(result.message || 'PIN incorrecto');
@@ -156,8 +157,8 @@ function verificarPIN(pin) {
       }
     })
     .withFailureHandler(function(err) {
-      window._pinVerificando = false;
       if (btnAcceso) { btnAcceso.disabled = false; btnAcceso.textContent = 'Entrar'; }
+      if (inputPin) inputPin.disabled = false;
       mostrarErrorAcceso('Error de conexión');
     })
     .validarPin(pin);
