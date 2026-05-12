@@ -148,11 +148,15 @@ function renderizarTooltipContent(gaugeId, result, fechaFiltro, content) {
 document.addEventListener('DOMContentLoaded', function() {
   createParticles();
 
+  var _inicialized = false;
+
   function inicializar() {
+    if (_inicialized) return;
     if (typeof setupNavigation === 'function' &&
         typeof initializeGauges === 'function' &&
         typeof loadDashboard === 'function') {
 
+      _inicialized = true;
       setupNavigation();
       initializeGauges();
       resetKPIValues();
@@ -163,8 +167,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       setTimeout(ajustarGaugesMobile, 800);
       setTimeout(forzarDosColumnasMovil, 100);
-      setTimeout(forzarDosColumnasMovil, 500);
-      setTimeout(forzarDosColumnasMovil, 1500);
 
       window.addEventListener('resize', forzarDosColumnasMovil);
 
