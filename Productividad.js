@@ -3,11 +3,15 @@
 // ============================================================================
 
 function loadProductivityWidgets() {
-  console.log('📊 Cargando widgets...');
+  if (typeof _cacheResumen !== 'undefined' && _cacheResumen) {
+    updateProductivityWidgets(_cacheResumen);
+    return;
+  }
   google.script.run
     .withSuccessHandler(raw => {
       const result = safeResult(raw);
       if (result.error === true) return;
+      if (typeof _cacheResumen !== 'undefined') _cacheResumen = result;
       updateProductivityWidgets(result);
     })
     .withFailureHandler(err => { console.error('❌ Error al cargar widgets:', err); })
