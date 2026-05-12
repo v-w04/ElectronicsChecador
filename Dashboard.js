@@ -1,6 +1,19 @@
 // Guardia por si Avatares.html no cargó primero
 if (typeof fechaSeleccionada === 'undefined') var fechaSeleccionada = null;
 
+// Cache de datos para evitar llamadas repetitivas a GAS
+var _cacheMetricas   = null;
+var _cacheTurnos     = null;
+var _cacheResumen    = null;
+var _cacheFecha      = null; // fecha para la que se cacheó
+
+function _invalidarCache() {
+  _cacheMetricas = null;
+  _cacheTurnos   = null;
+  _cacheResumen  = null;
+  _cacheFecha    = null;
+}
+
 function getFechaHoyMexico() {
   const now = new Date();
   const offset = -6;
@@ -22,32 +35,88 @@ function loadDashboard() {
     actualizarInfoFecha(fechaSeleccionada || hoy);
   }
 
+  const fechaActual = fechaSeleccionada || getFechaHoyMexico();
+
+  // Si ya tenemos caché válido para esta fecha, reusar
+  if (_cacheMetricas && _cacheTurnos && _cacheFecha === fechaActual) {
+    updateKPIs(_cacheMetricas);
+    if (_cacheResumen) updateProductivityWidgets(_cacheResumen);
+    cargarMapaDashboardConDatos(_cacheTurnos, _cacheMetricas);
+    loadTendenciaSemanal();
+    return;
+  }
+
+  // Una sola llamada a METRICAS_DIARIAS, luego encadenar el resto
   google.script.run
-    .withSuccessHandler(updateKPIs)
+    .withSuccessHandler(function(rawMetricas) {
+      const rMetricas = safeResult(rawMetricas);
+      if (rMetricas.error) { handleError(rMetricas.message); return; }
+      _cacheMetricas = rMetricas;
+      _cacheFecha    = fechaActual;
+
+      updateKPIs(rMetricas);
+
+      // Cargar TURNOS_DEFAULT una sola vez
+      google.script.run
+        .withSuccessHandler(function(rawTurnos) {
+          const rTurnos = safeResult(rawTurnos);
+          if (!rTurnos.error) {
+            _cacheTurnos = rTurnos;
+            cargarMapaDashboardConDatos(rTurnos, rMetricas);
+          }
+        })
+        .withFailureHandler(function() {})
+        .getSheetData('TURNOS_DEFAULT');
+
+      // Cargar RESUMEN para productividad
+      google.script.run
+        .withSuccessHandler(function(rawResumen) {
+          const rResumen = safeResult(rawResumen);
+          if (!rResumen.error) {
+            _cacheResumen = rResumen;
+            updateProductivityWidgets(rResumen);
+          }
+        })
+        .withFailureHandler(function() {})
+        .getSheetData('RESUMEN_MENSUAL');
+    })
     .withFailureHandler(handleError)
     .getSheetData('METRICAS_DIARIAS');
 
-  loadProductivityWidgets();
-  cargarMapaDashboard();
-}
-
-function cargarMapaDashboard() {
-  // Primero cargar overrides de avatares, después los datos
+  // Avatar overrides (no bloquea el resto)
   google.script.run
     .withSuccessHandler(function(overrides) {
-      console.log('Avatar overrides cargados:', JSON.stringify(overrides));
       if (overrides && typeof overrides === 'object') {
         window._avatarOverrides = overrides;
       }
-      // Ahora sí cargar los datos del mapa
+    })
+    .withFailureHandler(function() {})
+    .getAvatarOverrides();
+}
+
+function cargarMapaDashboardConDatos(rTurnos, rMetricas) {
+  procesarMapaDashboard(rTurnos, rMetricas);
+}
+
+function cargarMapaDashboard() {
+  // Versión legacy — usa caché si existe
+  if (_cacheTurnos && _cacheMetricas) {
+    cargarMapaDashboardConDatos(_cacheTurnos, _cacheMetricas);
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(overrides) {
+      if (overrides && typeof overrides === 'object') window._avatarOverrides = overrides;
       google.script.run
         .withSuccessHandler(function(rawTurnos) {
           const rTurnos = safeResult(rawTurnos);
           if (rTurnos.error) return;
+          _cacheTurnos = rTurnos;
           google.script.run
             .withSuccessHandler(function(rawMetricas) {
               const rMetricas = safeResult(rawMetricas);
               if (rMetricas.error) return;
+              _cacheMetricas = rMetricas;
               procesarMapaDashboard(rTurnos, rMetricas);
             })
             .withFailureHandler(function() {})
@@ -56,24 +125,7 @@ function cargarMapaDashboard() {
         .withFailureHandler(function() {})
         .getSheetData('TURNOS_DEFAULT');
     })
-    .withFailureHandler(function() {
-      // Si falla cargar overrides, igual continuar
-      google.script.run
-        .withSuccessHandler(function(rawTurnos) {
-          const rTurnos = safeResult(rawTurnos);
-          if (rTurnos.error) return;
-          google.script.run
-            .withSuccessHandler(function(rawMetricas) {
-              const rMetricas = safeResult(rawMetricas);
-              if (rMetricas.error) return;
-              procesarMapaDashboard(rTurnos, rMetricas);
-            })
-            .withFailureHandler(function() {})
-            .getSheetData('METRICAS_DIARIAS');
-        })
-        .withFailureHandler(function() {})
-        .getSheetData('TURNOS_DEFAULT');
-    })
+    .withFailureHandler(function() {})
     .getAvatarOverrides();
 }
 
@@ -475,12 +527,8 @@ function recargarDashboardPorFecha() {
   if (!fechaSeleccionadaNueva) { alert('Por favor selecciona una fecha válida'); return; }
   fechaSeleccionada = fechaSeleccionadaNueva;
   actualizarInfoFecha(fechaSeleccionada);
-  showLoading();
-  initializeGauges();
-  resetKPIValues();
-  google.script.run.withSuccessHandler(updateKPIs).withFailureHandler(handleError).getSheetData('METRICAS_DIARIAS');
-  loadProductivityWidgets();
-  cargarMapaDashboard();
+  _invalidarCache();
+  loadDashboard();
 }
 
 function resetearAHoy() {
