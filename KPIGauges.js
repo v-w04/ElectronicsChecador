@@ -9,11 +9,12 @@ function updateKPIs(result) {
   const headers = result.headers;
   
   const fechaFiltro = fechaSeleccionada || getFechaHoyMexico();
+  const idxFechaH = headers.indexOf('Fecha');
   const datosFecha = data.filter(row => {
-    const fechaRow = row[headers.indexOf('Fecha')];
+    const fechaRow = row[idxFechaH];
     if (!fechaRow) return false;
-    const fechaStr = new Date(fechaRow).toISOString().split('T')[0];
-    return fechaStr === fechaFiltro;
+    const str = typeof fechaRow === 'string' ? fechaRow : new Date(fechaRow).toISOString();
+    return str.substring(0, 10) === fechaFiltro;
   });
 
   const idxRetardo    = headers.indexOf('Es Retardo');
@@ -31,16 +32,24 @@ function updateKPIs(result) {
     if (horas > 0) horasExtra += horas;
   });
 
-  const idxEntrada = headers.findIndex(h => h && h.toString().includes('Entrada') && !h.toString().includes('Clasificación'));
-  const idxSalida  = headers.findIndex(h => h && h.toString().includes('Salida')  && !h.toString().includes('Clasificación') && !h.toString().includes('Desayuno') && !h.toString().includes('Comida'));
+  // Entrada exacta — evitar matchear Sal.Desayuno/Comida/Clasificación
+  const idxEntrada = headers.findIndex(h => {
+    if (!h) return false;
+    const s = h.toString().trim();
+    return s === '▶️ Entrada' || s === 'Entrada';
+  });
   const idxNombre  = encontrarColumnaDeNombres(headers);
 
   const todosEmpleados          = [...new Set(datosFecha.map(row => row[idxNombre]))];
   const totalEmpleadosEsperados = todosEmpleados.length;
-  const empleadosQueVinieron    = datosFecha.filter(row => row[idxEntrada] || row[idxSalida]);
+  // Presente = solo entrada, no salida (evita falsos positivos con Sal.Desayuno)
+  const empleadosQueVinieron    = datosFecha.filter(row => {
+    const entrada = row[idxEntrada];
+    return entrada && entrada !== '' && entrada !== null;
+  });
   const nombresPresentes        = [...new Set(empleadosQueVinieron.map(row => row[idxNombre]))];
   const totalPresentes          = nombresPresentes.length;
-  const totalRegistrosFecha     = totalPresentes;
+  const totalRegistrosFecha     = totalEmpleadosEsperados;
 
   const pctRetardos   = totalEmpleadosEsperados > 0 ? (retardos   / totalEmpleadosEsperados) * 100 : 0;
   const pctFaltas     = totalEmpleadosEsperados > 0 ? (faltas     / totalEmpleadosEsperados) * 100 : 0;
