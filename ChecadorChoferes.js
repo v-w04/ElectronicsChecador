@@ -159,6 +159,27 @@ function obtenerGPSChofer() {
     return;
   }
 
+  // ⭐ Si las zonas no están cargadas aún, cargarlas primero y luego obtener GPS
+  if (!_zonasValidas || _zonasValidas.length === 0) {
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando zonas...';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        _zonasValidas = (res && res.zonas) ? res.zonas : [];
+        // Ahora sí obtener GPS
+        _lanzarGeolocalizacion(btn, resultado);
+      })
+      .withFailureHandler(function() {
+        _zonasValidas = [];
+        _lanzarGeolocalizacion(btn, resultado);
+      })
+      .getZonasValidas();
+  } else {
+    _lanzarGeolocalizacion(btn, resultado);
+  }
+}
+
+function _lanzarGeolocalizacion(btn, resultado) {
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...';
   navigator.geolocation.getCurrentPosition(
     function(pos) { procesarPosicionChofer(pos); },
     function(err) {
