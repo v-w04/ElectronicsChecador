@@ -203,15 +203,34 @@ function procesarPosicionChofer(pos) {
       ? 'Zona válida: ' + zonaCercana
       : 'Fuera de zona (' + distancia + 'm de ' + (zonaCercana || 'zona más cercana') + ')';
 
+    // DEBUG: mostrar info detallada de zonas
+    let debugZonas = '';
+    if (_zonasValidas && _zonasValidas.length > 0) {
+      debugZonas = '<details style="margin-top:8px;"><summary style="color:#64748B;font-size:11px;cursor:pointer;">🔍 Debug zonas (' + _zonasValidas.length + ' configuradas)</summary><div style="margin-top:6px;font-size:11px;color:#64748B;">';
+      _zonasValidas.forEach(function(z) {
+        const d = Math.round(calcularDistanciaMetros(lat, lng, z.lat, z.lng));
+        const ok = d <= z.radio;
+        debugZonas += '<div style="padding:3px 0;color:' + (ok ? '#10B981' : '#94A3B8') + ';">' +
+          (ok ? '✅' : '❌') + ' ' + z.zona + ': ' + d + 'm (radio: ' + z.radio + 'm)' +
+          '<br>&nbsp;&nbsp;Centro: ' + z.lat.toFixed(6) + ', ' + z.lng.toFixed(6) + '</div>';
+      });
+      debugZonas += '</div></details>';
+    } else {
+      debugZonas = '<div style="margin-top:6px;color:#F59E0B;font-size:11px;">⚠️ Sin zonas configuradas en CONFIG_CHOFERES</div>';
+    }
+
     resultado.style.display = 'block';
     resultado.innerHTML =
       '<div style="background:rgba(30,41,59,0.8);border:1px solid rgba(51,65,85,0.5);border-radius:10px;padding:14px;font-size:13px;">' +
         '<div style="color:' + colorEstado + ';font-weight:700;font-size:14px;margin-bottom:10px;">' + iconoEstado + ' ' + textoEstado + '</div>' +
         '<div style="color:#94A3B8;margin-bottom:6px;line-height:1.5;"><i class="fas fa-map-pin" style="color:#3B82F6;margin-right:6px;"></i>' + direccion + '</div>' +
-        '<div style="color:#64748B;font-size:11px;margin-bottom:10px;">📍 ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ' &nbsp;·&nbsp; 🎯 ±' + precision + 'm</div>' +
-        '<a href="' + linkMaps + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#3B82F6;font-size:12px;font-weight:600;text-decoration:none;">' +
-          '<i class="fas fa-external-link-alt"></i> Ver en Google Maps' +
-        '</a>' +
+        '<div style="color:#64748B;font-size:11px;margin-bottom:6px;">📍 ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ' &nbsp;·&nbsp; 🎯 ±' + precision + 'm</div>' +
+        debugZonas +
+        '<div style="margin-top:10px;">' +
+          '<a href="' + linkMaps + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#3B82F6;font-size:12px;font-weight:600;text-decoration:none;">' +
+            '<i class="fas fa-external-link-alt"></i> Ver en Google Maps' +
+          '</a>' +
+        '</div>' +
       '</div>';
 
     btn.innerHTML = '<i class="fas fa-check"></i> Ubicación obtenida';
@@ -356,38 +375,45 @@ function registrarChecadaChofer() {
 }
 
 // ============================================================================
-// CÁMARA getUserMedia
+// CÁMARA — usa input[type=file] en todos los dispositivos (sin permisos)
 // ============================================================================
-// _streamCamara declarada en WebApp.js
 
 function abrirCamaraChofer() {
-  // Crear modal si no existe
-  let modal = document.getElementById('camara-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'camara-modal';
-    modal.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:99998;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;';
-    modal.innerHTML =
-      '<p style="color:#94A3B8;font-size:13px;margin-bottom:4px;">Cámara en vivo — presiona Capturar</p>' +
-      '<video id="camara-preview" autoplay playsinline style="max-width:100%;max-height:55vh;border-radius:12px;border:2px solid rgba(59,130,246,0.5);background:#000;"></video>' +
-      '<canvas id="camara-canvas" style="display:none;"></canvas>' +
-      '<div style="display:flex;gap:12px;">' +
-        '<button onclick="capturarFotoChofer()" style="padding:16px 32px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:8px;"><i class="fas fa-camera"></i> Capturar</button>' +
-        '<button onclick="cerrarCamaraChofer()" style="padding:16px 24px;background:rgba(239,68,68,0.15);border:2px solid #EF4444;border-radius:12px;color:#EF4444;font-weight:700;font-size:16px;cursor:pointer;">Cancelar</button>' +
-      '</div>';
-    document.body.appendChild(modal);
-  }
+  // Eliminar input anterior si existe
+  var inputAnterior = document.getElementById('camara-input-file');
+  if (inputAnterior) inputAnterior.remove();
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-    .then(function(stream) {
-      _streamCamara = stream;
-      const video = document.getElementById('camara-preview');
-      video.srcObject = stream;
-      modal.style.display = 'flex';
-    })
-    .catch(function(err) {
-      alert('No se pudo acceder a la cámara: ' + err.message + '\n\nVerifica que el navegador tenga permiso de cámara.');
-    });
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.id = 'camara-input-file';
+  input.accept = 'image/*';
+  // capture=environment abre cámara trasera en móvil; en desktop abre el selector de archivo
+  input.setAttribute('capture', 'environment');
+  input.style.display = 'none';
+  document.body.appendChild(input);
+
+  input.onchange = function() {
+    var file = input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      var partes = dataUrl.split(',');
+      _fotoBase64 = partes[1];
+      _fotoMimeType = file.type || 'image/jpeg';
+
+      var preview = document.getElementById('chofer-foto-preview');
+      if (preview) preview.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
+      var status = document.getElementById('chofer-foto-status');
+      if (status) status.innerHTML = '<span style="color:#10B981;"><i class="fas fa-check-circle"></i> Foto cargada</span>';
+
+      verificarBtnRegistrar();
+    };
+    reader.readAsDataURL(file);
+    input.remove();
+  };
+
+  input.click();
 }
 
 function capturarFotoChofer() {
