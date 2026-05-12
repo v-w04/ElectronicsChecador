@@ -39,18 +39,17 @@ function updateProductivityWidgets(result) {
         const fechaLocal = new Date(fechaRowObj.getTime() + (-6 * 60 * 60 * 1000));
         return fechaLocal.toISOString().split('T')[0] === fechaFiltro;
       });
-      let idxEntrada = resultHoy.headers.indexOf('🚪 Entrada');
-      let idxSalida  = resultHoy.headers.indexOf('🚪 Salida');
-      if (idxEntrada === -1) idxEntrada = resultHoy.headers.findIndex(h => h && h.toString().includes('Entrada'));
-      if (idxSalida  === -1) idxSalida  = resultHoy.headers.findIndex(h => h && h.toString().includes('Salida'));
+      const idxEntrada = resultHoy.headers.findIndex(h => {
+        if (!h) return false;
+        const s = h.toString().trim();
+        return s === '▶️ Entrada' || s === 'Entrada';
+      });
       const idxNombreFecha = resultHoy.headers.indexOf('Nombre');
       const empleadosEsperados = [...new Set(datosFecha.map(r => r[idxNombreFecha]))];
       const totalEmpleadosEsperados = empleadosEsperados.length;
       const empleadosPresentes = datosFecha.filter(row => {
         const entrada = row[idxEntrada];
-        const salida  = row[idxSalida];
-        return (entrada && entrada !== '' && entrada !== null) ||
-               (salida  && salida  !== '' && salida  !== null);
+        return entrada && entrada !== '' && entrada !== null;
       });
       const nombresPresentes   = [...new Set(empleadosPresentes.map(r => r[idxNombreFecha]))];
       const asistenciaFecha    = nombresPresentes.length;
