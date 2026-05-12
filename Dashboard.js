@@ -5,7 +5,8 @@ if (typeof fechaSeleccionada === 'undefined') var fechaSeleccionada = null;
 var _cacheMetricas   = null;
 var _cacheTurnos     = null;
 var _cacheResumen    = null;
-var _cacheFecha      = null; // fecha para la que se cacheó
+var _cacheFecha      = null;
+var _dashboardLoading = false; // flag para evitar cargas simultáneas
 
 function _invalidarCache() {
   _cacheMetricas = null;
@@ -22,6 +23,9 @@ function getFechaHoyMexico() {
 }
 
 function loadDashboard() {
+  if (_dashboardLoading) return; // ya hay una carga en curso
+  _dashboardLoading = true;
+
   showLoading();
   initializeGauges();
   resetKPIValues();
@@ -49,6 +53,7 @@ function loadDashboard() {
   // Una sola llamada a METRICAS_DIARIAS, luego encadenar el resto
   google.script.run
     .withSuccessHandler(function(rawMetricas) {
+      _dashboardLoading = false;
       const rMetricas = safeResult(rawMetricas);
       if (rMetricas.error) { handleError(rMetricas.message); return; }
       _cacheMetricas = rMetricas;
@@ -80,7 +85,7 @@ function loadDashboard() {
         .withFailureHandler(function() {})
         .getSheetData('RESUMEN_MENSUAL');
     })
-    .withFailureHandler(handleError)
+    .withFailureHandler(function(e) { _dashboardLoading = false; handleError(e); })
     .getSheetData('METRICAS_DIARIAS');
 
   // Avatar overrides (no bloquea el resto)
@@ -528,6 +533,7 @@ function recargarDashboardPorFecha() {
   fechaSeleccionada = fechaSeleccionadaNueva;
   actualizarInfoFecha(fechaSeleccionada);
   _invalidarCache();
+  _dashboardLoading = false;
   loadDashboard();
 }
 
