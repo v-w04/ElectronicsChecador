@@ -67,8 +67,12 @@ function updateKPIs(result) {
     .withFailureHandler(err => console.error('❌ Error alertas:', err))
     .getSheetData('ALERTAS');
 
+  if (window._loadingIncidencias) return;
+  window._loadingIncidencias = true;
+
   google.script.run
     .withSuccessHandler(incResult => {
+      window._loadingIncidencias = false;
       if (incResult.error) {
         document.getElementById('kpi-incidencias-display').textContent = '0';
         updateGauge('incidencias', 0, 0, null);
@@ -81,6 +85,7 @@ function updateKPIs(result) {
       }, 300);
     })
     .withFailureHandler(function(err) {
+      window._loadingIncidencias = false;
       document.getElementById('kpi-incidencias-display').textContent = '0';
       updateGauge('incidencias', 0, 0, null);
     })
