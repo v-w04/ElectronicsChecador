@@ -453,12 +453,7 @@ function ejecutarControlAsistencia() {
 // ============================================================================
 // INICIALIZACIÓN
 // ============================================================================
-document.addEventListener('DOMContentLoaded', function() {
-  if (localStorage.getItem('theme') === 'girly') {
-    document.body.classList.add('girly-mode');
-  }
-  mostrarPantallaPIN();
-});
+// PIN se lanza desde TooltipsGauges.js DOMContentLoaded
 
 // ============================================================================
 // EXPORTAR PDF
