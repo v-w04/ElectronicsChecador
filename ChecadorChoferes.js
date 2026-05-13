@@ -3,8 +3,6 @@
 // ============================================================================
 
 let _zonasValidas = [];
-let _fotoBase64 = null;
-let _fotoMimeType = null;
 let _gpsData = null;
 
 function abrirChecadorChoferes() {
@@ -36,8 +34,6 @@ function abrirChecadorChoferes() {
     })
   ]).then(function(results) {
     _zonasValidas = results[1].zonas || [];
-    _fotoBase64 = null;
-    _fotoMimeType = null;
     _gpsData = null;
     renderPanelChecador(results[0].choferes || []);
   });
@@ -57,9 +53,7 @@ function renderPanelChecador(choferes) {
     '<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:16px;font-size:13px;color:#94A3B8;line-height:1.8;">' +
       '<strong style="color:#F1F5F9;">📋 Instrucciones:</strong><br>' +
       '1. Selecciona tu nombre<br>' +
-      '2. Toma una foto (opcional)<br>' +
-      '3. Obtén tu ubicación GPS (obligatorio)<br>' +
-      '4. Presiona <strong>Registrar Checada</strong>' +
+      '2. Obtén tu ubicación GPS — la checada se registra automáticamente' +
     '</div>' +
 
     '<div>' +
@@ -81,18 +75,7 @@ function renderPanelChecador(choferes) {
       '</div>' +
     '</div>' +
 
-    '<div>' +
-      '<label style="display:block;color:#F1F5F9;font-weight:600;margin-bottom:8px;font-size:14px;"><i class="fas fa-camera"></i> Foto (opcional)</label>' +
-      '<div style="display:flex;gap:10px;align-items:flex-start;">' +
-        '<button onclick="abrirCamaraChofer()" style="flex:1;padding:14px;background:rgba(16,185,129,0.15);border:2px solid #10B981;border-radius:10px;color:#10B981;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.background=\'rgba(16,185,129,0.25)\'" onmouseout="this.style.background=\'rgba(16,185,129,0.15)\'">' +
-          '<i class="fas fa-camera" style="font-size:18px;"></i> Tomar Foto' +
-        '</button>' +
-        '<div id="chofer-foto-preview" style="width:80px;height:80px;border-radius:10px;background:rgba(30,41,59,0.8);border:2px dashed rgba(51,65,85,0.6);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">' +
-          '<i class="fas fa-image" style="color:#475569;font-size:24px;"></i>' +
-        '</div>' +
-      '</div>' +
-      '<div id="chofer-foto-status" style="margin-top:8px;font-size:12px;color:#64748B;">Sin foto</div>' +
-    '</div>' +
+
 
     '<div>' +
       '<label style="display:block;color:#F1F5F9;font-weight:600;margin-bottom:8px;font-size:14px;"><i class="fas fa-map-marker-alt"></i> Ubicación GPS (obligatorio)</label>' +
@@ -102,9 +85,7 @@ function renderPanelChecador(choferes) {
       '<div id="chofer-gps-resultado" style="margin-top:12px;display:none;"></div>' +
     '</div>' +
 
-    '<button id="btn-registrar-chofer" onclick="registrarChecadaChofer()" disabled style="width:100%;padding:18px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:17px;cursor:not-allowed;opacity:0.4;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.3s;">' +
-      '<i class="fas fa-check-circle" style="font-size:22px;"></i> Registrar Checada' +
-    '</button>' +
+
 
     '<div id="chofer-resultado" style="display:none;"></div>' +
   '</div>';
@@ -120,28 +101,6 @@ function actualizarRelojChofer() {
   if (!fechaEl || !horaEl) { clearInterval(window._relojChoferInterval); return; }
   fechaEl.textContent = ahora.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
   horaEl.textContent = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-}
-
-function procesarFotoChofer(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    const partes = dataUrl.split(',');
-    _fotoBase64 = partes[1];
-    _fotoMimeType = partes[0].split(':')[1].split(';')[0];
-
-    document.getElementById('chofer-foto-preview').innerHTML =
-      '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
-
-    document.getElementById('chofer-foto-status').innerHTML =
-      '<span style="color:#10B981;"><i class="fas fa-check-circle"></i> Foto lista (' + (file.size / 1024).toFixed(0) + ' KB)</span>';
-
-    verificarBtnRegistrar();
-  };
-  reader.readAsDataURL(file);
 }
 
 function obtenerGPSChofer() {
@@ -257,8 +216,9 @@ function procesarPosicionChofer(pos) {
     btn.innerHTML = '<i class="fas fa-check"></i> Ubicación obtenida';
     btn.style.borderColor = '#10B981';
     btn.style.color = '#10B981';
-    btn.disabled = false;
-    verificarBtnRegistrar();
+    btn.disabled = true;
+    // ⭐ Registrar automáticamente
+    registrarChecadaChofer();
   })
   .catch(function() {
     const zonaInfo = verificarZonaChofer(lat, lng);
@@ -268,12 +228,11 @@ function procesarPosicionChofer(pos) {
     resultado.innerHTML =
       '<div style="background:rgba(30,41,59,0.8);border-radius:10px;padding:14px;font-size:13px;">' +
         '<div style="color:#94A3B8;">📍 ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ' (±' + precision + 'm)</div>' +
-        '<a href="' + linkMaps + '" target="_blank" style="color:#3B82F6;font-size:12px;">Ver en Google Maps</a>' +
       '</div>';
 
-    btn.innerHTML = '<i class="fas fa-check"></i> Ubicación obtenida';
-    btn.disabled = false;
-    verificarBtnRegistrar();
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+    btn.disabled = true;
+    registrarChecadaChofer();
   });
 }
 
@@ -304,16 +263,6 @@ function verificarZonaChofer(lat, lng) {
   if (zonaValida) return { estadoZona: 'VÁLIDA', zonaCercana: zonaValida.zona, distancia: Math.round(distanciaMinima) };
   return { estadoZona: 'FUERA DE ZONA', zonaCercana: zonaMasCercana, distancia: Math.round(distanciaMinima) };
 }
-
-function verificarBtnRegistrar() {
-  const btn = document.getElementById('btn-registrar-chofer');
-  if (!btn) return;
-  const listo = !!(_gpsData);
-  btn.disabled = !listo;
-  btn.style.opacity = listo ? '1' : '0.4';
-  btn.style.cursor = listo ? 'pointer' : 'not-allowed';
-}
-
 function registrarChecadaChofer() {
   const select = document.getElementById('chofer-select');
   if (!select || !select.value) { mostrarNotificacion('error', '⚠️ Selecciona tu nombre'); return; }
@@ -327,17 +276,16 @@ function registrarChecadaChofer() {
   const hora = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const timestamp = ahora.toLocaleString('es-MX');
 
-  const btn = document.getElementById('btn-registrar-chofer');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+  // Mostrar spinner en el resultado
+  const resDiv = document.getElementById('chofer-resultado');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i><p style="margin-top:10px;">Registrando checada...</p></div>';
 
   const datos = {
     idUsuario: idSeleccionado,
     nombre: nombreSeleccionado,
     fecha, hora,
     timestampCompleto: timestamp,
-    fotoBase64: _fotoBase64,
-    fotoMimeType: _fotoMimeType,
     lat: _gpsData.lat,
     lng: _gpsData.lng,
     direccion: _gpsData.direccion,
@@ -349,123 +297,44 @@ function registrarChecadaChofer() {
 
   google.script.run
     .withSuccessHandler(function(result) {
-      const resDiv = document.getElementById('chofer-resultado');
-      resDiv.style.display = 'block';
-
       if (result.ok) {
         const zonaValida = _gpsData.estadoZona === 'VÁLIDA';
-        const colorZona = zonaValida ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)';
+        const colorZona  = zonaValida ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)';
         const borderZona = zonaValida ? '#10B981' : '#F59E0B';
-        const colorTextoZona = zonaValida ? '#10B981' : '#F59E0B';
-        const textoZona = zonaValida
+        const colorTexto = zonaValida ? '#10B981' : '#F59E0B';
+        const textoZona  = zonaValida
           ? '📍 ✅ Zona válida: ' + _gpsData.zonaCercana
-          : '📍 ⚠️ Fuera de zona — no se contabilizará';
+          : '📍 ⚠️ Fuera de zona — registrada para revisión';
+
+        _gpsData = null;
 
         resDiv.innerHTML =
           '<div style="background:rgba(16,185,129,0.1);border:2px solid #10B981;border-radius:12px;padding:20px;text-align:center;">' +
             '<div style="font-size:48px;margin-bottom:10px;">✅</div>' +
             '<div style="font-size:18px;font-weight:800;color:#10B981;margin-bottom:6px;">¡Checada Registrada!</div>' +
             '<div style="font-size:13px;color:#94A3B8;margin-bottom:12px;">' + nombreSeleccionado + ' · ' + hora + '</div>' +
-            '<div style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;background:' + colorZona + ';border:1px solid ' + borderZona + ';color:' + colorTextoZona + ';">' +
+            '<div style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;background:' + colorZona + ';border:1px solid ' + borderZona + ';color:' + colorTexto + ';margin-bottom:16px;">' +
               textoZona +
             '</div>' +
+            '<button onclick="abrirChecadorChoferes()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:10px;color:white;font-weight:700;font-size:15px;cursor:pointer;">' +
+              '<i class="fas fa-user-check"></i> Siguiente empleado' +
+            '</button>' +
           '</div>';
 
-        _fotoBase64 = null;
-        _fotoMimeType = null;
-        _gpsData = null;
-
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> Registrar Otra Checada';
-        btn.disabled = false;
-        btn.onclick = function() { abrirChecadorChoferes(); };
-
       } else {
-        resDiv.innerHTML = '<div style="background:rgba(239,68,68,0.1);border:1px solid #EF4444;border-radius:12px;padding:16px;color:#EF4444;">❌ Error: ' + result.message + '</div>';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> Reintentar';
-        verificarBtnRegistrar();
+        resDiv.innerHTML =
+          '<div style="background:rgba(239,68,68,0.1);border:1px solid #EF4444;border-radius:12px;padding:16px;color:#EF4444;text-align:center;">' +
+            '❌ Error: ' + result.message +
+            '<br><br><button onclick="registrarChecadaChofer()" style="padding:10px 20px;background:rgba(239,68,68,0.2);border:1px solid #EF4444;border-radius:8px;color:#EF4444;cursor:pointer;">Reintentar</button>' +
+          '</div>';
       }
     })
     .withFailureHandler(function(err) {
-      mostrarNotificacion('error', '❌ Error: ' + err.message);
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-check-circle"></i> Registrar Checada';
-      verificarBtnRegistrar();
+      resDiv.innerHTML =
+        '<div style="background:rgba(239,68,68,0.1);border:1px solid #EF4444;border-radius:12px;padding:16px;color:#EF4444;text-align:center;">' +
+          '❌ Error de conexión: ' + err.message +
+          '<br><br><button onclick="registrarChecadaChofer()" style="padding:10px 20px;background:rgba(239,68,68,0.2);border:1px solid #EF4444;border-radius:8px;color:#EF4444;cursor:pointer;">Reintentar</button>' +
+        '</div>';
     })
     .guardarChecadaChofer(datos);
-}
-
-// ============================================================================
-// CÁMARA — usa input[type=file] en todos los dispositivos (sin permisos)
-// ============================================================================
-
-function abrirCamaraChofer() {
-  // Eliminar input anterior si existe
-  var inputAnterior = document.getElementById('camara-input-file');
-  if (inputAnterior) inputAnterior.remove();
-
-  var input = document.createElement('input');
-  input.type = 'file';
-  input.id = 'camara-input-file';
-  input.accept = 'image/*';
-  // capture=environment abre cámara trasera en móvil; en desktop abre el selector de archivo
-  input.setAttribute('capture', 'environment');
-  input.style.display = 'none';
-  document.body.appendChild(input);
-
-  input.onchange = function() {
-    var file = input.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var dataUrl = e.target.result;
-      var partes = dataUrl.split(',');
-      _fotoBase64 = partes[1];
-      _fotoMimeType = file.type || 'image/jpeg';
-
-      var preview = document.getElementById('chofer-foto-preview');
-      if (preview) preview.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
-      var status = document.getElementById('chofer-foto-status');
-      if (status) status.innerHTML = '<span style="color:#10B981;"><i class="fas fa-check-circle"></i> Foto cargada</span>';
-
-      verificarBtnRegistrar();
-    };
-    reader.readAsDataURL(file);
-    input.remove();
-  };
-
-  input.click();
-}
-
-function capturarFotoChofer() {
-  const video = document.getElementById('camara-preview');
-  const canvas = document.getElementById('camara-canvas');
-  if (!video || !canvas) return;
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-  const partes = dataUrl.split(',');
-  _fotoBase64 = partes[1];
-  _fotoMimeType = 'image/jpeg';
-
-  // Preview
-  const preview = document.getElementById('chofer-foto-preview');
-  if (preview) preview.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
-  const status = document.getElementById('chofer-foto-status');
-  if (status) status.innerHTML = '<span style="color:#10B981;"><i class="fas fa-check-circle"></i> Foto capturada</span>';
-
-  cerrarCamaraChofer();
-  verificarBtnRegistrar();
-}
-
-function cerrarCamaraChofer() {
-  if (_streamCamara) {
-    _streamCamara.getTracks().forEach(function(t) { t.stop(); });
-    _streamCamara = null;
-  }
-  const modal = document.getElementById('camara-modal');
-  if (modal) modal.style.display = 'none';
 }
