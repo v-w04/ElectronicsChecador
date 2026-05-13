@@ -10,58 +10,43 @@ function mostrarPantallaPIN() {
   overlay.id = 'pin-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
-  overlay.innerHTML =
-    '<div id="pin-box" style="background:rgba(30,41,59,0.95);border:2px solid rgba(59,130,246,0.4);border-radius:20px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">' +
-      '<div style="font-size:48px;margin-bottom:12px;">🔐</div>' +
-      '<h2 style="color:#F1F5F9;font-size:20px;font-weight:700;margin-bottom:4px;">Electronics México</h2>' +
-      '<p style="color:#64748B;font-size:12px;margin-bottom:24px;">Ingresa tu PIN y contraseña</p>' +
-
-      '<div style="margin-bottom:14px;text-align:left;">' +
-        '<label style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">PIN de acceso</label>' +
-        '<input id="input-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"' +
-          ' style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:22px;text-align:center;letter-spacing:8px;outline:none;box-sizing:border-box;transition:border 0.2s;"' +
-          ' onfocus="this.style.borderColor='#3B82F6'"' +
-          ' onblur="this.style.borderColor='rgba(59,130,246,0.3)'"' +
-          ' oninput="this.value=this.value.replace(/\\D/g,'').substring(0,4);"' +
-          ' onkeydown="if(event.key==='Enter'){document.getElementById('input-contrasena').focus();}" />' +
+  var box = document.createElement('div');
+  box.id = 'pin-box';
+  box.style.cssText = 'background:rgba(30,41,59,0.95);border:2px solid rgba(59,130,246,0.4);border-radius:20px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);';
+  box.innerHTML =
+    '<div style="font-size:48px;margin-bottom:12px;">\uD83D\uDD10</div>' +
+    '<h2 style="color:#F1F5F9;font-size:20px;font-weight:700;margin-bottom:4px;">Electronics M&eacute;xico</h2>' +
+    '<p style="color:#64748B;font-size:12px;margin-bottom:24px;">Ingresa tu PIN y contrase&ntilde;a</p>' +
+    '<div style="margin-bottom:14px;text-align:left;">' +
+      '<label style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">PIN de acceso</label>' +
+      '<input id="input-pin" type="password" inputmode="numeric" maxlength="4" placeholder="&bull;&bull;&bull;&bull;" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:22px;text-align:center;letter-spacing:8px;outline:none;box-sizing:border-box;" />' +
+    '</div>' +
+    '<div style="margin-bottom:20px;text-align:left;">' +
+      '<label id="contrasena-label" style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Contrase&ntilde;a</label>' +
+      '<input id="input-contrasena" type="password" placeholder="Contrase&ntilde;a" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;" />' +
+      '<div id="contrasena2-section" style="display:none;margin-top:10px;">' +
+        '<input id="input-contrasena2" type="password" placeholder="Confirmar contrase&ntilde;a" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;" />' +
       '</div>' +
+    '</div>' +
+    '<button id="btn-acceso" style="width:100%;padding:15px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:16px;cursor:pointer;">Entrar</button>' +
+    '<div id="acceso-error" style="margin-top:14px;color:#EF4444;font-size:13px;font-weight:600;min-height:18px;opacity:0;transition:opacity 0.3s;"></div>';
 
-      '<div style="margin-bottom:20px;text-align:left;">' +
-        '<label id="contrasena-label" style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Contraseña</label>' +
-        '<input id="input-contrasena" type="password" placeholder="Contraseña"' +
-          ' style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;transition:border 0.2s;"' +
-          ' onfocus="this.style.borderColor='#3B82F6'"' +
-          ' onblur="this.style.borderColor='rgba(59,130,246,0.3)'"' +
-          ' onkeydown="if(event.key==='Enter'){procesarAcceso();}" />' +
-        '<div id="contrasena2-section" style="display:none;margin-top:10px;">' +
-          '<input id="input-contrasena2" type="password" placeholder="Confirmar contraseña"' +
-            ' style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;transition:border 0.2s;"' +
-            ' onfocus="this.style.borderColor='#3B82F6'"' +
-            ' onblur="this.style.borderColor='rgba(59,130,246,0.3)'"' +
-            ' onkeydown="if(event.key==='Enter'){procesarAcceso();}" />' +
-        '</div>' +
-      '</div>' +
-
-      '<button id="btn-acceso" onclick="procesarAcceso()"' +
-        ' style="width:100%;padding:15px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:16px;cursor:pointer;transition:opacity 0.2s;">' +
-        'Entrar' +
-      '</button>' +
-
-      '<div id="acceso-error" style="margin-top:14px;color:#EF4444;font-size:13px;font-weight:600;min-height:18px;opacity:0;transition:opacity 0.3s;"></div>' +
-    '</div>';
-
+  overlay.appendChild(box);
   document.body.appendChild(overlay);
+
   window._pinChofer = null;
   window._nombreChofer = null;
   window._idChofer = null;
 
-  setTimeout(function() {
-    var inp = document.getElementById('input-pin');
-    if (inp) inp.focus();
-  }, 100);
+  var ip = document.getElementById('input-pin');
+  var ic = document.getElementById('input-contrasena');
+  var ic2 = document.getElementById('input-contrasena2');
+  var btn = document.getElementById('btn-acceso');
+  if (ip) { ip.addEventListener('keydown', function(e){ if(e.key==='Enter' && ic) ic.focus(); }); setTimeout(function(){ ip.focus(); }, 100); }
+  if (ic) ic.addEventListener('keydown', function(e){ if(e.key==='Enter') procesarAcceso(); });
+  if (ic2) ic2.addEventListener('keydown', function(e){ if(e.key==='Enter') procesarAcceso(); });
+  if (btn) btn.addEventListener('click', procesarAcceso);
 }
-
-// onPinInput y verificarPIN no se usan en el nuevo flujo unificado
 
 function procesarAcceso() {
   var pin = (document.getElementById('input-pin') || {}).value || '';
