@@ -146,6 +146,12 @@ function renderizarTooltipContent(gaugeId, result, fechaFiltro, content) {
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', function() {
+  // ⭐ Pantalla de acceso — debe ser lo primero
+  if (localStorage.getItem('theme') === 'girly') {
+    document.body.classList.add('girly-mode');
+  }
+  if (typeof mostrarPantallaPIN === 'function') mostrarPantallaPIN();
+
   createParticles();
 
   var _inicialized = false;
