@@ -3,221 +3,323 @@
 // ============================================================================
 
 function mostrarPantallaPIN() {
-  if (document.getElementById('pin-overlay')) return; // ya existe
-  const overlay = document.createElement('div');
+  var viejo = document.getElementById('pin-overlay');
+  if (viejo) viejo.remove();
+
+  var overlay = document.createElement('div');
   overlay.id = 'pin-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
-  overlay.innerHTML = `
-    <div id="pin-box" style="background:rgba(30,41,59,0.95);border:2px solid rgba(59,130,246,0.4);border-radius:20px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
-      <div style="font-size:48px;margin-bottom:12px;">🔐</div>
-      <h2 style="color:#F1F5F9;font-size:20px;font-weight:700;margin-bottom:4px;">Electronics México</h2>
-      <p style="color:#64748B;font-size:12px;margin-bottom:24px;">Ingresa tu PIN y contraseña</p>
+  overlay.innerHTML =
+    '<div id="pin-box" style="background:rgba(30,41,59,0.95);border:2px solid rgba(59,130,246,0.4);border-radius:20px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">' +
+      '<div style="font-size:48px;margin-bottom:12px;">🔐</div>' +
+      '<h2 style="color:#F1F5F9;font-size:20px;font-weight:700;margin-bottom:4px;">Electronics México</h2>' +
+      '<p style="color:#64748B;font-size:12px;margin-bottom:24px;">Ingresa tu PIN y contraseña</p>' +
 
-      <div style="margin-bottom:14px;text-align:left;">
-        <label style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">PIN de acceso</label>
-        <input id="input-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"
-          style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:22px;text-align:center;letter-spacing:8px;outline:none;box-sizing:border-box;transition:border 0.2s;"
-          onfocus="this.style.borderColor='#3B82F6'"
-          onblur="this.style.borderColor='rgba(59,130,246,0.3)'"
-          oninput="onPinInput(this)"
-          onkeydown="if(event.key==='Enter'){procesarAcceso();}" />
-      </div>
+      '<div style="margin-bottom:14px;text-align:left;">' +
+        '<label style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">PIN de acceso</label>' +
+        '<input id="input-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"' +
+          ' style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:22px;text-align:center;letter-spacing:8px;outline:none;box-sizing:border-box;transition:border 0.2s;"' +
+          ' onfocus="this.style.borderColor='#3B82F6'"' +
+          ' onblur="this.style.borderColor='rgba(59,130,246,0.3)'"' +
+          ' oninput="this.value=this.value.replace(/\\D/g,'').substring(0,4);"' +
+          ' onkeydown="if(event.key==='Enter'){document.getElementById('input-contrasena').focus();}" />' +
+      '</div>' +
 
-      <div id="contrasena-section" style="margin-bottom:20px;text-align:left;display:none;">
-        <label style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;" id="contrasena-label">Contraseña</label>
-        <input id="input-contrasena" type="password" placeholder="Contraseña"
-          style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;transition:border 0.2s;"
-          onfocus="this.style.borderColor='#3B82F6'"
-          onblur="this.style.borderColor='rgba(59,130,246,0.3)'"
-          onkeydown="if(event.key==='Enter'){procesarAcceso();}" />
-        <div id="contrasena2-section" style="display:none;margin-top:10px;">
-          <input id="input-contrasena2" type="password" placeholder="Confirmar contraseña"
-            style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;transition:border 0.2s;"
-            onfocus="this.style.borderColor='#3B82F6'"
-            onblur="this.style.borderColor='rgba(59,130,246,0.3)'"
-            onkeydown="if(event.key==='Enter'){procesarAcceso();}" />
-        </div>
-      </div>
+      '<div style="margin-bottom:20px;text-align:left;">' +
+        '<label id="contrasena-label" style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Contraseña</label>' +
+        '<input id="input-contrasena" type="password" placeholder="Contraseña"' +
+          ' style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;transition:border 0.2s;"' +
+          ' onfocus="this.style.borderColor='#3B82F6'"' +
+          ' onblur="this.style.borderColor='rgba(59,130,246,0.3)'"' +
+          ' onkeydown="if(event.key==='Enter'){procesarAcceso();}" />' +
+        '<div id="contrasena2-section" style="display:none;margin-top:10px;">' +
+          '<input id="input-contrasena2" type="password" placeholder="Confirmar contraseña"' +
+            ' style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;transition:border 0.2s;"' +
+            ' onfocus="this.style.borderColor='#3B82F6'"' +
+            ' onblur="this.style.borderColor='rgba(59,130,246,0.3)'"' +
+            ' onkeydown="if(event.key==='Enter'){procesarAcceso();}" />' +
+        '</div>' +
+      '</div>' +
 
-      <div id="nombre-display" style="display:none;padding:8px 12px;background:rgba(59,130,246,0.1);border-radius:8px;color:#3B82F6;font-size:13px;font-weight:600;margin-bottom:16px;"></div>
+      '<button id="btn-acceso" onclick="procesarAcceso()"' +
+        ' style="width:100%;padding:15px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:16px;cursor:pointer;transition:opacity 0.2s;">' +
+        'Entrar' +
+      '</button>' +
 
-      <button id="btn-acceso" onclick="procesarAcceso()"
-        style="width:100%;padding:15px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:16px;cursor:pointer;transition:opacity 0.2s;">
-        Entrar
-      </button>
-
-      <div id="acceso-error" style="margin-top:14px;color:#EF4444;font-size:13px;font-weight:600;min-height:18px;opacity:0;transition:opacity 0.3s;"></div>
-    </div>
-  `;
+      '<div id="acceso-error" style="margin-top:14px;color:#EF4444;font-size:13px;font-weight:600;min-height:18px;opacity:0;transition:opacity 0.3s;"></div>' +
+    '</div>';
 
   document.body.appendChild(overlay);
-  window._pinVerificado = false;
   window._pinChofer = null;
   window._nombreChofer = null;
   window._idChofer = null;
-  window._esNuevaContrasena = false;
 
-  setTimeout(() => {
-    const inp = document.getElementById('input-pin');
+  setTimeout(function() {
+    var inp = document.getElementById('input-pin');
     if (inp) inp.focus();
   }, 100);
 }
 
-function onPinInput(el) {
-  el.value = el.value.replace(/\D/g, '').substring(0, 4);
+// onPinInput y verificarPIN no se usan en el nuevo flujo unificado
 
-  if (el.value.length === 4 && !window._pinVerificado) {
-    verificarPIN(el.value);
-  }
+function procesarAcceso() {
+  var pin = (document.getElementById('input-pin') || {}).value || '';
+  var contrasena = (document.getElementById('input-contrasena') || {}).value || '';
 
-  if (window._pinVerificado && el.value.length < 4) {
-    resetearEstadoAcceso();
-  }
-}
+  pin = pin.trim();
+  contrasena = contrasena.trim();
 
-function resetearEstadoAcceso() {
-  window._pinVerificado = false;
-  window._pinChofer = null;
-  window._nombreChofer = null;
-  window._idChofer = null;
-  window._esNuevaContrasena = false;
+  if (pin.length < 4) { mostrarErrorAcceso('Ingresa tu PIN de 4 dígitos'); return; }
+  if (!contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
 
-  const contrasenaSection = document.getElementById('contrasena-section');
-  if (contrasenaSection) contrasenaSection.style.display = 'none';
-  const nombreDisplay = document.getElementById('nombre-display');
-  if (nombreDisplay) nombreDisplay.style.display = 'none';
-  const btnAcceso = document.getElementById('btn-acceso');
-  if (btnAcceso) btnAcceso.textContent = 'Entrar';
-  const contrasena2 = document.getElementById('contrasena2-section');
-  if (contrasena2) contrasena2.style.display = 'none';
-}
+  var btn = document.getElementById('btn-acceso');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
 
-function verificarPIN(pin) {
-  if (window._pinVerificado) return;
-  const btnAcceso = document.getElementById('btn-acceso');
-  const inputPin = document.getElementById('input-pin');
-  if (btnAcceso) { btnAcceso.disabled = true; btnAcceso.textContent = 'Verificando...'; }
-  if (inputPin) inputPin.disabled = true;
-
+  // Paso 1: validar PIN
   google.script.run
-    .withSuccessHandler(function(result) {
-      if (btnAcceso) { btnAcceso.disabled = false; btnAcceso.textContent = 'Entrar'; }
-      if (inputPin) inputPin.disabled = false;
-
-      if (!result.ok) {
-        mostrarErrorAcceso(result.message || 'PIN incorrecto');
-        const inp = document.getElementById('input-pin');
-        if (inp) { inp.value = ''; inp.focus(); }
+    .withSuccessHandler(function(pinResult) {
+      if (!pinResult.ok) {
+        mostrarErrorAcceso(pinResult.message || 'PIN incorrecto');
+        if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+        document.getElementById('input-pin').value = '';
+        document.getElementById('input-contrasena').value = '';
+        document.getElementById('input-pin').focus();
         return;
       }
 
-      if (result.tipo === 'ADMIN') {
-        // Admin entra directo
+      if (pinResult.tipo === 'ADMIN') {
         document.getElementById('pin-overlay').remove();
         return;
       }
 
-      if (result.tipo === 'CHOFER') {
-        window._pinVerificado = true;
-        window._pinChofer = pin;
-        window._nombreChofer = result.nombre;
-        window._idChofer = result.idUsuario;
-        window._esNuevaContrasena = !result.tieneContrasena;
+      var nombre = pinResult.nombre;
+      var idUsuario = pinResult.idUsuario;
+      var tieneContrasena = pinResult.tieneContrasena;
 
-        // Mostrar nombre
-        const nombreDisplay = document.getElementById('nombre-display');
-        if (nombreDisplay) {
-          nombreDisplay.textContent = '👤 ' + result.nombre;
-          nombreDisplay.style.display = 'block';
-        }
+      if (!tieneContrasena) {
+        // Primera vez: verificar confirmación
+        var contrasena2 = (document.getElementById('input-contrasena2') || {}).value || '';
+        contrasena2 = contrasena2.trim();
 
-        // Mostrar sección contraseña
-        const contrasenaSection = document.getElementById('contrasena-section');
-        if (contrasenaSection) contrasenaSection.style.display = 'block';
-
-        const label = document.getElementById('contrasena-label');
-        const contrasena2 = document.getElementById('contrasena2-section');
-        const btnAcceso2 = document.getElementById('btn-acceso');
-
-        if (!result.tieneContrasena) {
-          // Primera vez
+        // Mostrar campo de confirmación si no está visible
+        var sec2 = document.getElementById('contrasena2-section');
+        if (sec2 && sec2.style.display === 'none') {
+          sec2.style.display = 'block';
+          var label = document.getElementById('contrasena-label');
           if (label) label.textContent = 'Crear contraseña (primera vez)';
-          if (contrasena2) contrasena2.style.display = 'block';
-          if (btnAcceso2) btnAcceso2.textContent = '✅ Crear y Entrar';
-        } else {
-          if (label) label.textContent = 'Contraseña';
-          if (contrasena2) contrasena2.style.display = 'none';
-          if (btnAcceso2) btnAcceso2.textContent = '→ Entrar';
+          if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; }
+          setTimeout(function() { var c2 = document.getElementById('input-contrasena2'); if (c2) c2.focus(); }, 100);
+          return;
         }
 
-        setTimeout(() => {
-          const inp = document.getElementById('input-contrasena');
-          if (inp) inp.focus();
-        }, 100);
+        if (!contrasena2) {
+          mostrarErrorAcceso('Confirma tu contraseña');
+          if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; }
+          return;
+        }
+        if (contrasena !== contrasena2) {
+          mostrarErrorAcceso('Las contraseñas no coinciden');
+          if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; }
+          return;
+        }
+
+        // Guardar contraseña nueva y continuar
+        if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (!r.ok) { mostrarErrorAcceso(r.message || 'Error al guardar'); if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; } return; }
+            _lanzarFlujoChecar(nombre, idUsuario);
+          })
+          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; } })
+          .guardarContrasena(pin, nombre, contrasena);
+
+      } else {
+        // Validar contraseña existente
+        if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (!r.ok) {
+              mostrarErrorAcceso(r.message || 'Contraseña incorrecta');
+              if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+              document.getElementById('input-contrasena').value = '';
+              document.getElementById('input-contrasena').focus();
+              return;
+            }
+            _lanzarFlujoChecar(nombre, idUsuario);
+          })
+          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; } })
+          .validarContrasena(pin, contrasena);
       }
     })
-    .withFailureHandler(function(err) {
-      if (btnAcceso) { btnAcceso.disabled = false; btnAcceso.textContent = 'Entrar'; }
-      if (inputPin) inputPin.disabled = false;
+    .withFailureHandler(function() {
       mostrarErrorAcceso('Error de conexión');
+      if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
     })
     .validarPin(pin);
 }
 
-function procesarAcceso() {
-  const pinInp = document.getElementById('input-pin');
-  const pin = pinInp ? pinInp.value.trim() : '';
+// Flujo automático: GPS → guarda → éxito 5s → vuelve al PIN
+function _lanzarFlujoChecar(nombre, idUsuario) {
+  // Reemplazar contenido del pin-box con pantalla de proceso
+  var box = document.getElementById('pin-box');
+  if (!box) return;
+  box.innerHTML =
+    '<div style="font-size:40px;margin-bottom:16px;">👤</div>' +
+    '<div style="color:#F1F5F9;font-size:18px;font-weight:700;margin-bottom:6px;">' + nombre + '</div>' +
+    '<div id="flujo-status" style="color:#94A3B8;font-size:14px;margin-bottom:20px;">Obteniendo ubicación GPS...</div>' +
+    '<div id="flujo-spinner" style="width:48px;height:48px;border:4px solid rgba(59,130,246,0.2);border-top:4px solid #3B82F6;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 20px;"></div>' +
+    '<div id="flujo-resultado" style="display:none;"></div>';
 
-  // Si el PIN no está verificado aún
-  if (!window._pinVerificado) {
-    if (pin.length < 4) { mostrarErrorAcceso('Ingresa tu PIN de 4 dígitos'); return; }
-    verificarPIN(pin);
-    return;
+  // Agregar keyframe spin si no existe
+  if (!document.getElementById('flujo-spin-style')) {
+    var st = document.createElement('style');
+    st.id = 'flujo-spin-style';
+    st.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
   }
 
-  // PIN ya verificado — procesar contraseña
-  const contrasenaInp = document.getElementById('input-contrasena');
-  const contrasena = contrasenaInp ? contrasenaInp.value.trim() : '';
-  if (!contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
-
-  if (window._esNuevaContrasena) {
-    // Crear contraseña nueva
-    const contrasena2Inp = document.getElementById('input-contrasena2');
-    const contrasena2 = contrasena2Inp ? contrasena2Inp.value.trim() : '';
-    if (contrasena !== contrasena2) { mostrarErrorAcceso('Las contraseñas no coinciden'); return; }
-
-    const btn = document.getElementById('btn-acceso');
-    if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
-
-    google.script.run
-      .withSuccessHandler(function(result) {
-        if (!result.ok) { mostrarErrorAcceso(result.message || 'Error al guardar'); if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; } return; }
-        document.getElementById('pin-overlay').remove();
-        abrirChecadorChoferDirecto(window._nombreChofer, window._idChofer);
-      })
-      .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; } })
-      .guardarContrasena(window._pinChofer, window._nombreChofer, contrasena);
-
-  } else {
-    // Validar contraseña existente
-    const btn = document.getElementById('btn-acceso');
-    if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
-
-    google.script.run
-      .withSuccessHandler(function(result) {
-        if (!result.ok) {
-          mostrarErrorAcceso(result.message || 'Contraseña incorrecta');
-          if (contrasenaInp) { contrasenaInp.value = ''; contrasenaInp.focus(); }
-          if (btn) { btn.disabled = false; btn.textContent = '→ Entrar'; }
-          return;
-        }
-        document.getElementById('pin-overlay').remove();
-        abrirChecadorChoferDirecto(window._nombreChofer, window._idChofer);
-      })
-      .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; btn.textContent = '→ Entrar'; } })
-      .validarContrasena(window._pinChofer, contrasena);
+  function setStatus(msg, color) {
+    var el = document.getElementById('flujo-status');
+    if (el) { el.textContent = msg; el.style.color = color || '#94A3B8'; }
   }
+
+  function lanzarGPS() {
+    if (!navigator.geolocation) {
+      _registrarChecada(nombre, idUsuario, null, setStatus);
+      return;
+    }
+
+    // Cargar zonas si no están
+    if (!_zonasValidas || _zonasValidas.length === 0) {
+      setStatus('Cargando zonas...', '#94A3B8');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          _zonasValidas = (res && res.zonas) ? res.zonas : [];
+          obtenerGPS();
+        })
+        .withFailureHandler(function() { _zonasValidas = []; obtenerGPS(); })
+        .getZonasValidas();
+    } else {
+      obtenerGPS();
+    }
+  }
+
+  function obtenerGPS() {
+    setStatus('Obteniendo ubicación GPS...', '#94A3B8');
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+        var precision = Math.round(pos.coords.accuracy);
+        var linkMaps = 'https://maps.google.com/?q=' + lat + ',' + lng;
+        setStatus('Verificando zona...', '#94A3B8');
+
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&accept-language=es')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            _registrarChecada(nombre, idUsuario, {
+              lat: lat, lng: lng, precision: precision,
+              direccion: d.display_name || (lat.toFixed(6) + ',' + lng.toFixed(6)),
+              linkMaps: linkMaps
+            }, setStatus);
+          })
+          .catch(function() {
+            _registrarChecada(nombre, idUsuario, {
+              lat: lat, lng: lng, precision: precision,
+              direccion: lat.toFixed(6) + ',' + lng.toFixed(6),
+              linkMaps: linkMaps
+            }, setStatus);
+          });
+      },
+      function() {
+        // GPS falló — registrar sin GPS
+        _registrarChecada(nombre, idUsuario, null, setStatus);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  lanzarGPS();
+}
+
+function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
+  setStatus('Registrando checada...', '#94A3B8');
+
+  var ahora = new Date();
+  var fecha = ahora.toISOString().substring(0, 10);
+  var hora = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  var timestamp = ahora.toLocaleString('es-MX');
+
+  var zonaInfo = gpsData ? verificarZonaChofer(gpsData.lat, gpsData.lng) : { estadoZona: 'SIN_GPS', zonaCercana: '' };
+
+  var datos = {
+    idUsuario: idUsuario,
+    nombre: nombre,
+    fecha: fecha,
+    hora: hora,
+    timestampCompleto: timestamp,
+    lat: gpsData ? gpsData.lat : '',
+    lng: gpsData ? gpsData.lng : '',
+    direccion: gpsData ? gpsData.direccion : '',
+    precision: gpsData ? gpsData.precision : '',
+    linkMaps: gpsData ? gpsData.linkMaps : '',
+    estadoZona: zonaInfo.estadoZona,
+    zonaCercana: zonaInfo.zonaCercana
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      var box = document.getElementById('pin-box');
+      if (!box) return;
+
+      if (result.ok) {
+        var zonaValida = datos.estadoZona === 'VÁLIDA';
+        var colorZona = zonaValida ? '#10B981' : '#F59E0B';
+        var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona — registrada';
+
+        box.innerHTML =
+          '<div style="font-size:64px;margin-bottom:12px;">✅</div>' +
+          '<div style="color:#10B981;font-size:20px;font-weight:800;margin-bottom:6px;">¡Checada Registrada!</div>' +
+          '<div style="color:#94A3B8;font-size:13px;margin-bottom:8px;">' + nombre + ' · ' + hora + '</div>' +
+          '<div style="padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:20px;color:' + colorZona + ';background:rgba(16,185,129,0.1);border:1px solid ' + colorZona + ';">' + textoZona + '</div>' +
+          '<div id="countdown-circle" style="width:64px;height:64px;margin:0 auto;position:relative;">' +
+            '<svg width="64" height="64" style="transform:rotate(-90deg);">' +
+              '<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(59,130,246,0.2)" stroke-width="5"/>' +
+              '<circle id="countdown-arc" cx="32" cy="32" r="26" fill="none" stroke="#3B82F6" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="0" style="transition:stroke-dashoffset 1s linear;"/>' +
+            '</svg>' +
+            '<div id="countdown-num" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#F1F5F9;font-size:22px;font-weight:800;">5</div>' +
+          '</div>';
+
+        // Countdown 5 → 0
+        var seg = 5;
+        var arc = document.getElementById('countdown-arc');
+        var num = document.getElementById('countdown-num');
+        var intervalo = setInterval(function() {
+          seg--;
+          if (num) num.textContent = seg;
+          if (arc) arc.style.strokeDashoffset = ((5 - seg) / 5) * 163;
+          if (seg <= 0) {
+            clearInterval(intervalo);
+            mostrarPantallaPIN();
+          }
+        }, 1000);
+
+      } else {
+        box.innerHTML =
+          '<div style="font-size:48px;margin-bottom:12px;">❌</div>' +
+          '<div style="color:#EF4444;font-size:16px;margin-bottom:20px;">' + (result.message || 'Error al registrar') + '</div>' +
+          '<button onclick="mostrarPantallaPIN()" style="padding:12px 24px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;border-radius:10px;color:#EF4444;font-size:14px;cursor:pointer;">Reintentar</button>';
+      }
+    })
+    .withFailureHandler(function(err) {
+      var box = document.getElementById('pin-box');
+      if (box) box.innerHTML =
+        '<div style="font-size:48px;margin-bottom:12px;">❌</div>' +
+        '<div style="color:#EF4444;font-size:16px;margin-bottom:20px;">Error de conexión</div>' +
+        '<button onclick="mostrarPantallaPIN()" style="padding:12px 24px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;border-radius:10px;color:#EF4444;font-size:14px;cursor:pointer;">Reintentar</button>';
+    })
+    .guardarChecadaChofer(datos);
 }
 
 function mostrarErrorAcceso(msg) {
