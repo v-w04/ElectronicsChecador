@@ -90,6 +90,7 @@ function procesarAcceso() {
 
       if (pinResult.tipo === 'ADMIN') {
         document.getElementById('pin-overlay').remove();
+        if (typeof window._inicializarDashboard === 'function') window._inicializarDashboard();
         return;
       }
 
@@ -453,7 +454,12 @@ function ejecutarControlAsistencia() {
 // ============================================================================
 // INICIALIZACIÓN
 // ============================================================================
-// PIN se lanza desde TooltipsGauges.js DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  if (localStorage.getItem('theme') === 'girly') {
+    document.body.classList.add('girly-mode');
+  }
+  mostrarPantallaPIN();
+});
 
 // ============================================================================
 // EXPORTAR PDF
