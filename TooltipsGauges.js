@@ -146,51 +146,29 @@ function renderizarTooltipContent(gaugeId, result, fechaFiltro, content) {
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', function() {
-  // ⭐ Pantalla de acceso — debe ser lo primero
-  if (localStorage.getItem('theme') === 'girly') {
-    document.body.classList.add('girly-mode');
-  }
-  if (typeof mostrarPantallaPIN === 'function') mostrarPantallaPIN();
-
   createParticles();
 
-  var _inicialized = false;
-
-  function inicializar() {
-    if (_inicialized) return;
-    if (typeof setupNavigation === 'function' &&
-        typeof initializeGauges === 'function' &&
-        typeof loadDashboard === 'function') {
-
-      _inicialized = true;
-      setupNavigation();
-      initializeGauges();
-      resetKPIValues();
-      loadDashboard();
-
-      if (typeof setupKeyboardShortcuts === 'function') setupKeyboardShortcuts();
-      if (typeof updateLiveTime === 'function') { updateLiveTime(); setInterval(updateLiveTime, 1000); }
-
-      setTimeout(ajustarGaugesMobile, 800);
-      setTimeout(forzarDosColumnasMovil, 100);
-
-      window.addEventListener('resize', forzarDosColumnasMovil);
-
-      document.querySelectorAll('.nav-item').forEach(function(item) {
-        item.addEventListener('click', function() {
-          if (window.innerWidth <= 768) {
-            var sidebar = document.querySelector('.sidebar');
-            var btn = document.getElementById('mobile-menu-btn');
-            if (sidebar) sidebar.classList.remove('active');
-            if (btn) btn.innerHTML = '<i class="fas fa-bars"></i>';
-          }
-        });
+  window._inicializarDashboard = function() {
+    if (window._dashboardListo) return;
+    window._dashboardListo = true;
+    setupNavigation();
+    initializeGauges();
+    resetKPIValues();
+    loadDashboard();
+    if (typeof setupKeyboardShortcuts === 'function') setupKeyboardShortcuts();
+    if (typeof updateLiveTime === 'function') { updateLiveTime(); setInterval(updateLiveTime, 1000); }
+    setTimeout(ajustarGaugesMobile, 800);
+    setTimeout(forzarDosColumnasMovil, 100);
+    window.addEventListener('resize', forzarDosColumnasMovil);
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        if (window.innerWidth <= 768) {
+          var sidebar = document.querySelector('.sidebar');
+          var btn = document.getElementById('mobile-menu-btn');
+          if (sidebar) sidebar.classList.remove('active');
+          if (btn) btn.innerHTML = '<i class="fas fa-bars"></i>';
+        }
       });
-
-    } else {
-      setTimeout(inicializar, 50);
-    }
-  }
-
-  inicializar();
+    });
+  };
 });
