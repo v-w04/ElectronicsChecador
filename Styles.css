@@ -1536,6 +1536,16 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 
 .login-ring .ring-input--pin { letter-spacing: 18px; }
 
+/* Máscara de caracteres como password (sin usar type="password" para que
+   Chrome NO ofrezca "guardar contraseña"). Funciona en Chrome, Edge, Safari
+   y navegadores móviles modernos. */
+.login-ring .ring-input--masked {
+  -webkit-text-security: disc;
+  -moz-text-security: disc;
+  text-security: disc;
+  -webkit-text-fill-color: var(--lr-input-text);
+}
+
 .login-ring .ring-input::placeholder {
   color: var(--lr-input-placeholder);
   letter-spacing: 12px;
@@ -1994,9 +2004,48 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   border: 0 !important;
 }
 
-/* ── Mobile fine-tune ─────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   OPTIMIZACIÓN MÓVIL DEL LOGIN
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablets y móviles grandes (≤ 768px) ──────────────────────────────────── */
+@media (max-width: 768px) {
+  .pin-overlay { padding: 8px; }
+  .login-ring { width: clamp(300px, 92vmin, 540px); height: clamp(300px, 92vmin, 540px); }
+  .login-ring .ring-panel { padding: 0 9%; }
+}
+
+/* ── Móviles (≤ 480px) — máximo aprovechamiento del viewport ─────────────── */
 @media (max-width: 480px) {
-  .login-ring .ring-panel { padding: 0 10%; }
-  .login-ring .ring-field { max-width: 78%; }
-  .login-ring .ring-input { padding: 10px 18px; }
+  .pin-overlay { padding: 4px; }
+  .login-ring { width: 96vmin; height: 96vmin; }
+  .login-ring .ring-panel { padding: 0 7%; }
+  .login-ring .ring-field { max-width: 86%; }
+  .login-ring .ring-input { padding: 8px 12px; }
+  .login-ring .ring-field--top    { padding-bottom: clamp(20px, 4%, 36px); }
+  .login-ring .ring-field--bottom { padding-top:    clamp(20px, 4%, 36px); }
+
+  /* Texto en móvil: las labels y el flow status crecen más en pantallas pequeñas */
+  .login-ring .ring-label { font-size: clamp(20px, 5vw, 26px); }
+  .login-ring .ring-input { font-size: clamp(26px, 7vw, 34px); }
+  .login-ring--flow .ring-flow__title  { font-size: clamp(26px, 7vw, 34px); }
+  .login-ring--flow .ring-flow__name   { font-size: clamp(18px, 4.5vw, 22px); }
+  .login-ring--flow .ring-flow__status { font-size: clamp(20px, 5vw, 26px); }
+  .login-ring--flow .ring-flow__zone   { font-size: clamp(16px, 4vw, 20px); padding: 7px 14px; }
+  .login-ring--flow .ring-flow__check,
+  .login-ring--flow .ring-flow__cross  { font-size: clamp(56px, 14vw, 80px); }
+  .login-ring .ring-error              { font-size: clamp(18px, 4.5vw, 22px); }
+  .login-ring .ring-btn__label         { font-size: clamp(18px, 4.5vw, 22px); }
+}
+
+/* ── Móviles muy pequeños (≤ 360px) ──────────────────────────────────────── */
+@media (max-width: 360px) {
+  .login-ring { width: 98vmin; height: 98vmin; }
+  .login-ring .ring-panel { padding: 0 6%; }
+  .login-ring .ring-field { max-width: 90%; }
+}
+
+/* ── Pantallas en horizontal (landscape) — evitar que el círculo se salga ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .login-ring { width: 92vmin; height: 92vmin; }
 }
