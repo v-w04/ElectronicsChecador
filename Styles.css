@@ -1440,8 +1440,50 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   padding: 0 12%;
   box-sizing: border-box;
   z-index: 2;
-  /* Las dos mitades se balancean con flex; el botón va en position:absolute */
+  overflow: hidden; /* recorta el glow de las mitades al círculo del panel */
 }
+
+/* Glow de mitad superior (PIN) e inferior (Contraseña) — pseudo-elementos */
+.login-ring .ring-panel::before,
+.login-ring .ring-panel::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 350ms ease;
+  z-index: 0;
+}
+
+/* Mitad superior — gradiente radial centrado arriba */
+.login-ring .ring-panel::before {
+  top: 0;
+  background: radial-gradient(ellipse at 50% 0%,
+              rgba(127, 223, 255, 0.22) 0%,
+              rgba(30, 144, 255, 0.10) 35%,
+              transparent 75%);
+}
+
+/* Mitad inferior — gradiente radial centrado abajo */
+.login-ring .ring-panel::after {
+  bottom: 0;
+  background: radial-gradient(ellipse at 50% 100%,
+              rgba(127, 223, 255, 0.22) 0%,
+              rgba(30, 144, 255, 0.10) 35%,
+              transparent 75%);
+}
+
+/* Activar mitad correspondiente cuando hay foco */
+.login-ring[data-focus="top"]    .ring-panel::before { opacity: 1; }
+.login-ring[data-focus="bottom"] .ring-panel::after  { opacity: 1; }
+
+/* Asegurar que campos y botón queden encima del glow */
+.login-ring .ring-field,
+.login-ring .ring-divider,
+.login-ring .ring-btn,
+.login-ring .ring-lock { position: relative; z-index: 2; }
 
 /* ── Campos (mitades superior/inferior) ──────────────────────────────────── */
 .login-ring .ring-field {
@@ -1489,6 +1531,11 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   box-sizing: border-box;
   font-family: inherit;
   box-shadow: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  caret-color: var(--lr-ring-cyan);
   transition: color 200ms ease;
 }
 
@@ -1500,13 +1547,25 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   opacity: 0.55;
 }
 
-.login-ring .ring-input:focus {
-  outline: none;
-  border: none;
-  box-shadow: none;
-  background: transparent;
-  /* Sutil cambio de color del texto cuando enfocado, sin caja visible */
-  color: var(--lr-label-active);
+/* Focus: no outline, no border, no fondo — el feedback visual va en la mitad del panel */
+.login-ring .ring-input:focus,
+.login-ring .ring-input:focus-visible,
+.login-ring .ring-input:active {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  -webkit-box-shadow: none !important;
+}
+
+/* Autofill: matar el fondo amarillo del navegador */
+.login-ring .ring-input:-webkit-autofill,
+.login-ring .ring-input:-webkit-autofill:hover,
+.login-ring .ring-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--lr-input-text);
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  transition: background-color 9999s ease-in-out 0s;
+  caret-color: var(--lr-ring-cyan);
 }
 
 .login-ring .ring-field__confirm {
@@ -1514,6 +1573,48 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   display: flex;
   justify-content: center;
   margin-top: 8px;
+}
+
+/* ── Iluminación de mitad activa al enfocar inputs ───────────────────────── */
+.login-ring .ring-field {
+  position: relative;
+  transition: background 250ms ease;
+}
+
+/* Pseudo-elemento que ilumina toda la mitad correspondiente */
+.login-ring .ring-field--top::before,
+.login-ring .ring-field--bottom::before {
+  content: '';
+  position: absolute;
+  left: -25%;
+  right: -25%;
+  top: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at center,
+              rgba(127, 223, 255, 0.10) 0%,
+              rgba(30, 144, 255, 0.05) 45%,
+              transparent 75%);
+  opacity: 0;
+  transition: opacity 280ms ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.login-ring.is-focus-top    .ring-field--top::before    { opacity: 1; }
+.login-ring.is-focus-bottom .ring-field--bottom::before { opacity: 1; }
+
+/* Cuando una mitad está activa, sus labels se intensifican */
+.login-ring.is-focus-top    .ring-field--top    .ring-label,
+.login-ring.is-focus-bottom .ring-field--bottom .ring-label {
+  color: var(--lr-label-active);
+  text-shadow: 0 0 12px rgba(127, 223, 255, 0.35);
+}
+
+/* Y el arco del anillo se intensifica sutilmente cuando hay foco activo */
+.login-ring.is-focus-top    .ring__active,
+.login-ring.is-focus-bottom .ring__active {
+  filter: drop-shadow(0 0 8px var(--lr-glow-cyan))
+          drop-shadow(0 0 18px var(--lr-glow-blue));
 }
 
 /* ── Divisor + botón centrado absoluto ───────────────────────────────────── */
@@ -1583,6 +1684,40 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   position: relative;
   z-index: 1;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  /* Ajuste automático para que cualquier texto quepa dentro del círculo */
+  font-size: clamp(13px, 1.7vmin, 17px);
+  font-weight: 700;
+  line-height: 1;
+  max-width: 82%;
+  display: inline-block;
+  text-align: center;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Estado ocupado: spinner reemplaza el texto */
+.login-ring .ring-btn--busy {
+  cursor: wait;
+}
+
+.login-ring .ring-btn__spinner {
+  width: 32%;
+  height: 32%;
+  max-width: 36px;
+  max-height: 36px;
+  border: 2.5px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: ringBtnSpin 0.7s linear infinite;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes ringBtnSpin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Mensaje de error ─────────────────────────────────────────────────────── */
@@ -1811,6 +1946,12 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   border-radius: 999px;
   font-size: clamp(13px, 1.6vmin, 15px);
   margin-top: 10px;
+}
+
+/* Retry no es círculo — su label puede ocupar todo lo que necesite */
+.login-ring--flow .ring-btn--retry .ring-btn__label {
+  max-width: none;
+  font-size: clamp(13px, 1.6vmin, 15px);
 }
 
 /* ── REDUCED MOTION ──────────────────────────────────────────────────────── */
