@@ -68,12 +68,12 @@ function mostrarPantallaPIN() {
       '<div class="ring-field ring-field--bottom">' +
         '<label id="contrasena-label" class="ring-label" for="input-contrasena">Contraseña</label>' +
         '<input id="input-contrasena" class="ring-input" type="password" ' +
-               'autocomplete="current-password" placeholder="••••••" ' +
-               'aria-label="Contraseña" />' +
+               'inputmode="numeric" pattern="[0-9]*" autocomplete="off" ' +
+               'placeholder="••••" aria-label="Contraseña" />' +
         '<div id="contrasena2-section" class="ring-field__confirm" style="display:none;">' +
           '<input id="input-contrasena2" class="ring-input" type="password" ' +
-                 'autocomplete="new-password" placeholder="Confirmar" ' +
-                 'aria-label="Confirmar contraseña" />' +
+                 'inputmode="numeric" pattern="[0-9]*" autocomplete="off" ' +
+                 'placeholder="Confirmar" aria-label="Confirmar contraseña" />' +
         '</div>' +
       '</div>' +
 
@@ -91,25 +91,84 @@ function mostrarPantallaPIN() {
   window._nombreChofer = null;
   window._idChofer = null;
 
-  // ── Hooks de eventos (idénticos al original) ─────────────────────────────
+  // ── Hooks de eventos ─────────────────────────────────────────────────────
   var ip  = document.getElementById('input-pin');
   var ic  = document.getElementById('input-contrasena');
   var ic2 = document.getElementById('input-contrasena2');
   var btn = document.getElementById('btn-acceso');
 
+  // Helper: filtra todo lo que no sea dígito (mobile + paste + autocompletar)
+  function _onlyDigits(el) {
+    var clean = (el.value || '').replace(/\D+/g, '');
+    if (clean !== el.value) el.value = clean;
+  }
+
+  // Helpers: marcar la mitad activa según foco (ilumina arriba o abajo)
+  function _markFocusTop() {
+    if (box) { box.classList.add('is-focus-top');    box.classList.remove('is-focus-bottom'); }
+  }
+  function _markFocusBottom() {
+    if (box) { box.classList.add('is-focus-bottom'); box.classList.remove('is-focus-top'); }
+  }
+  function _clearFocus() {
+    if (box) { box.classList.remove('is-focus-top'); box.classList.remove('is-focus-bottom'); }
+  }
+
   if (ip) {
-    ip.addEventListener('keydown', function(e) { if (e.key === 'Enter' && ic) ic.focus(); });
-    ip.addEventListener('input',  _updateRingFromInputs);
+    // Filtro numérico + auto-salto a contraseña al llegar a 4 dígitos
+    ip.addEventListener('input', function() {
+      _onlyDigits(ip);
+      _updateRingFromInputs();
+      if (ip.value.length >= 4 && ic) {
+        // Pequeño delay para que el último dígito se vea antes del salto
+        setTimeout(function() { ic.focus(); }, 80);
+      }
+    });
+    // Bloquear caracteres no numéricos antes de que entren (desktop)
+    ip.addEventListener('keydown', function(e) {
+      // Permitir teclas de control (Tab, Backspace, Delete, flechas, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key && e.key.length === 1 && !/[0-9]/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+    ip.addEventListener('focus', _markFocusTop);
+    ip.addEventListener('blur',  _clearFocus);
     setTimeout(function() { ip.focus(); }, 100);
   }
+
   if (ic) {
-    ic.addEventListener('keydown', function(e) { if (e.key === 'Enter') procesarAcceso(); });
-    ic.addEventListener('input',  _updateRingFromInputs);
+    ic.addEventListener('input', function() {
+      _onlyDigits(ic);
+      _updateRingFromInputs();
+    });
+    ic.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { procesarAcceso(); return; }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key && e.key.length === 1 && !/[0-9]/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+    ic.addEventListener('focus', _markFocusBottom);
+    ic.addEventListener('blur',  _clearFocus);
   }
+
   if (ic2) {
-    ic2.addEventListener('keydown', function(e) { if (e.key === 'Enter') procesarAcceso(); });
-    ic2.addEventListener('input',  _updateRingFromInputs);
+    ic2.addEventListener('input', function() {
+      _onlyDigits(ic2);
+      _updateRingFromInputs();
+    });
+    ic2.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { procesarAcceso(); return; }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key && e.key.length === 1 && !/[0-9]/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+    ic2.addEventListener('focus', _markFocusBottom);
+    ic2.addEventListener('blur',  _clearFocus);
   }
+
   if (btn) {
     btn.addEventListener('click', procesarAcceso);
   }
@@ -179,11 +238,24 @@ function _setRingState(state) {
   }
 }
 
-// Helper: cambiar label del botón sin romper su markup interno
+// Helper: cambiar label del botón con ajuste automático
+// - Estados ocupados muestran spinner (sin texto que no cabe)
+// - Textos cortos se renderizan normalmente
 function _setBtnLabel(btn, text) {
   if (!btn) return;
-  var lbl = btn.querySelector('.ring-btn__label');
-  if (lbl) { lbl.textContent = text; } else { btn.textContent = text; }
+  var BUSY_STATES = { 'Verificando': true, 'Guardando': true, 'Procesando': true };
+  // Normalizar quitando puntos suspensivos para comparar
+  var key = (text || '').replace(/\.{2,}$/, '').trim();
+
+  if (BUSY_STATES[key]) {
+    // Estado ocupado → spinner sin texto (cabe siempre)
+    btn.classList.add('ring-btn--busy');
+    btn.innerHTML = '<span class="ring-btn__spinner" aria-label="' + text + '"></span>';
+  } else {
+    // Texto normal — restaurar markup con span del label
+    btn.classList.remove('ring-btn--busy');
+    btn.innerHTML = '<span class="ring-btn__label">' + text + '</span>';
+  }
 }
 
 // ============================================================================
@@ -239,7 +311,7 @@ function procesarAcceso() {
           sec2.style.display = 'block';
           var label = document.getElementById('contrasena-label');
           if (label) label.textContent = 'Crear contraseña';
-          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); }
+          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); }
           _setRingState('filling');
           setTimeout(function() { var c2 = document.getElementById('input-contrasena2'); if (c2) c2.focus(); }, 100);
           return;
@@ -247,12 +319,12 @@ function procesarAcceso() {
 
         if (!contrasena2) {
           mostrarErrorAcceso('Confirma tu contraseña');
-          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); }
+          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); }
           return;
         }
         if (contrasena !== contrasena2) {
           mostrarErrorAcceso('Las contraseñas no coinciden');
-          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); }
+          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); }
           return;
         }
 
@@ -260,11 +332,11 @@ function procesarAcceso() {
         _setRingState('processing');
         google.script.run
           .withSuccessHandler(function(r) {
-            if (!r.ok) { mostrarErrorAcceso(r.message || 'Error al guardar'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); } return; }
+            if (!r.ok) { mostrarErrorAcceso(r.message || 'Error al guardar'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); } return; }
             _setRingState('success');
             setTimeout(function() { _lanzarFlujoChecar(nombre, idUsuario); }, 500);
           })
-          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); } })
+          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); } })
           .guardarContrasena(pin, nombre, contrasena);
 
       } else {
