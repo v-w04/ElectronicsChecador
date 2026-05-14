@@ -1,4 +1,4 @@
-    :root {
+:root {
       --primary: #3B82F6;
       --primary-dark: #2563EB;
       --secondary: #06B6D4;
@@ -1322,8 +1322,6 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   background: linear-gradient(135deg, #7C3AED, #DB7093) !important;
   box-shadow: 0 4px 12px rgba(186, 143, 255, 0.4) !important;
 }
-
-
 /* ============================================================================
    LOGIN CIRCULAR — Electronics México (v7.0)
    Pegar este bloque al FINAL de Styles.css. No modifica nada del CSS existente.
