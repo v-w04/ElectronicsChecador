@@ -1514,6 +1514,8 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   font-size: clamp(22px, 3vmin, 28px);
   font-weight: 600;
   letter-spacing: 0.4px;
+  text-align: center;
+  width: 100%;
   transition: color 200ms ease;
 }
 
