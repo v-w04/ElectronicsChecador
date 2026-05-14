@@ -43,6 +43,7 @@ function mostrarPantallaPIN() {
       '<circle class="ring__track" cx="300" cy="300" r="295" />' +
       '<g class="ring__rotor">' +
         '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                'stroke="url(#ringGradient)" ' +
                 'stroke-dasharray="1853.54" stroke-dashoffset="1853.54" ' +
                 'transform="rotate(-90 300 300)" />' +
       '</g>' +

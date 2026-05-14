@@ -1401,20 +1401,20 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 .login-ring .ring__track {
   fill: none;
   stroke: var(--lr-ring-track);
-  stroke-width: 3;
+  stroke-width: 5;
 }
 
-/* Arco activo */
+/* Arco activo — el stroke (gradiente) se define en el atributo SVG, NO aquí.
+   Cada pantalla (login, flow, success, error) usa un gradiente con id distinto,
+   así que el CSS no puede fijar uno; solo controlamos animación y glow. */
 .login-ring .ring__active {
   fill: none;
-  stroke: url(#ringGradient);
-  stroke-width: 3;
+  stroke-width: 5;
   stroke-linecap: round;
   transition: stroke-dashoffset 250ms cubic-bezier(0.4, 0, 0.2, 1),
-              stroke 400ms ease,
               filter 400ms ease;
-  filter: drop-shadow(0 0 6px var(--lr-glow-cyan))
-          drop-shadow(0 0 14px var(--lr-glow-blue));
+  filter: drop-shadow(0 0 8px var(--lr-glow-cyan))
+          drop-shadow(0 0 18px var(--lr-glow-blue));
 }
 
 /* Rotor para animación de rotación */
