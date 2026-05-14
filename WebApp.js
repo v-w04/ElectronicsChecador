@@ -68,11 +68,11 @@ function mostrarPantallaPIN() {
       '<div class="ring-field ring-field--bottom">' +
         '<label id="contrasena-label" class="ring-label" for="input-contrasena">Contraseña</label>' +
         '<input id="input-contrasena" class="ring-input" type="password" ' +
-               'inputmode="numeric" pattern="[0-9]*" autocomplete="off" ' +
+               'inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" ' +
                'placeholder="••••" aria-label="Contraseña" />' +
         '<div id="contrasena2-section" class="ring-field__confirm" style="display:none;">' +
           '<input id="input-contrasena2" class="ring-input" type="password" ' +
-                 'inputmode="numeric" pattern="[0-9]*" autocomplete="off" ' +
+                 'inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" ' +
                  'placeholder="Confirmar" aria-label="Confirmar contraseña" />' +
         '</div>' +
       '</div>' +
@@ -141,6 +141,13 @@ function mostrarPantallaPIN() {
     ic.addEventListener('input', function() {
       _onlyDigits(ic);
       _updateRingFromInputs();
+      // Auto-submit al llegar a 4 dígitos (igual que un Enter implícito)
+      if (ic.value.length >= 4) {
+        var pinVal = (document.getElementById('input-pin') || {}).value || '';
+        if (pinVal.length >= 4) {
+          setTimeout(function() { procesarAcceso(); }, 100);
+        }
+      }
     });
     ic.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { procesarAcceso(); return; }
@@ -157,6 +164,10 @@ function mostrarPantallaPIN() {
     ic2.addEventListener('input', function() {
       _onlyDigits(ic2);
       _updateRingFromInputs();
+      // Auto-submit al llegar a 4 dígitos en confirmación (primera vez)
+      if (ic2.value.length >= 4) {
+        setTimeout(function() { procesarAcceso(); }, 100);
+      }
     });
     ic2.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { procesarAcceso(); return; }
@@ -372,7 +383,8 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
   var box = document.getElementById('pin-box');
   if (!box) return;
 
-  box.setAttribute('data-state', 'processing');
+  // 1) Limpiar state previo para que el navegador reconozca la transición
+  box.removeAttribute('data-state');
   box.classList.add('login-ring--flow');
 
   box.innerHTML =
@@ -397,6 +409,11 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
       '<div id="flujo-status" class="ring-flow__status">Obteniendo ubicación GPS...</div>' +
       '<div class="ring-flow__spinner"></div>' +
     '</div>';
+
+  // 2) Forzar reflow y aplicar data-state="processing" para que la animación arranque
+  //    sobre los elementos SVG recién creados (rotor + arco)
+  void box.offsetWidth;
+  box.setAttribute('data-state', 'processing');
 
   function setStatus(msg, color) {
     var el = document.getElementById('flujo-status');
@@ -495,7 +512,7 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
         var colorZona = zonaValida ? '#3ddc84' : '#f4c542';
         var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona';
 
-        box.setAttribute('data-state', 'success');
+        box.removeAttribute('data-state');
         box.innerHTML =
           '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
             '<defs>' +
@@ -527,6 +544,10 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
             '</div>' +
           '</div>';
 
+        // Forzar reflow para que el flash de success se aplique al nuevo SVG
+        void box.offsetWidth;
+        box.setAttribute('data-state', 'success');
+
         var seg = 5;
         var arc = document.getElementById('countdown-arc');
         var num = document.getElementById('countdown-num');
@@ -541,7 +562,7 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
         }, 1000);
 
       } else {
-        box.setAttribute('data-state', 'error');
+        box.removeAttribute('data-state');
         box.innerHTML =
           '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
             '<defs>' +
@@ -565,12 +586,14 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
               '<span class="ring-btn__label">Reintentar</span>' +
             '</button>' +
           '</div>';
+        void box.offsetWidth;
+        box.setAttribute('data-state', 'error');
       }
     })
     .withFailureHandler(function(err) {
       var box = document.getElementById('pin-box');
       if (!box) return;
-      box.setAttribute('data-state', 'error');
+      box.removeAttribute('data-state');
       box.innerHTML =
         '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
           '<defs>' +
@@ -593,6 +616,8 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
             '<span class="ring-btn__label">Reintentar</span>' +
           '</button>' +
         '</div>';
+      void box.offsetWidth;
+      box.setAttribute('data-state', 'error');
     })
     .guardarChecadaChofer(datos);
 }
