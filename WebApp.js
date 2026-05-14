@@ -174,11 +174,17 @@ function mostrarPantallaPIN() {
     // ── Panel interior ──────────────────────────────────────────────────────
     '<div class="ring-panel">' +
       // Campo PIN (mitad superior, sin candado)
+      // type="text" + -webkit-text-security: disc → Chrome no lo detecta como
+      // password, no ofrece "guardar contraseña". autocomplete="one-time-code"
+      // es la sugerencia oficial de Apple/Google para PINs efímeros (la única
+      // que ambos respetan).
       '<div class="ring-field ring-field--top">' +
         '<label class="ring-label" for="input-pin">PIN</label>' +
-        '<input id="input-pin" class="ring-input ring-input--pin" type="password" ' +
-               'inputmode="numeric" maxlength="4" autocomplete="off" ' +
-               'placeholder="••••" aria-label="PIN de acceso" />' +
+        '<input id="input-pin" class="ring-input ring-input--pin ring-input--masked" type="text" ' +
+               'inputmode="numeric" pattern="[0-9]*" maxlength="4" ' +
+               'autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+               'data-form-type="other" data-lpignore="true" data-1p-ignore="true" ' +
+               'name="" placeholder="••••" aria-label="PIN de acceso" />' +
       '</div>' +
 
       // Divisor + botón Entrar (logo de Electronics)
@@ -190,15 +196,19 @@ function mostrarPantallaPIN() {
       // Campo Contraseña (mitad inferior)
       '<div class="ring-field ring-field--bottom">' +
         '<label id="contrasena-label" class="ring-label" for="input-contrasena">Contraseña</label>' +
-        '<input id="input-contrasena" class="ring-input" type="password" ' +
-               'inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" ' +
-               'placeholder="••••" aria-label="Contraseña" />' +
+        '<input id="input-contrasena" class="ring-input ring-input--masked" type="text" ' +
+               'inputmode="numeric" pattern="[0-9]*" maxlength="4" ' +
+               'autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+               'data-form-type="other" data-lpignore="true" data-1p-ignore="true" ' +
+               'name="" placeholder="••••" aria-label="Contraseña" />' +
         // Campo de confirmación oculto — legado para creación de contraseña; con
         // validación local todos los usuarios ya tienen contraseña en la hoja
         '<div id="contrasena2-section" class="ring-field__confirm" style="display:none;">' +
-          '<input id="input-contrasena2" class="ring-input" type="password" ' +
-                 'inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" ' +
-                 'placeholder="Confirmar" aria-label="Confirmar contraseña" />' +
+          '<input id="input-contrasena2" class="ring-input ring-input--masked" type="text" ' +
+                 'inputmode="numeric" pattern="[0-9]*" maxlength="4" ' +
+                 'autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+                 'data-form-type="other" data-lpignore="true" data-1p-ignore="true" ' +
+                 'name="" placeholder="Confirmar" aria-label="Confirmar contraseña" />' +
         '</div>' +
       '</div>' +
 
