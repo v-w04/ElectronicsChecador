@@ -1482,8 +1482,10 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 
 /* ── Campos (mitades superior/inferior) ──────────────────────────────────── */
 .login-ring .ring-field {
-  /* Cada mitad ocupa 50% del alto del panel — simetría absoluta */
-  flex: 1 1 50%;
+  /* Cada mitad ocupa EXACTAMENTE 50% del alto del panel — simetría absoluta.
+     flex: 0 0 50% es crítico: sin grow/shrink, las dos mitades quedan iguales
+     sin importar el tamaño del contenido (PIN vs Contraseña). */
+  flex: 0 0 50%;
   width: 100%;
   max-width: 72%;
   display: flex;
@@ -1491,12 +1493,21 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  /* Espacio interno para que los textos no peguen al centro/divisor */
   padding: 0;
+  box-sizing: border-box;
 }
 
-.login-ring .ring-field--top    { padding-bottom: clamp(28px, 6%, 56px); }
-.login-ring .ring-field--bottom { padding-top:    clamp(28px, 6%, 56px); }
+/* Padding alrededor del centro: cada mitad reserva ~80px contra el divisor
+   (donde está el botón circular) y ~20px contra el borde exterior. Eso deja
+   el contenido (label + input) centrado en su mitad sin pegar al botón. */
+.login-ring .ring-field--top {
+  padding-top:    clamp(18px, 4%, 36px);
+  padding-bottom: clamp(60px, 12%, 100px);
+}
+.login-ring .ring-field--bottom {
+  padding-top:    clamp(60px, 12%, 100px);
+  padding-bottom: clamp(18px, 4%, 36px);
+}
 
 .login-ring .ring-label {
   color: var(--lr-label);
