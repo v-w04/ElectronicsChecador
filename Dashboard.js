@@ -22,9 +22,13 @@ function getFechaHoyMexico() {
   return local.toISOString().split('T')[0];
 }
 
-function loadDashboard() {
+function loadDashboard(forzar) {
   if (_dashboardLoading) return; // ya hay una carga en curso
   _dashboardLoading = true;
+
+  // Si se pide forzar (después de procesarAsistenciasCompleto, click en Refrescar,
+  // etc.), invalidar el cache para que se pidan datos frescos a GAS.
+  if (forzar) _invalidarCache();
 
   showLoading();
   initializeGauges();
@@ -47,6 +51,7 @@ function loadDashboard() {
     if (_cacheResumen) updateProductivityWidgets(_cacheResumen);
     cargarMapaDashboardConDatos(_cacheTurnos, _cacheMetricas);
     loadTendenciaSemanal();
+    _dashboardLoading = false;  // ← faltaba liberar el flag al usar cache
     return;
   }
 
@@ -215,10 +220,20 @@ function procesarMapaDashboard(rTurnos, rMetricas) {
       const horarioValue = iHorarioT !== -1 ? row[iHorarioT] : null;
       const horario = horarioValue ? horarioValue.toString().trim() : '—';
       const estaPresente = presentesHoyNorm.has(nombreNorm) || presentesHoyOriginal.has(nombreOriginal);
+
+      // Resolver departamento con varios fallbacks
+      var deptRaw = iDeptT !== -1 ? row[iDeptT] : null;
+      var deptStr = deptRaw == null ? '' : deptRaw.toString().trim();
+      if (!deptStr) {
+        // Empleado sin departamento — loguear para que el admin lo identifique
+        console.warn('⚠️ Empleado sin DEPARTAMENTO en TURNOS_DEFAULT:', nombreOriginal, '(ID:', row[0] + ')');
+        deptStr = 'SIN DEPTO';
+      }
+
       return {
         id: row[0],
         nombre: nombreOriginal,
-        departamento: iDeptT !== -1 ? (row[iDeptT] || 'SIN DEPTO').toString().trim().toUpperCase() : 'SIN DEPTO',
+        departamento: deptStr.toUpperCase(),
         horario,
         cumpleanos: row[5] || null,
         fechaContratacion: row[6] || null,
@@ -543,12 +558,10 @@ function resetearAHoy() {
   const inputFecha = document.getElementById('fecha-dashboard');
   if (inputFecha) inputFecha.value = hoy;
   actualizarInfoFecha(hoy);
-  showLoading();
-  initializeGauges();
-  resetKPIValues();
-  google.script.run.withSuccessHandler(updateKPIs).withFailureHandler(handleError).getSheetData('METRICAS_DIARIAS');
-  loadProductivityWidgets();
-  cargarMapaDashboard();
+  // Invalidar cache y reusar el flujo unificado de loadDashboard
+  _invalidarCache();
+  _dashboardLoading = false;
+  loadDashboard(true);
 }
 
 function actualizarInfoFecha(fecha) {
