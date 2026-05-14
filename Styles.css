@@ -1745,13 +1745,18 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   filter: drop-shadow(0 0 4px var(--lr-glow-cyan));
 }
 
-/* processing: rotación + pulso */
+/* processing: rotación + pulso intenso del anillo */
 .login-ring[data-state="processing"] .ring__rotor {
-  animation: ringRotate 2.5s linear infinite;
+  animation: ringRotate 2s linear infinite;
 }
 
 .login-ring[data-state="processing"] .ring__active {
-  animation: ringPulse 1.4s ease-in-out infinite;
+  animation: ringPulse 1.2s ease-in-out infinite;
+}
+
+/* Pulso de glow externo aplicado a todo el SVG para máxima visibilidad */
+.login-ring[data-state="processing"] .ring {
+  animation: ringHaloPulse 1.4s ease-in-out infinite;
 }
 
 .login-ring[data-state="processing"] .ring-btn {
@@ -1766,13 +1771,18 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 
 @keyframes ringPulse {
   0%, 100% {
-    filter: drop-shadow(0 0 6px var(--lr-glow-cyan))
-            drop-shadow(0 0 14px var(--lr-glow-blue));
+    filter: drop-shadow(0 0 8px var(--lr-glow-cyan))
+            drop-shadow(0 0 18px var(--lr-glow-blue));
   }
   50% {
-    filter: drop-shadow(0 0 14px var(--lr-glow-cyan))
-            drop-shadow(0 0 30px var(--lr-glow-blue));
+    filter: drop-shadow(0 0 18px var(--lr-glow-cyan))
+            drop-shadow(0 0 36px var(--lr-glow-blue));
   }
+}
+
+@keyframes ringHaloPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.85; }
 }
 
 /* success */
@@ -1782,17 +1792,35 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 }
 
 .login-ring[data-state="success"] .ring__active {
-  animation: successFlash 600ms ease-out;
+  animation: successFlash 800ms ease-out, successBreathe 2.4s ease-in-out 800ms infinite;
   filter: drop-shadow(0 0 14px var(--lr-success))
-          drop-shadow(0 0 26px rgba(61, 220, 132, 0.45));
+          drop-shadow(0 0 26px rgba(61, 220, 132, 0.55));
+}
+
+/* También aplica un halo pulsante al SVG completo para que el éxito sea inequívoco */
+.login-ring[data-state="success"] .ring {
+  animation: successHalo 800ms ease-out;
 }
 
 @keyframes successFlash {
   0%   { filter: drop-shadow(0 0 6px var(--lr-success)); }
-  40%  { filter: drop-shadow(0 0 22px var(--lr-success))
-                 drop-shadow(0 0 40px rgba(61, 220, 132, 0.7)); }
+  40%  { filter: drop-shadow(0 0 28px var(--lr-success))
+                 drop-shadow(0 0 50px rgba(61, 220, 132, 0.85)); }
   100% { filter: drop-shadow(0 0 14px var(--lr-success))
-                 drop-shadow(0 0 26px rgba(61, 220, 132, 0.45)); }
+                 drop-shadow(0 0 26px rgba(61, 220, 132, 0.55)); }
+}
+
+@keyframes successBreathe {
+  0%, 100% { filter: drop-shadow(0 0 12px var(--lr-success))
+                     drop-shadow(0 0 22px rgba(61, 220, 132, 0.4)); }
+  50%      { filter: drop-shadow(0 0 18px var(--lr-success))
+                     drop-shadow(0 0 32px rgba(61, 220, 132, 0.6)); }
+}
+
+@keyframes successHalo {
+  0%   { transform: scale(0.98); opacity: 0.6; }
+  50%  { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
 }
 
 /* error */
