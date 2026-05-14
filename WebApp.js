@@ -39,11 +39,21 @@ function mostrarPantallaPIN() {
           '<stop offset="0%"  stop-color="#14633e"/>' +
           '<stop offset="100%" stop-color="#3ddc84"/>' +
         '</linearGradient>' +
+        // Filtro SVG nativo de glow azul/cyan (más confiable que CSS drop-shadow)
+        '<filter id="ringGlow" x="-50%" y="-50%" width="200%" height="200%">' +
+          '<feGaussianBlur stdDeviation="6" result="blur1"/>' +
+          '<feGaussianBlur stdDeviation="14" result="blur2"/>' +
+          '<feMerge>' +
+            '<feMergeNode in="blur2"/>' +
+            '<feMergeNode in="blur1"/>' +
+            '<feMergeNode in="SourceGraphic"/>' +
+          '</feMerge>' +
+        '</filter>' +
       '</defs>' +
       '<circle class="ring__track" cx="300" cy="300" r="295" />' +
       '<g class="ring__rotor">' +
         '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                'stroke="url(#ringGradient)" ' +
+                'stroke="url(#ringGradient)" filter="url(#ringGlow)" ' +
                 'stroke-dasharray="1853.54" stroke-dashoffset="1853.54" ' +
                 'transform="rotate(-90 300 300)" />' +
       '</g>' +
@@ -146,6 +156,11 @@ function mostrarPantallaPIN() {
       if (ic.value.length >= 4) {
         var pinVal = (document.getElementById('input-pin') || {}).value || '';
         if (pinVal.length >= 4) {
+          // Bajar el teclado virtual del móvil ANTES del submit
+          ic.blur();
+          if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+          }
           setTimeout(function() { procesarAcceso(); }, 100);
         }
       }
@@ -167,6 +182,11 @@ function mostrarPantallaPIN() {
       _updateRingFromInputs();
       // Auto-submit al llegar a 4 dígitos en confirmación (primera vez)
       if (ic2.value.length >= 4) {
+        // Bajar el teclado virtual del móvil ANTES del submit
+        ic2.blur();
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
         setTimeout(function() { procesarAcceso(); }, 100);
       }
     });
@@ -406,11 +426,20 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
           '<stop offset="55%" stop-color="#1e90ff"/>' +
           '<stop offset="100%" stop-color="#7fdfff"/>' +
         '</linearGradient>' +
+        '<filter id="ringGlowFlow" x="-50%" y="-50%" width="200%" height="200%">' +
+          '<feGaussianBlur stdDeviation="6" result="blur1"/>' +
+          '<feGaussianBlur stdDeviation="14" result="blur2"/>' +
+          '<feMerge>' +
+            '<feMergeNode in="blur2"/>' +
+            '<feMergeNode in="blur1"/>' +
+            '<feMergeNode in="SourceGraphic"/>' +
+          '</feMerge>' +
+        '</filter>' +
       '</defs>' +
       '<circle class="ring__track" cx="300" cy="300" r="295" />' +
       '<g class="ring__rotor">' +
         '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                'stroke="url(#ringGradientFlow)" stroke-dasharray="1853.54" ' +
+                'stroke="url(#ringGradientFlow)" filter="url(#ringGlowFlow)" stroke-dasharray="1853.54" ' +
                 'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
       '</g>' +
     '</svg>' +
@@ -531,11 +560,20 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
                 '<stop offset="0%"  stop-color="#14633e"/>' +
                 '<stop offset="100%" stop-color="#3ddc84"/>' +
               '</linearGradient>' +
+              '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
+                '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
+                '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
+                '<feMerge>' +
+                  '<feMergeNode in="blur2"/>' +
+                  '<feMergeNode in="blur1"/>' +
+                  '<feMergeNode in="SourceGraphic"/>' +
+                '</feMerge>' +
+              '</filter>' +
             '</defs>' +
             '<circle class="ring__track" cx="300" cy="300" r="295" />' +
             '<g class="ring__rotor">' +
               '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                      'stroke="url(#ringSuccessFlow)" stroke-dasharray="1853.54" ' +
+                      'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
                       'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
             '</g>' +
           '</svg>' +
@@ -581,11 +619,20 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
                 '<stop offset="0%"  stop-color="#7a1a2d"/>' +
                 '<stop offset="100%" stop-color="#ff4d6d"/>' +
               '</linearGradient>' +
+              '<filter id="ringGlowErr1" x="-50%" y="-50%" width="200%" height="200%">' +
+                '<feGaussianBlur stdDeviation="6" result="blur1"/>' +
+                '<feGaussianBlur stdDeviation="16" result="blur2"/>' +
+                '<feMerge>' +
+                  '<feMergeNode in="blur2"/>' +
+                  '<feMergeNode in="blur1"/>' +
+                  '<feMergeNode in="SourceGraphic"/>' +
+                '</feMerge>' +
+              '</filter>' +
             '</defs>' +
             '<circle class="ring__track" cx="300" cy="300" r="295" />' +
             '<g class="ring__rotor">' +
               '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                      'stroke="url(#ringErrorFlow)" stroke-dasharray="1853.54" ' +
+                      'stroke="url(#ringErrorFlow)" filter="url(#ringGlowErr1)" stroke-dasharray="1853.54" ' +
                       'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
             '</g>' +
           '</svg>' +
@@ -612,11 +659,20 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
               '<stop offset="0%"  stop-color="#7a1a2d"/>' +
               '<stop offset="100%" stop-color="#ff4d6d"/>' +
             '</linearGradient>' +
+            '<filter id="ringGlowErr2" x="-50%" y="-50%" width="200%" height="200%">' +
+              '<feGaussianBlur stdDeviation="6" result="blur1"/>' +
+              '<feGaussianBlur stdDeviation="16" result="blur2"/>' +
+              '<feMerge>' +
+                '<feMergeNode in="blur2"/>' +
+                '<feMergeNode in="blur1"/>' +
+                '<feMergeNode in="SourceGraphic"/>' +
+              '</feMerge>' +
+            '</filter>' +
           '</defs>' +
           '<circle class="ring__track" cx="300" cy="300" r="295" />' +
           '<g class="ring__rotor">' +
             '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                    'stroke="url(#ringErrorFlow2)" stroke-dasharray="1853.54" ' +
+                    'stroke="url(#ringErrorFlow2)" filter="url(#ringGlowErr2)" stroke-dasharray="1853.54" ' +
                     'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
           '</g>' +
         '</svg>' +
