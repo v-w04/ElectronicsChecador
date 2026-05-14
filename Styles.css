@@ -1322,3 +1322,524 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   background: linear-gradient(135deg, #7C3AED, #DB7093) !important;
   box-shadow: 0 4px 12px rgba(186, 143, 255, 0.4) !important;
 }
+
+
+/* ============================================================================
+   LOGIN CIRCULAR — Electronics México (v7.0)
+   Pegar este bloque al FINAL de Styles.css. No modifica nada del CSS existente.
+   ============================================================================ */
+
+:root {
+  /* Tokens del login circular */
+  --lr-bg-page:           radial-gradient(circle at 50% 50%, #0e1d3a 0%, #050b18 100%);
+  --lr-panel-bg:          linear-gradient(180deg, #142340 0%, #0c1729 100%);
+  --lr-panel-border:      rgba(80, 150, 220, 0.08);
+
+  --lr-ring-cyan:         #7fdfff;
+  --lr-ring-blue:         #1e90ff;
+  --lr-ring-deep:         #2456a8;
+  --lr-ring-track:        rgba(60, 100, 160, 0.18);
+
+  --lr-glow-cyan:         rgba(127, 223, 255, 0.55);
+  --lr-glow-blue:         rgba(30, 144, 255, 0.40);
+
+  --lr-btn-grad:          linear-gradient(160deg, #5fc8ff 0%, #1e90ff 60%, #1565d8 100%);
+  --lr-btn-glow:          0 0 24px rgba(30, 144, 255, 0.55),
+                          0 6px 18px rgba(0, 0, 0, 0.45);
+
+  --lr-input-bg:          linear-gradient(180deg, #0c1828 0%, #0a1322 100%);
+  --lr-input-border:      rgba(80, 140, 210, 0.18);
+  --lr-input-text:        #d4e6f7;
+  --lr-input-placeholder: #6a8db0;
+
+  --lr-label:             #8db8e0;
+  --lr-label-active:      #7fdfff;
+
+  --lr-divider:           linear-gradient(90deg,
+                            transparent 0%,
+                            rgba(80, 140, 210, 0.18) 18%,
+                            rgba(80, 140, 210, 0.30) 50%,
+                            rgba(80, 140, 210, 0.18) 82%,
+                            transparent 100%);
+
+  --lr-success:           #3ddc84;
+  --lr-error:             #ff4d6d;
+}
+
+/* ── Overlay (fullscreen, fondo radial) ───────────────────────────────────── */
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--lr-bg-page);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Contenedor circular ──────────────────────────────────────────────────── */
+.login-ring {
+  position: relative;
+  width: clamp(320px, 88vmin, 640px);
+  height: clamp(320px, 88vmin, 640px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* SVG ocupa todo el contenedor */
+.login-ring .ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Riel apagado */
+.login-ring .ring__track {
+  fill: none;
+  stroke: var(--lr-ring-track);
+  stroke-width: 3;
+}
+
+/* Arco activo */
+.login-ring .ring__active {
+  fill: none;
+  stroke: url(#ringGradient);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 400ms ease,
+              filter 400ms ease;
+  filter: drop-shadow(0 0 6px var(--lr-glow-cyan))
+          drop-shadow(0 0 14px var(--lr-glow-blue));
+}
+
+/* Rotor para animación de rotación */
+.login-ring .ring__rotor {
+  transform-origin: 300px 300px;
+}
+
+/* ── Panel interior ───────────────────────────────────────────────────────── */
+.login-ring .ring-panel {
+  position: relative;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: var(--lr-panel-bg);
+  box-shadow: inset 0 0 0 1px var(--lr-panel-border),
+              inset 0 20px 60px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12%;
+  box-sizing: border-box;
+  z-index: 2;
+  /* Las dos mitades se balancean con flex; el botón va en position:absolute */
+}
+
+/* ── Campos (mitades superior/inferior) ──────────────────────────────────── */
+.login-ring .ring-field {
+  /* Cada mitad ocupa 50% del alto del panel — simetría absoluta */
+  flex: 1 1 50%;
+  width: 100%;
+  max-width: 72%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  /* Espacio interno para que los textos no peguen al centro/divisor */
+  padding: 0;
+}
+
+.login-ring .ring-field--top    { padding-bottom: clamp(28px, 6%, 56px); }
+.login-ring .ring-field--bottom { padding-top:    clamp(28px, 6%, 56px); }
+
+.login-ring .ring-label {
+  color: var(--lr-label);
+  font-size: clamp(13px, 1.6vmin, 16px);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  transition: color 200ms ease;
+}
+
+.login-ring[data-state="filling"]    .ring-label,
+.login-ring[data-state="processing"] .ring-label { color: var(--lr-label-active); }
+
+/* Inputs SIN cápsula — transparentes, fundidos con el panel */
+.login-ring .ring-input {
+  width: 100%;
+  max-width: 280px;
+  padding: 6px 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--lr-input-text);
+  font-size: clamp(16px, 2vmin, 20px);
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: 6px;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  box-shadow: none;
+  transition: color 200ms ease;
+}
+
+.login-ring .ring-input--pin { letter-spacing: 12px; }
+
+.login-ring .ring-input::placeholder {
+  color: var(--lr-input-placeholder);
+  letter-spacing: 8px;
+  opacity: 0.55;
+}
+
+.login-ring .ring-input:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  /* Sutil cambio de color del texto cuando enfocado, sin caja visible */
+  color: var(--lr-label-active);
+}
+
+.login-ring .ring-field__confirm {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* ── Divisor + botón centrado absoluto ───────────────────────────────────── */
+.login-ring .ring-divider {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--lr-divider);
+  transform: translateY(-50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.login-ring .ring-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width:  clamp(96px, 22%, 140px);
+  height: clamp(96px, 22%, 140px);
+  border-radius: 50%;
+  border: none;
+  background: var(--lr-btn-grad);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: clamp(14px, 1.9vmin, 18px);
+  cursor: pointer;
+  box-shadow: var(--lr-btn-glow);
+  z-index: 3;
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 200ms ease,
+              opacity 200ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+}
+
+.login-ring .ring-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.25) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.login-ring .ring-btn:hover:not(:disabled) {
+  transform: translate(-50%, -50%) scale(1.04);
+  box-shadow: 0 0 32px rgba(30, 144, 255, 0.70),
+              0 8px 22px rgba(0, 0, 0, 0.50);
+}
+
+.login-ring .ring-btn:active:not(:disabled) {
+  transform: translate(-50%, -50%) scale(0.97);
+}
+
+.login-ring .ring-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.login-ring .ring-btn__label {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Mensaje de error ─────────────────────────────────────────────────────── */
+.login-ring .ring-error {
+  position: absolute;
+  bottom: clamp(20px, 5%, 42px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--lr-error);
+  font-size: clamp(12px, 1.4vmin, 14px);
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  text-align: center;
+  max-width: 75%;
+  pointer-events: none;
+  z-index: 4;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.login-ring .ring-error--visible { opacity: 1; }
+
+/* ── ESTADOS DEL ANILLO ──────────────────────────────────────────────────── */
+
+/* idle: respiración sutil */
+.login-ring[data-state="idle"] .ring__active {
+  filter: drop-shadow(0 0 4px var(--lr-glow-cyan));
+}
+
+/* processing: rotación + pulso */
+.login-ring[data-state="processing"] .ring__rotor {
+  animation: ringRotate 2.5s linear infinite;
+}
+
+.login-ring[data-state="processing"] .ring__active {
+  animation: ringPulse 1.4s ease-in-out infinite;
+}
+
+.login-ring[data-state="processing"] .ring-btn {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+@keyframes ringRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes ringPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px var(--lr-glow-cyan))
+            drop-shadow(0 0 14px var(--lr-glow-blue));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px var(--lr-glow-cyan))
+            drop-shadow(0 0 30px var(--lr-glow-blue));
+  }
+}
+
+/* success */
+.login-ring[data-state="success"] .ring__rotor {
+  animation: none;
+  transition: transform 400ms ease-out;
+}
+
+.login-ring[data-state="success"] .ring__active {
+  animation: successFlash 600ms ease-out;
+  filter: drop-shadow(0 0 14px var(--lr-success))
+          drop-shadow(0 0 26px rgba(61, 220, 132, 0.45));
+}
+
+@keyframes successFlash {
+  0%   { filter: drop-shadow(0 0 6px var(--lr-success)); }
+  40%  { filter: drop-shadow(0 0 22px var(--lr-success))
+                 drop-shadow(0 0 40px rgba(61, 220, 132, 0.7)); }
+  100% { filter: drop-shadow(0 0 14px var(--lr-success))
+                 drop-shadow(0 0 26px rgba(61, 220, 132, 0.45)); }
+}
+
+/* error */
+.login-ring[data-state="error"] .ring__rotor {
+  animation: none;
+}
+
+.login-ring[data-state="error"] .ring__active {
+  animation: errorPulse 0.25s ease-in-out 3;
+  filter: drop-shadow(0 0 14px var(--lr-error))
+          drop-shadow(0 0 26px rgba(255, 77, 109, 0.45));
+}
+
+@keyframes errorPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* Shake del componente completo en error */
+.ring-shake { animation: ringShake 0.4s ease-in-out; }
+@keyframes ringShake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX( 6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX( 4px); }
+}
+
+/* Compat: nombre legacy usado por código antiguo */
+@keyframes pinShake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX( 6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX( 4px); }
+}
+
+/* ── FLUJO POST-LOGIN (GPS / checada / éxito / error) ───────────────────── */
+.login-ring--flow .ring-panel--flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.6%, 16px);
+  padding: 0 14%;
+  text-align: center;
+}
+
+.login-ring--flow .ring-flow__avatar {
+  font-size: clamp(36px, 6vmin, 56px);
+  margin-bottom: 6px;
+}
+
+.login-ring--flow .ring-flow__check {
+  font-size: clamp(56px, 9vmin, 88px);
+  color: var(--lr-success);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(61, 220, 132, 0.6);
+  margin-bottom: 4px;
+}
+
+.login-ring--flow .ring-flow__cross {
+  font-size: clamp(56px, 9vmin, 88px);
+  color: var(--lr-error);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(255, 77, 109, 0.55);
+  margin-bottom: 4px;
+}
+
+.login-ring--flow .ring-flow__title {
+  color: var(--lr-success);
+  font-size: clamp(18px, 2.4vmin, 24px);
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.login-ring--flow .ring-flow__title--err { color: var(--lr-error); }
+
+.login-ring--flow .ring-flow__name {
+  color: #94A3B8;
+  font-size: clamp(12px, 1.5vmin, 15px);
+  font-weight: 500;
+}
+
+.login-ring--flow .ring-flow__status {
+  color: #94A3B8;
+  font-size: clamp(13px, 1.6vmin, 16px);
+  font-weight: 500;
+}
+
+.login-ring--flow .ring-flow__zone {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: clamp(11px, 1.4vmin, 13px);
+  font-weight: 700;
+  background: rgba(15, 26, 46, 0.6);
+  border: 1px solid;
+  margin-top: 4px;
+}
+
+.login-ring--flow .ring-flow__spinner {
+  width: clamp(40px, 6vmin, 56px);
+  height: clamp(40px, 6vmin, 56px);
+  border: 4px solid rgba(127, 223, 255, 0.18);
+  border-top-color: var(--lr-ring-cyan);
+  border-radius: 50%;
+  animation: ringFlowSpin 0.9s linear infinite;
+  margin-top: 8px;
+}
+
+@keyframes ringFlowSpin {
+  to { transform: rotate(360deg); }
+}
+
+.login-ring--flow .ring-flow__countdown {
+  position: relative;
+  width: clamp(56px, 8vmin, 72px);
+  height: clamp(56px, 8vmin, 72px);
+  margin-top: 6px;
+}
+
+.login-ring--flow .ring-flow__countdown svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.login-ring--flow .ring-flow__countdown-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lr-ring-cyan);
+  font-size: clamp(20px, 2.8vmin, 26px);
+  font-weight: 800;
+  text-shadow: 0 0 12px rgba(127, 223, 255, 0.5);
+}
+
+/* Botón de retry: hereda del botón principal pero más chico */
+.login-ring--flow .ring-btn--retry {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 12px 28px;
+  border-radius: 999px;
+  font-size: clamp(13px, 1.6vmin, 15px);
+  margin-top: 10px;
+}
+
+/* ── REDUCED MOTION ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .login-ring[data-state="processing"] .ring__rotor,
+  .login-ring[data-state="processing"] .ring__active,
+  .login-ring .ring-lock {
+    animation: none;
+  }
+  .ring-shake { animation: none; }
+  .login-ring .ring__active { transition: stroke-dashoffset 100ms linear; }
+}
+
+/* ── Utilidad accesible ──────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ── Mobile fine-tune ─────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .login-ring .ring-panel { padding: 0 10%; }
+  .login-ring .ring-field { max-width: 78%; }
+  .login-ring .ring-input { padding: 10px 18px; }
+}
