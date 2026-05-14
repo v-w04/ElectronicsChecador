@@ -1,5 +1,8 @@
 // ============================================================================
-// SISTEMA DE ACCESO — PIN + CONTRASEÑA EN UNA SOLA PANTALLA
+// SISTEMA DE ACCESO — LOGIN CIRCULAR (Electronics México)
+// ============================================================================
+// ⚠️ LÓGICA INTOCADA: validación de PIN/contraseña, flujo GPS, registro de
+// checadas. Solo se reescribió la capa visual (markup + animación del anillo).
 // ============================================================================
 
 function mostrarPantallaPIN() {
@@ -8,46 +11,184 @@ function mostrarPantallaPIN() {
 
   var overlay = document.createElement('div');
   overlay.id = 'pin-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  overlay.className = 'pin-overlay';
 
+  // Toda la estructura usa los mismos IDs que procesarAcceso espera:
+  //   #input-pin, #input-contrasena, #input-contrasena2,
+  //   #contrasena-label, #contrasena2-section, #btn-acceso,
+  //   #acceso-error, #pin-box
   var box = document.createElement('div');
   box.id = 'pin-box';
-  box.style.cssText = 'background:rgba(30,41,59,0.95);border:2px solid rgba(59,130,246,0.4);border-radius:20px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);';
+  box.className = 'login-ring';
+  box.setAttribute('data-state', 'idle');
+
   box.innerHTML =
-    '<div style="font-size:48px;margin-bottom:12px;">\uD83D\uDD10</div>' +
-    '<h2 style="color:#F1F5F9;font-size:20px;font-weight:700;margin-bottom:4px;">Electronics M&eacute;xico</h2>' +
-    '<p style="color:#64748B;font-size:12px;margin-bottom:24px;">Ingresa tu PIN y contrase&ntilde;a</p>' +
-    '<div style="margin-bottom:14px;text-align:left;">' +
-      '<label style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">PIN de acceso</label>' +
-      '<input id="input-pin" type="password" inputmode="numeric" maxlength="4" placeholder="&bull;&bull;&bull;&bull;" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:22px;text-align:center;letter-spacing:8px;outline:none;box-sizing:border-box;" />' +
-    '</div>' +
-    '<div style="margin-bottom:20px;text-align:left;">' +
-      '<label id="contrasena-label" style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Contrase&ntilde;a</label>' +
-      '<input id="input-contrasena" type="password" placeholder="Contrase&ntilde;a" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;" />' +
-      '<div id="contrasena2-section" style="display:none;margin-top:10px;">' +
-        '<input id="input-contrasena2" type="password" placeholder="Confirmar contrase&ntilde;a" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid rgba(59,130,246,0.3);border-radius:12px;color:#F1F5F9;font-size:16px;text-align:center;outline:none;box-sizing:border-box;" />' +
+    // ── SVG: riel + anillo activo ────────────────────────────────────────────
+    '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+      '<defs>' +
+        '<linearGradient id="ringGradient" x1="0%" y1="100%" x2="100%" y2="0%">' +
+          '<stop offset="0%"  stop-color="#2456a8"/>' +
+          '<stop offset="55%" stop-color="#1e90ff"/>' +
+          '<stop offset="100%" stop-color="#7fdfff"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="ringErrorGradient" x1="0%" y1="100%" x2="100%" y2="0%">' +
+          '<stop offset="0%"  stop-color="#7a1a2d"/>' +
+          '<stop offset="100%" stop-color="#ff4d6d"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="ringSuccessGradient" x1="0%" y1="100%" x2="100%" y2="0%">' +
+          '<stop offset="0%"  stop-color="#14633e"/>' +
+          '<stop offset="100%" stop-color="#3ddc84"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+      '<g class="ring__rotor">' +
+        '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                'stroke-dasharray="1853.54" stroke-dashoffset="1853.54" ' +
+                'transform="rotate(-90 300 300)" />' +
+      '</g>' +
+    '</svg>' +
+
+    // ── Panel interior ──────────────────────────────────────────────────────
+    '<div class="ring-panel">' +
+      // Campo PIN (mitad superior, sin candado)
+      '<div class="ring-field ring-field--top">' +
+        '<label class="ring-label" for="input-pin">PIN</label>' +
+        '<input id="input-pin" class="ring-input ring-input--pin" type="password" ' +
+               'inputmode="numeric" maxlength="4" autocomplete="off" ' +
+               'placeholder="••••" aria-label="PIN de acceso" />' +
       '</div>' +
-    '</div>' +
-    '<button id="btn-acceso" style="width:100%;padding:15px;background:linear-gradient(135deg,#3B82F6,#06B6D4);border:none;border-radius:12px;color:white;font-weight:800;font-size:16px;cursor:pointer;">Entrar</button>' +
-    '<div id="acceso-error" style="margin-top:14px;color:#EF4444;font-size:13px;font-weight:600;min-height:18px;opacity:0;transition:opacity 0.3s;"></div>';
+
+      // Divisor + botón Entrar
+      '<div class="ring-divider" aria-hidden="true"></div>' +
+      '<button id="btn-acceso" class="ring-btn" type="button">' +
+        '<span class="ring-btn__label">Entrar</span>' +
+      '</button>' +
+
+      // Campo Contraseña (mitad inferior)
+      '<div class="ring-field ring-field--bottom">' +
+        '<label id="contrasena-label" class="ring-label" for="input-contrasena">Contraseña</label>' +
+        '<input id="input-contrasena" class="ring-input" type="password" ' +
+               'autocomplete="current-password" placeholder="••••••" ' +
+               'aria-label="Contraseña" />' +
+        '<div id="contrasena2-section" class="ring-field__confirm" style="display:none;">' +
+          '<input id="input-contrasena2" class="ring-input" type="password" ' +
+                 'autocomplete="new-password" placeholder="Confirmar" ' +
+                 'aria-label="Confirmar contraseña" />' +
+        '</div>' +
+      '</div>' +
+
+      // Mensaje de error (dentro del círculo)
+      '<div id="acceso-error" class="ring-error" aria-live="polite"></div>' +
+      // Anuncio accesible
+      '<div class="sr-only" aria-live="polite" id="status-announcer"></div>' +
+    '</div>';
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
+  // ── Reset de variables globales (igual que antes) ────────────────────────
   window._pinChofer = null;
   window._nombreChofer = null;
   window._idChofer = null;
 
-  var ip = document.getElementById('input-pin');
-  var ic = document.getElementById('input-contrasena');
+  // ── Hooks de eventos (idénticos al original) ─────────────────────────────
+  var ip  = document.getElementById('input-pin');
+  var ic  = document.getElementById('input-contrasena');
   var ic2 = document.getElementById('input-contrasena2');
   var btn = document.getElementById('btn-acceso');
-  if (ip) { ip.addEventListener('keydown', function(e){ if(e.key==='Enter' && ic) ic.focus(); }); setTimeout(function(){ ip.focus(); }, 100); }
-  if (ic) ic.addEventListener('keydown', function(e){ if(e.key==='Enter') procesarAcceso(); });
-  if (ic2) ic2.addEventListener('keydown', function(e){ if(e.key==='Enter') procesarAcceso(); });
-  if (btn) btn.addEventListener('click', procesarAcceso);
+
+  if (ip) {
+    ip.addEventListener('keydown', function(e) { if (e.key === 'Enter' && ic) ic.focus(); });
+    ip.addEventListener('input',  _updateRingFromInputs);
+    setTimeout(function() { ip.focus(); }, 100);
+  }
+  if (ic) {
+    ic.addEventListener('keydown', function(e) { if (e.key === 'Enter') procesarAcceso(); });
+    ic.addEventListener('input',  _updateRingFromInputs);
+  }
+  if (ic2) {
+    ic2.addEventListener('keydown', function(e) { if (e.key === 'Enter') procesarAcceso(); });
+    ic2.addEventListener('input',  _updateRingFromInputs);
+  }
+  if (btn) {
+    btn.addEventListener('click', procesarAcceso);
+  }
 }
 
+// ============================================================================
+// ANIMACIÓN DEL ANILLO — solo capa visual, no toca validación
+// ============================================================================
+var _RING_CIRCUMFERENCE = 1853.54;          // 2 * π * 295
+var _RING_HALF          = _RING_CIRCUMFERENCE / 2;
+var _RING_MIN_PIN       = 4;                // PIN 4 dígitos = mitad superior llena
+var _RING_MIN_PWD       = 6;                // contraseña ≥ 6 chars = mitad inferior llena
+
+function _updateRingFromInputs() {
+  var ip = document.getElementById('input-pin');
+  var ic = document.getElementById('input-contrasena');
+  var box = document.getElementById('pin-box');
+  if (!box) return;
+  var arc = box.querySelector('.ring__active');
+  if (!arc) return;
+
+  // No actualizar manualmente si está en processing/success/error
+  var state = box.getAttribute('data-state');
+  if (state === 'processing' || state === 'success' || state === 'error') return;
+
+  var pinLen = Math.min((ip && ip.value) ? ip.value.length : 0, _RING_MIN_PIN);
+  var pwdLen = Math.min((ic && ic.value) ? ic.value.length : 0, _RING_MIN_PWD);
+
+  var pinProgress = pinLen / _RING_MIN_PIN;
+  var pwdProgress = pwdLen / _RING_MIN_PWD;
+
+  var filled = (pinProgress * _RING_HALF) + (pwdProgress * _RING_HALF);
+  var offset = _RING_CIRCUMFERENCE - filled;
+  arc.style.strokeDashoffset = offset;
+
+  box.setAttribute('data-state', (pinLen + pwdLen) > 0 ? 'filling' : 'idle');
+}
+
+function _setRingState(state) {
+  var box = document.getElementById('pin-box');
+  if (!box) return;
+  box.setAttribute('data-state', state);
+
+  var arc = box.querySelector('.ring__active');
+  if (!arc) return;
+
+  if (state === 'processing' || state === 'success' || state === 'error') {
+    arc.style.strokeDashoffset = 0;
+  }
+
+  if (state === 'success') {
+    arc.setAttribute('stroke', 'url(#ringSuccessGradient)');
+  } else if (state === 'error') {
+    arc.setAttribute('stroke', 'url(#ringErrorGradient)');
+  } else {
+    arc.setAttribute('stroke', 'url(#ringGradient)');
+  }
+
+  var announcer = document.getElementById('status-announcer');
+  if (announcer) {
+    var msgs = {
+      processing: 'Iniciando sesión',
+      success:    'Acceso concedido',
+      error:      'Error de credenciales'
+    };
+    if (msgs[state]) announcer.textContent = msgs[state];
+  }
+}
+
+// Helper: cambiar label del botón sin romper su markup interno
+function _setBtnLabel(btn, text) {
+  if (!btn) return;
+  var lbl = btn.querySelector('.ring-btn__label');
+  if (lbl) { lbl.textContent = text; } else { btn.textContent = text; }
+}
+
+// ============================================================================
+// LÓGICA DE VALIDACIÓN — INTOCADA (solo se añadieron llamadas a _setRingState)
+// ============================================================================
 function procesarAcceso() {
   var pin = (document.getElementById('input-pin') || {}).value || '';
   var contrasena = (document.getElementById('input-contrasena') || {}).value || '';
@@ -59,14 +200,15 @@ function procesarAcceso() {
   if (!contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
 
   var btn = document.getElementById('btn-acceso');
-  if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+  if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Verificando...'); }
+  _setRingState('processing');
 
   // Paso 1: validar PIN
   google.script.run
     .withSuccessHandler(function(pinResult) {
       if (!pinResult.ok) {
         mostrarErrorAcceso(pinResult.message || 'PIN incorrecto');
-        if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+        if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
         document.getElementById('input-pin').value = '';
         document.getElementById('input-contrasena').value = '';
         document.getElementById('input-pin').focus();
@@ -74,8 +216,12 @@ function procesarAcceso() {
       }
 
       if (pinResult.tipo === 'ADMIN') {
-        document.getElementById('pin-overlay').remove();
-        if (typeof window._inicializarDashboard === 'function') window._inicializarDashboard();
+        _setRingState('success');
+        setTimeout(function() {
+          var ov = document.getElementById('pin-overlay');
+          if (ov) ov.remove();
+          if (typeof window._inicializarDashboard === 'function') window._inicializarDashboard();
+        }, 600);
         return;
       }
 
@@ -88,86 +234,101 @@ function procesarAcceso() {
         var contrasena2 = (document.getElementById('input-contrasena2') || {}).value || '';
         contrasena2 = contrasena2.trim();
 
-        // Mostrar campo de confirmación si no está visible
         var sec2 = document.getElementById('contrasena2-section');
         if (sec2 && sec2.style.display === 'none') {
           sec2.style.display = 'block';
           var label = document.getElementById('contrasena-label');
-          if (label) label.textContent = 'Crear contraseña (primera vez)';
-          if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; }
+          if (label) label.textContent = 'Crear contraseña';
+          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); }
+          _setRingState('filling');
           setTimeout(function() { var c2 = document.getElementById('input-contrasena2'); if (c2) c2.focus(); }, 100);
           return;
         }
 
         if (!contrasena2) {
           mostrarErrorAcceso('Confirma tu contraseña');
-          if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; }
+          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); }
           return;
         }
         if (contrasena !== contrasena2) {
           mostrarErrorAcceso('Las contraseñas no coinciden');
-          if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; }
+          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); }
           return;
         }
 
-        // Guardar contraseña nueva y continuar
-        if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+        if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Guardando...'); }
+        _setRingState('processing');
         google.script.run
           .withSuccessHandler(function(r) {
-            if (!r.ok) { mostrarErrorAcceso(r.message || 'Error al guardar'); if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; } return; }
-            _lanzarFlujoChecar(nombre, idUsuario);
+            if (!r.ok) { mostrarErrorAcceso(r.message || 'Error al guardar'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); } return; }
+            _setRingState('success');
+            setTimeout(function() { _lanzarFlujoChecar(nombre, idUsuario); }, 500);
           })
-          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; btn.textContent = '✅ Crear y Entrar'; } })
+          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear y Entrar'); } })
           .guardarContrasena(pin, nombre, contrasena);
 
       } else {
-        // Validar contraseña existente
-        if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+        if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Verificando...'); }
+        _setRingState('processing');
         google.script.run
           .withSuccessHandler(function(r) {
             if (!r.ok) {
               mostrarErrorAcceso(r.message || 'Contraseña incorrecta');
-              if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+              if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
               document.getElementById('input-contrasena').value = '';
               document.getElementById('input-contrasena').focus();
               return;
             }
-            _lanzarFlujoChecar(nombre, idUsuario);
+            _setRingState('success');
+            setTimeout(function() { _lanzarFlujoChecar(nombre, idUsuario); }, 500);
           })
-          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; } })
+          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); } })
           .validarContrasena(pin, contrasena);
       }
     })
     .withFailureHandler(function() {
       mostrarErrorAcceso('Error de conexión');
-      if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+      if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
     })
     .validarPin(pin);
 }
 
-// Flujo automático: GPS → guarda → éxito 5s → vuelve al PIN
+// ============================================================================
+// FLUJO POST-LOGIN: GPS → guarda → éxito 5s → vuelve al PIN
+// ============================================================================
 function _lanzarFlujoChecar(nombre, idUsuario) {
-  // Reemplazar contenido del pin-box con pantalla de proceso
   var box = document.getElementById('pin-box');
   if (!box) return;
-  box.innerHTML =
-    '<div style="font-size:40px;margin-bottom:16px;">👤</div>' +
-    '<div style="color:#F1F5F9;font-size:18px;font-weight:700;margin-bottom:6px;">' + nombre + '</div>' +
-    '<div id="flujo-status" style="color:#94A3B8;font-size:14px;margin-bottom:20px;">Obteniendo ubicación GPS...</div>' +
-    '<div id="flujo-spinner" style="width:48px;height:48px;border:4px solid rgba(59,130,246,0.2);border-top:4px solid #3B82F6;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 20px;"></div>' +
-    '<div id="flujo-resultado" style="display:none;"></div>';
 
-  // Agregar keyframe spin si no existe
-  if (!document.getElementById('flujo-spin-style')) {
-    var st = document.createElement('style');
-    st.id = 'flujo-spin-style';
-    st.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
-    document.head.appendChild(st);
-  }
+  box.setAttribute('data-state', 'processing');
+  box.classList.add('login-ring--flow');
+
+  box.innerHTML =
+    '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+      '<defs>' +
+        '<linearGradient id="ringGradientFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+          '<stop offset="0%"  stop-color="#2456a8"/>' +
+          '<stop offset="55%" stop-color="#1e90ff"/>' +
+          '<stop offset="100%" stop-color="#7fdfff"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+      '<g class="ring__rotor">' +
+        '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                'stroke="url(#ringGradientFlow)" stroke-dasharray="1853.54" ' +
+                'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+      '</g>' +
+    '</svg>' +
+    '<div class="ring-panel ring-panel--flow">' +
+      '<div class="ring-flow__avatar">👤</div>' +
+      '<div class="ring-flow__name">' + nombre + '</div>' +
+      '<div id="flujo-status" class="ring-flow__status">Obteniendo ubicación GPS...</div>' +
+      '<div class="ring-flow__spinner"></div>' +
+    '</div>';
 
   function setStatus(msg, color) {
     var el = document.getElementById('flujo-status');
-    if (el) { el.textContent = msg; el.style.color = color || '#94A3B8'; }
+    if (el) { el.textContent = msg; if (color) el.style.color = color; }
   }
 
   function lanzarGPS() {
@@ -176,7 +337,6 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
       return;
     }
 
-    // Cargar zonas si no están
     if (!_zonasValidas || _zonasValidas.length === 0) {
       setStatus('Cargando zonas...', '#94A3B8');
       google.script.run
@@ -219,7 +379,6 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
           });
       },
       function() {
-        // GPS falló — registrar sin GPS
         _registrarChecada(nombre, idUsuario, null, setStatus);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -261,23 +420,41 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
 
       if (result.ok) {
         var zonaValida = datos.estadoZona === 'VÁLIDA';
-        var colorZona = zonaValida ? '#10B981' : '#F59E0B';
-        var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona — registrada';
+        var colorZona = zonaValida ? '#3ddc84' : '#f4c542';
+        var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona';
 
+        box.setAttribute('data-state', 'success');
         box.innerHTML =
-          '<div style="font-size:64px;margin-bottom:12px;">✅</div>' +
-          '<div style="color:#10B981;font-size:20px;font-weight:800;margin-bottom:6px;">¡Checada Registrada!</div>' +
-          '<div style="color:#94A3B8;font-size:13px;margin-bottom:8px;">' + nombre + ' · ' + hora + '</div>' +
-          '<div style="padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:20px;color:' + colorZona + ';background:rgba(16,185,129,0.1);border:1px solid ' + colorZona + ';">' + textoZona + '</div>' +
-          '<div id="countdown-circle" style="width:64px;height:64px;margin:0 auto;position:relative;">' +
-            '<svg width="64" height="64" style="transform:rotate(-90deg);">' +
-              '<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(59,130,246,0.2)" stroke-width="5"/>' +
-              '<circle id="countdown-arc" cx="32" cy="32" r="26" fill="none" stroke="#3B82F6" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="0" style="transition:stroke-dashoffset 1s linear;"/>' +
-            '</svg>' +
-            '<div id="countdown-num" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#F1F5F9;font-size:22px;font-weight:800;">5</div>' +
+          '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+            '<defs>' +
+              '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+                '<stop offset="0%"  stop-color="#14633e"/>' +
+                '<stop offset="100%" stop-color="#3ddc84"/>' +
+              '</linearGradient>' +
+            '</defs>' +
+            '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+            '<g class="ring__rotor">' +
+              '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                      'stroke="url(#ringSuccessFlow)" stroke-dasharray="1853.54" ' +
+                      'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+            '</g>' +
+          '</svg>' +
+          '<div class="ring-panel ring-panel--flow">' +
+            '<div class="ring-flow__check">✓</div>' +
+            '<div class="ring-flow__title">¡Checada Registrada!</div>' +
+            '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
+            '<div class="ring-flow__zone" style="color:' + colorZona + ';border-color:' + colorZona + ';">' + textoZona + '</div>' +
+            '<div class="ring-flow__countdown">' +
+              '<svg viewBox="0 0 64 64" width="64" height="64">' +
+                '<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(127,223,255,0.15)" stroke-width="4"/>' +
+                '<circle id="countdown-arc" cx="32" cy="32" r="26" fill="none" stroke="#7fdfff" stroke-width="4" ' +
+                        'stroke-dasharray="163" stroke-dashoffset="0" stroke-linecap="round" ' +
+                        'transform="rotate(-90 32 32)" />' +
+              '</svg>' +
+              '<div id="countdown-num" class="ring-flow__countdown-num">5</div>' +
+            '</div>' +
           '</div>';
 
-        // Countdown 5 → 0
         var seg = 5;
         var arc = document.getElementById('countdown-arc');
         var num = document.getElementById('countdown-num');
@@ -292,43 +469,98 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
         }, 1000);
 
       } else {
+        box.setAttribute('data-state', 'error');
         box.innerHTML =
-          '<div style="font-size:48px;margin-bottom:12px;">❌</div>' +
-          '<div style="color:#EF4444;font-size:16px;margin-bottom:20px;">' + (result.message || 'Error al registrar') + '</div>' +
-          '<button onclick="mostrarPantallaPIN()" style="padding:12px 24px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;border-radius:10px;color:#EF4444;font-size:14px;cursor:pointer;">Reintentar</button>';
+          '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+            '<defs>' +
+              '<linearGradient id="ringErrorFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+                '<stop offset="0%"  stop-color="#7a1a2d"/>' +
+                '<stop offset="100%" stop-color="#ff4d6d"/>' +
+              '</linearGradient>' +
+            '</defs>' +
+            '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+            '<g class="ring__rotor">' +
+              '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                      'stroke="url(#ringErrorFlow)" stroke-dasharray="1853.54" ' +
+                      'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+            '</g>' +
+          '</svg>' +
+          '<div class="ring-panel ring-panel--flow">' +
+            '<div class="ring-flow__cross">✕</div>' +
+            '<div class="ring-flow__title ring-flow__title--err">Error al registrar</div>' +
+            '<div class="ring-flow__name">' + (result.message || '') + '</div>' +
+            '<button class="ring-btn ring-btn--retry" onclick="mostrarPantallaPIN()">' +
+              '<span class="ring-btn__label">Reintentar</span>' +
+            '</button>' +
+          '</div>';
       }
     })
     .withFailureHandler(function(err) {
       var box = document.getElementById('pin-box');
-      if (box) box.innerHTML =
-        '<div style="font-size:48px;margin-bottom:12px;">❌</div>' +
-        '<div style="color:#EF4444;font-size:16px;margin-bottom:20px;">Error de conexión</div>' +
-        '<button onclick="mostrarPantallaPIN()" style="padding:12px 24px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;border-radius:10px;color:#EF4444;font-size:14px;cursor:pointer;">Reintentar</button>';
+      if (!box) return;
+      box.setAttribute('data-state', 'error');
+      box.innerHTML =
+        '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+          '<defs>' +
+            '<linearGradient id="ringErrorFlow2" x1="0%" y1="100%" x2="100%" y2="0%">' +
+              '<stop offset="0%"  stop-color="#7a1a2d"/>' +
+              '<stop offset="100%" stop-color="#ff4d6d"/>' +
+            '</linearGradient>' +
+          '</defs>' +
+          '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+          '<g class="ring__rotor">' +
+            '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                    'stroke="url(#ringErrorFlow2)" stroke-dasharray="1853.54" ' +
+                    'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+          '</g>' +
+        '</svg>' +
+        '<div class="ring-panel ring-panel--flow">' +
+          '<div class="ring-flow__cross">✕</div>' +
+          '<div class="ring-flow__title ring-flow__title--err">Error de conexión</div>' +
+          '<button class="ring-btn ring-btn--retry" onclick="mostrarPantallaPIN()">' +
+            '<span class="ring-btn__label">Reintentar</span>' +
+          '</button>' +
+        '</div>';
     })
     .guardarChecadaChofer(datos);
 }
 
+// ============================================================================
+// MENSAJE DE ERROR — actualiza el anillo a rojo + shake, vuelve a filling
+// ============================================================================
 function mostrarErrorAcceso(msg) {
   const errEl = document.getElementById('acceso-error');
-  if (!errEl) return;
-  errEl.textContent = msg;
-  errEl.style.opacity = '1';
-  setTimeout(() => { errEl.style.opacity = '0'; }, 3000);
-  // Shake solo en el box
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.classList.add('ring-error--visible');
+    setTimeout(function() { errEl.classList.remove('ring-error--visible'); }, 3000);
+  }
+
+  _setRingState('error');
   const box = document.getElementById('pin-box');
   if (box) {
-    box.style.animation = 'pinShake 0.4s ease';
-    setTimeout(() => { box.style.animation = ''; }, 400);
+    box.classList.remove('ring-shake');
+    void box.offsetWidth; // reflow para reiniciar animación
+    box.classList.add('ring-shake');
   }
+
+  setTimeout(function() {
+    var box2 = document.getElementById('pin-box');
+    if (!box2) return;
+    box2.classList.remove('ring-shake');
+    _setRingState('filling');
+    _updateRingFromInputs();
+  }, 1500);
 }
 
 // ============================================================================
-// CHECADOR CHOFER DIRECTO — Layout horizontal, sin scroll
+// CHECADOR CHOFER DIRECTO — mantenido por compatibilidad
 // ============================================================================
 function verificarBtnRegistrar() {
-  // mantenida por compatibilidad - ya no usada en flujo directo
+  // ya no usada en flujo directo
 }
 var _streamCamara = null;
+
 // ============================================================================
 // PARTÍCULAS DE FONDO
 // ============================================================================
@@ -378,7 +610,7 @@ function ejecutarControlAsistencia() {
 
   const overlay = document.createElement('div');
   overlay.id = 'progress-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.95);z-index:99998;display:flex;align-items:center;justify-content:center;';
 
   const modalHTML = document.createElement('div');
   modalHTML.style.cssText = 'background:rgba(30,41,59,0.95);border:2px solid var(--primary);border-radius:16px;padding:48px;max-width:500px;width:90%;text-align:center;';
