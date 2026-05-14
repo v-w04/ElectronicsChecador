@@ -58,10 +58,10 @@ function mostrarPantallaPIN() {
                'placeholder="••••" aria-label="PIN de acceso" />' +
       '</div>' +
 
-      // Divisor + botón Entrar
+      // Divisor + botón Entrar (logo de Electronics)
       '<div class="ring-divider" aria-hidden="true"></div>' +
-      '<button id="btn-acceso" class="ring-btn" type="button">' +
-        '<span class="ring-btn__label">Entrar</span>' +
+      '<button id="btn-acceso" class="ring-btn" type="button" aria-label="Entrar">' +
+        '<img class="ring-btn__logo" src="logo-electronics.png" alt="Entrar" draggable="false" />' +
       '</button>' +
 
       // Campo Contraseña (mitad inferior)
@@ -249,9 +249,10 @@ function _setRingState(state) {
   }
 }
 
-// Helper: cambiar label del botón con ajuste automático
-// - Estados ocupados muestran spinner (sin texto que no cabe)
-// - Textos cortos se renderizan normalmente
+// Helper: cambiar contenido del botón con ajuste automático
+// - "Entrar" → muestra el logo de Electronics (no texto)
+// - Estados ocupados (Verificando/Guardando/Procesando) → spinner
+// - Cualquier otro texto corto → render normal en span
 function _setBtnLabel(btn, text) {
   if (!btn) return;
   var BUSY_STATES = { 'Verificando': true, 'Guardando': true, 'Procesando': true };
@@ -259,12 +260,21 @@ function _setBtnLabel(btn, text) {
   var key = (text || '').replace(/\.{2,}$/, '').trim();
 
   if (BUSY_STATES[key]) {
-    // Estado ocupado → spinner sin texto (cabe siempre)
+    // Estado ocupado → spinner blanco (cabe siempre, indica progreso)
     btn.classList.add('ring-btn--busy');
+    btn.classList.remove('ring-btn--logo');
     btn.innerHTML = '<span class="ring-btn__spinner" aria-label="' + text + '"></span>';
-  } else {
-    // Texto normal — restaurar markup con span del label
+  } else if (key === 'Entrar') {
+    // Estado normal de entrada → mostrar logo
     btn.classList.remove('ring-btn--busy');
+    btn.classList.add('ring-btn--logo');
+    btn.setAttribute('aria-label', 'Entrar');
+    btn.innerHTML = '<img class="ring-btn__logo" src="logo-electronics.png" alt="Entrar" draggable="false" />';
+  } else {
+    // Cualquier otro texto (ej. "Crear", "Reintentar") — render normal
+    btn.classList.remove('ring-btn--busy');
+    btn.classList.remove('ring-btn--logo');
+    btn.setAttribute('aria-label', text);
     btn.innerHTML = '<span class="ring-btn__label">' + text + '</span>';
   }
 }

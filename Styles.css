@@ -1718,6 +1718,22 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   to { transform: rotate(360deg); }
 }
 
+/* ── Logo de Electronics dentro del botón Entrar ─────────────────────────── */
+.login-ring .ring-btn__logo {
+  width: 62%;
+  height: 62%;
+  max-width: 88px;
+  max-height: 88px;
+  display: block;
+  position: relative;
+  z-index: 1;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+
 /* ── Mensaje de error ─────────────────────────────────────────────────────── */
 .login-ring .ring-error {
   position: absolute;
