@@ -1,13 +1,125 @@
 // ============================================================================
 // SISTEMA DE ACCESO — LOGIN CIRCULAR (Electronics México)
 // ============================================================================
-// ⚠️ LÓGICA INTOCADA: validación de PIN/contraseña, flujo GPS, registro de
-// checadas. Solo se reescribió la capa visual (markup + animación del anillo).
+// ⚠️ LÓGICA: validación local con cache en localStorage. GAS solo se consulta
+// una vez al cargar la app (o cuando ADMIN fuerza resync). La checada se
+// guarda en background sin bloquear la pantalla de éxito.
 // ============================================================================
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CACHE LOCAL DE USUARIOS — PIN + contraseña sin llamar a GAS cada vez
+// ─────────────────────────────────────────────────────────────────────────────
+// Estructura: { "0001": {pin, idUsuario, nombre, tipo, contrasena}, ... }
+// La primera carga consulta GAS (getTodosLosUsuarios), guarda en localStorage
+// y todas las siguientes cargas son instantáneas. ADMIN puede invocar
+// sincronizarUsuariosManual() para forzar el resync.
+var _usuariosCache = null;
+
+// _cargarUsuariosCache flujo:
+//  1) Si ya está en memoria → usar (instantáneo)
+//  2) Si está en localStorage → usar de inmediato + chequear versión en background
+//  3) Si no hay cache → sincronizar desde GAS
+// Cuando GAS devuelve una versión más nueva que la guardada, el cache se
+// invalida automáticamente y se vuelve a llamar la próxima vez.
+function _cargarUsuariosCache(callback) {
+  if (_usuariosCache) {
+    if (callback) callback(_usuariosCache);
+    _chequearVersionEnBackground();
+    return;
+  }
+  try {
+    var guardado = localStorage.getItem('em_usuarios_cache');
+    if (guardado) {
+      _usuariosCache = JSON.parse(guardado);
+      if (callback) callback(_usuariosCache);
+      _chequearVersionEnBackground();
+      return;
+    }
+  } catch(e) {}
+  _sincronizarUsuarios(callback);
+}
+
+// Chequea en background si el servidor tiene una versión más nueva del cache.
+// Si la versión cambió (ADMIN sincronizó desde Sheets), invalida el cache local
+// y vuelve a sincronizar sin bloquear nada. El usuario actual sigue viendo el
+// PIN normalmente; la próxima carga de la app ya tendrá los datos nuevos.
+function _chequearVersionEnBackground() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || !result.ok || !result.version) return;
+      var versionLocal = '0';
+      try { versionLocal = localStorage.getItem('em_usuarios_version') || '0'; } catch(e) {}
+      if (result.version.toString() !== versionLocal.toString()) {
+        console.log('🔄 Versión nueva detectada (' + versionLocal + ' → ' + result.version + '). Resincronizando...');
+        _usuariosCache = null;
+        try {
+          localStorage.removeItem('em_usuarios_cache');
+        } catch(e) {}
+        _sincronizarUsuarios(null);
+      }
+    })
+    .withFailureHandler(function() { /* sin conexión: usar cache local */ })
+    .getVersionUsuarios();
+}
+
+function _sincronizarUsuarios(callback) {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      // El backend devuelve { ok, usuarios:[{pin, idUsuario, nombre, tipo, contrasena}, ...] }
+      // Construir mapa pin → usuario para lookup O(1)
+      var mapa = {};
+      if (result && result.ok && Array.isArray(result.usuarios)) {
+        result.usuarios.forEach(function(u) {
+          if (u && u.pin) mapa[u.pin.toString().trim()] = u;
+        });
+      }
+      _usuariosCache = mapa;
+      try { localStorage.setItem('em_usuarios_cache', JSON.stringify(mapa)); } catch(e) {}
+
+      // Guardar también la versión actual del servidor para futuras comparaciones
+      google.script.run
+        .withSuccessHandler(function(v) {
+          if (v && v.ok && v.version) {
+            try { localStorage.setItem('em_usuarios_version', v.version.toString()); } catch(e) {}
+          }
+        })
+        .withFailureHandler(function() {})
+        .getVersionUsuarios();
+
+      if (callback) callback(_usuariosCache);
+    })
+    .withFailureHandler(function() {
+      _usuariosCache = {};
+      if (callback) callback(_usuariosCache);
+    })
+    .getTodosLosUsuarios();
+}
+
+// Función expuesta al ADMIN para forzar resync manual desde el dashboard
+window.sincronizarUsuariosManual = function() {
+  _usuariosCache = null;
+  try {
+    localStorage.removeItem('em_usuarios_cache');
+    localStorage.removeItem('em_usuarios_version');
+  } catch(e) {}
+  _sincronizarUsuarios(function() {
+    if (typeof mostrarNotificacion === 'function') {
+      mostrarNotificacion('success', '✅ Usuarios sincronizados');
+    } else {
+      alert('Usuarios sincronizados');
+    }
+  });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PANTALLA DE ACCESO
+// ─────────────────────────────────────────────────────────────────────────────
 function mostrarPantallaPIN() {
   var viejo = document.getElementById('pin-overlay');
   if (viejo) viejo.remove();
+
+  // Pre-cargar usuarios en background (si no están en localStorage, llama GAS)
+  _cargarUsuariosCache(function() {});
 
   var overlay = document.createElement('div');
   overlay.id = 'pin-overlay';
@@ -81,6 +193,8 @@ function mostrarPantallaPIN() {
         '<input id="input-contrasena" class="ring-input" type="password" ' +
                'inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" ' +
                'placeholder="••••" aria-label="Contraseña" />' +
+        // Campo de confirmación oculto — legado para creación de contraseña; con
+        // validación local todos los usuarios ya tienen contraseña en la hoja
         '<div id="contrasena2-section" class="ring-field__confirm" style="display:none;">' +
           '<input id="input-contrasena2" class="ring-input" type="password" ' +
                  'inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" ' +
@@ -314,101 +428,52 @@ function procesarAcceso() {
   if (!contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
 
   var btn = document.getElementById('btn-acceso');
-  if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Verificando...'); }
+  if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Verificando'); }
   _setRingState('processing');
 
-  // Paso 1: validar PIN
-  google.script.run
-    .withSuccessHandler(function(pinResult) {
-      if (!pinResult.ok) {
-        mostrarErrorAcceso(pinResult.message || 'PIN incorrecto');
-        if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
-        document.getElementById('input-pin').value = '';
-        document.getElementById('input-contrasena').value = '';
-        document.getElementById('input-pin').focus();
-        return;
-      }
+  // ── Validación LOCAL — usa cache en localStorage, sin llamar a GAS ──
+  // Si el cache aún no se cargó (primera vez), se carga ahora y luego valida
+  _cargarUsuariosCache(function(usuarios) {
+    var usuario = usuarios ? usuarios[pin] : null;
 
-      if (pinResult.tipo === 'ADMIN') {
-        _setRingState('success');
-        setTimeout(function() {
-          var ov = document.getElementById('pin-overlay');
-          if (ov) ov.remove();
-          if (typeof window._inicializarDashboard === 'function') window._inicializarDashboard();
-        }, 600);
-        return;
-      }
-
-      var nombre = pinResult.nombre;
-      var idUsuario = pinResult.idUsuario;
-      var tieneContrasena = pinResult.tieneContrasena;
-
-      if (!tieneContrasena) {
-        // Primera vez: verificar confirmación
-        var contrasena2 = (document.getElementById('input-contrasena2') || {}).value || '';
-        contrasena2 = contrasena2.trim();
-
-        var sec2 = document.getElementById('contrasena2-section');
-        if (sec2 && sec2.style.display === 'none') {
-          sec2.style.display = 'block';
-          var label = document.getElementById('contrasena-label');
-          if (label) label.textContent = 'Crear contraseña';
-          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); }
-          _setRingState('filling');
-          setTimeout(function() { var c2 = document.getElementById('input-contrasena2'); if (c2) c2.focus(); }, 100);
-          return;
-        }
-
-        if (!contrasena2) {
-          mostrarErrorAcceso('Confirma tu contraseña');
-          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); }
-          return;
-        }
-        if (contrasena !== contrasena2) {
-          mostrarErrorAcceso('Las contraseñas no coinciden');
-          if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); }
-          return;
-        }
-
-        if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Guardando...'); }
-        _setRingState('processing');
-        google.script.run
-          .withSuccessHandler(function(r) {
-            if (!r.ok) { mostrarErrorAcceso(r.message || 'Error al guardar'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); } return; }
-            _setRingState('success');
-            setTimeout(function() { _lanzarFlujoChecar(nombre, idUsuario); }, 500);
-          })
-          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Crear'); } })
-          .guardarContrasena(pin, nombre, contrasena);
-
-      } else {
-        if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Verificando...'); }
-        _setRingState('processing');
-        google.script.run
-          .withSuccessHandler(function(r) {
-            if (!r.ok) {
-              mostrarErrorAcceso(r.message || 'Contraseña incorrecta');
-              if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
-              document.getElementById('input-contrasena').value = '';
-              document.getElementById('input-contrasena').focus();
-              return;
-            }
-            _setRingState('success');
-            setTimeout(function() { _lanzarFlujoChecar(nombre, idUsuario); }, 500);
-          })
-          .withFailureHandler(function() { mostrarErrorAcceso('Error de conexión'); if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); } })
-          .validarContrasena(pin, contrasena);
-      }
-    })
-    .withFailureHandler(function() {
-      mostrarErrorAcceso('Error de conexión');
+    if (!usuario) {
+      mostrarErrorAcceso('PIN incorrecto');
       if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
-    })
-    .validarPin(pin);
+      var ip = document.getElementById('input-pin');
+      var ic = document.getElementById('input-contrasena');
+      if (ip) { ip.value = ''; ip.focus(); }
+      if (ic) ic.value = '';
+      return;
+    }
+
+    // ADMIN: solo PIN, no necesita contraseña adicional
+    if (usuario.tipo === 'ADMIN') {
+      _setRingState('success');
+      setTimeout(function() {
+        var ov = document.getElementById('pin-overlay');
+        if (ov) ov.remove();
+        if (typeof window._inicializarDashboard === 'function') window._inicializarDashboard();
+      }, 400);
+      return;
+    }
+
+    // CHOFER: validar contraseña local
+    if (contrasena !== (usuario.contrasena || '').toString().trim()) {
+      mostrarErrorAcceso('Contraseña incorrecta');
+      if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
+      var ic2 = document.getElementById('input-contrasena');
+      if (ic2) { ic2.value = ''; ic2.focus(); }
+      return;
+    }
+
+    // Validación OK — lanzar flujo de checada inmediatamente
+    _setRingState('success');
+    setTimeout(function() { _lanzarFlujoChecar(usuario.nombre, usuario.idUsuario); }, 250);
+  });
 }
 
 // ============================================================================
-// FLUJO POST-LOGIN: GPS → guarda → éxito 5s → vuelve al PIN
+// FLUJO POST-LOGIN: GPS → muestra éxito inmediato → GAS en background → vuelve
 // ============================================================================
 function _lanzarFlujoChecar(nombre, idUsuario) {
   var box = document.getElementById('pin-box');
@@ -467,10 +532,25 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
     }
 
     if (!_zonasValidas || _zonasValidas.length === 0) {
+      // Intentar leer de localStorage primero (instantáneo)
+      try {
+        var z = localStorage.getItem('em_zonas_cache');
+        if (z) {
+          var parsed = JSON.parse(z);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            _zonasValidas = parsed;
+            obtenerGPS();
+            return;
+          }
+        }
+      } catch(e) {}
+
+      // Fallback: pedir a GAS solo si no hay cache
       setStatus('Cargando zonas...', '#94A3B8');
       google.script.run
         .withSuccessHandler(function(res) {
           _zonasValidas = (res && res.zonas) ? res.zonas : [];
+          try { localStorage.setItem('em_zonas_cache', JSON.stringify(_zonasValidas)); } catch(e) {}
           obtenerGPS();
         })
         .withFailureHandler(function() { _zonasValidas = []; obtenerGPS(); })
@@ -518,8 +598,6 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
 }
 
 function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
-  setStatus('Registrando checada...', '#94A3B8');
-
   var ahora = new Date();
   var fecha = ahora.toISOString().substring(0, 10);
   var hora = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -542,149 +620,63 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     zonaCercana: zonaInfo.zonaCercana
   };
 
+  // ── Mostrar pantalla de éxito INMEDIATA — no esperar respuesta del GAS ──
+  var box = document.getElementById('pin-box');
+  if (box) {
+    var zonaValida = datos.estadoZona === 'VÁLIDA';
+    var colorZona = zonaValida ? '#3ddc84' : '#f4c542';
+    var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona';
+
+    box.removeAttribute('data-state');
+    box.innerHTML =
+      '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+        '<defs>' +
+          '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+            '<stop offset="0%"  stop-color="#14633e"/>' +
+            '<stop offset="100%" stop-color="#3ddc84"/>' +
+          '</linearGradient>' +
+          '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
+            '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
+            '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
+            '<feMerge>' +
+              '<feMergeNode in="blur2"/>' +
+              '<feMergeNode in="blur1"/>' +
+              '<feMergeNode in="SourceGraphic"/>' +
+            '</feMerge>' +
+          '</filter>' +
+        '</defs>' +
+        '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+        '<g class="ring__rotor">' +
+          '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                  'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
+                  'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+        '</g>' +
+      '</svg>' +
+      '<div class="ring-panel ring-panel--flow">' +
+        '<div class="ring-flow__check">✓</div>' +
+        '<div class="ring-flow__title">¡Checada Registrada!</div>' +
+        '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
+        '<div class="ring-flow__zone" style="color:' + colorZona + ';border-color:' + colorZona + ';">' + textoZona + '</div>' +
+      '</div>';
+
+    // Forzar reflow para que el flash de success se aplique al nuevo SVG
+    void box.offsetWidth;
+    box.setAttribute('data-state', 'success');
+
+    // Volver al PIN en 1.5s (antes era countdown de 5s)
+    setTimeout(function() { mostrarPantallaPIN(); }, 1500);
+  }
+
+  // ── Enviar a GAS en BACKGROUND — no bloquea la pantalla de éxito ──
+  // Si falla, se registra en consola pero el usuario ya vio "Registrada"
   google.script.run
     .withSuccessHandler(function(result) {
-      var box = document.getElementById('pin-box');
-      if (!box) return;
-
-      if (result.ok) {
-        var zonaValida = datos.estadoZona === 'VÁLIDA';
-        var colorZona = zonaValida ? '#3ddc84' : '#f4c542';
-        var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona';
-
-        box.removeAttribute('data-state');
-        box.innerHTML =
-          '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
-            '<defs>' +
-              '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
-                '<stop offset="0%"  stop-color="#14633e"/>' +
-                '<stop offset="100%" stop-color="#3ddc84"/>' +
-              '</linearGradient>' +
-              '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
-                '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
-                '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
-                '<feMerge>' +
-                  '<feMergeNode in="blur2"/>' +
-                  '<feMergeNode in="blur1"/>' +
-                  '<feMergeNode in="SourceGraphic"/>' +
-                '</feMerge>' +
-              '</filter>' +
-            '</defs>' +
-            '<circle class="ring__track" cx="300" cy="300" r="295" />' +
-            '<g class="ring__rotor">' +
-              '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                      'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
-                      'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
-            '</g>' +
-          '</svg>' +
-          '<div class="ring-panel ring-panel--flow">' +
-            '<div class="ring-flow__check">✓</div>' +
-            '<div class="ring-flow__title">¡Checada Registrada!</div>' +
-            '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
-            '<div class="ring-flow__zone" style="color:' + colorZona + ';border-color:' + colorZona + ';">' + textoZona + '</div>' +
-            '<div class="ring-flow__countdown">' +
-              '<svg viewBox="0 0 64 64" width="64" height="64">' +
-                '<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(127,223,255,0.15)" stroke-width="4"/>' +
-                '<circle id="countdown-arc" cx="32" cy="32" r="26" fill="none" stroke="#7fdfff" stroke-width="4" ' +
-                        'stroke-dasharray="163" stroke-dashoffset="0" stroke-linecap="round" ' +
-                        'transform="rotate(-90 32 32)" />' +
-              '</svg>' +
-              '<div id="countdown-num" class="ring-flow__countdown-num">5</div>' +
-            '</div>' +
-          '</div>';
-
-        // Forzar reflow para que el flash de success se aplique al nuevo SVG
-        void box.offsetWidth;
-        box.setAttribute('data-state', 'success');
-
-        var seg = 5;
-        var arc = document.getElementById('countdown-arc');
-        var num = document.getElementById('countdown-num');
-        var intervalo = setInterval(function() {
-          seg--;
-          if (num) num.textContent = seg;
-          if (arc) arc.style.strokeDashoffset = ((5 - seg) / 5) * 163;
-          if (seg <= 0) {
-            clearInterval(intervalo);
-            mostrarPantallaPIN();
-          }
-        }, 1000);
-
-      } else {
-        box.removeAttribute('data-state');
-        box.innerHTML =
-          '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
-            '<defs>' +
-              '<linearGradient id="ringErrorFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
-                '<stop offset="0%"  stop-color="#7a1a2d"/>' +
-                '<stop offset="100%" stop-color="#ff4d6d"/>' +
-              '</linearGradient>' +
-              '<filter id="ringGlowErr1" x="-50%" y="-50%" width="200%" height="200%">' +
-                '<feGaussianBlur stdDeviation="6" result="blur1"/>' +
-                '<feGaussianBlur stdDeviation="16" result="blur2"/>' +
-                '<feMerge>' +
-                  '<feMergeNode in="blur2"/>' +
-                  '<feMergeNode in="blur1"/>' +
-                  '<feMergeNode in="SourceGraphic"/>' +
-                '</feMerge>' +
-              '</filter>' +
-            '</defs>' +
-            '<circle class="ring__track" cx="300" cy="300" r="295" />' +
-            '<g class="ring__rotor">' +
-              '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                      'stroke="url(#ringErrorFlow)" filter="url(#ringGlowErr1)" stroke-dasharray="1853.54" ' +
-                      'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
-            '</g>' +
-          '</svg>' +
-          '<div class="ring-panel ring-panel--flow">' +
-            '<div class="ring-flow__cross">✕</div>' +
-            '<div class="ring-flow__title ring-flow__title--err">Error al registrar</div>' +
-            '<div class="ring-flow__name">' + (result.message || '') + '</div>' +
-            '<button class="ring-btn ring-btn--retry" onclick="mostrarPantallaPIN()">' +
-              '<span class="ring-btn__label">Reintentar</span>' +
-            '</button>' +
-          '</div>';
-        void box.offsetWidth;
-        box.setAttribute('data-state', 'error');
+      if (!result || !result.ok) {
+        console.warn('⚠️ guardarChecadaChofer respondió error:', result && result.message);
       }
     })
     .withFailureHandler(function(err) {
-      var box = document.getElementById('pin-box');
-      if (!box) return;
-      box.removeAttribute('data-state');
-      box.innerHTML =
-        '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
-          '<defs>' +
-            '<linearGradient id="ringErrorFlow2" x1="0%" y1="100%" x2="100%" y2="0%">' +
-              '<stop offset="0%"  stop-color="#7a1a2d"/>' +
-              '<stop offset="100%" stop-color="#ff4d6d"/>' +
-            '</linearGradient>' +
-            '<filter id="ringGlowErr2" x="-50%" y="-50%" width="200%" height="200%">' +
-              '<feGaussianBlur stdDeviation="6" result="blur1"/>' +
-              '<feGaussianBlur stdDeviation="16" result="blur2"/>' +
-              '<feMerge>' +
-                '<feMergeNode in="blur2"/>' +
-                '<feMergeNode in="blur1"/>' +
-                '<feMergeNode in="SourceGraphic"/>' +
-              '</feMerge>' +
-            '</filter>' +
-          '</defs>' +
-          '<circle class="ring__track" cx="300" cy="300" r="295" />' +
-          '<g class="ring__rotor">' +
-            '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                    'stroke="url(#ringErrorFlow2)" filter="url(#ringGlowErr2)" stroke-dasharray="1853.54" ' +
-                    'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
-          '</g>' +
-        '</svg>' +
-        '<div class="ring-panel ring-panel--flow">' +
-          '<div class="ring-flow__cross">✕</div>' +
-          '<div class="ring-flow__title ring-flow__title--err">Error de conexión</div>' +
-          '<button class="ring-btn ring-btn--retry" onclick="mostrarPantallaPIN()">' +
-            '<span class="ring-btn__label">Reintentar</span>' +
-          '</button>' +
-        '</div>';
-      void box.offsetWidth;
-      box.setAttribute('data-state', 'error');
+      console.warn('⚠️ guardarChecadaChofer falló:', err && err.message);
     })
     .guardarChecadaChofer(datos);
 }
