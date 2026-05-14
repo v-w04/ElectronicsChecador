@@ -609,9 +609,16 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
 
 function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
   var ahora = new Date();
-  var fecha = ahora.toISOString().substring(0, 10);
-  var hora = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  var timestamp = ahora.toLocaleString('es-MX');
+  // Forzar timezone de Ciudad de México para hora/fecha — no depender del
+  // dispositivo del usuario (algunos pueden tener zona "America/Chicago" o
+  // "UTC" mal configurada y la hora sale +1h adelantada).
+  var TZ_MEX = 'America/Mexico_City';
+  var fecha = ahora.toLocaleDateString('en-CA', { timeZone: TZ_MEX });  // "yyyy-MM-dd"
+  var hora  = ahora.toLocaleTimeString('es-MX', {
+    timeZone: TZ_MEX,
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
 
   var zonaInfo = gpsData ? verificarZonaChofer(gpsData.lat, gpsData.lng) : { estadoZona: 'SIN_GPS', zonaCercana: '' };
 
@@ -803,7 +810,11 @@ function ejecutarControlAsistencia() {
         progressBar.style.width = '100%';
         progressText.textContent = '100%';
         modalHTML.innerHTML = '<div style="font-size:72px;margin-bottom:24px;"><i class="fas fa-info-circle" style="color:#F59E0B;"></i></div><h2 style="color:#F59E0B;margin-bottom:12px;font-size:28px;font-weight:700;">Sin Datos para Procesar</h2><p style="color:var(--text-secondary);margin-bottom:28px;font-size:15px;">No se encontraron registros en RAW.</p><button id="btn-cerrar-info" style="padding:14px 32px;background:#F59E0B;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Cerrar y Refrescar</button>';
-        document.getElementById('btn-cerrar-info').onclick = function() { overlay.remove(); loadDashboard(); };
+        document.getElementById('btn-cerrar-info').onclick = function() {
+          overlay.remove();
+          if (typeof _invalidarCache === 'function') _invalidarCache();
+          loadDashboard(true);
+        };
       }
     })
     .withFailureHandler(function(error) {
@@ -829,7 +840,14 @@ function ejecutarControlAsistencia() {
       progressBar.style.width = '100%';
       progressText.textContent = '100%';
       modalHTML.innerHTML = '<div style="font-size:72px;margin-bottom:24px;"><i class="fas fa-check-circle" style="color:var(--success);"></i></div><h2 style="color:var(--success);margin-bottom:12px;font-size:28px;font-weight:700;">¡Proceso Completado!</h2><p style="color:var(--text-secondary);margin-bottom:28px;font-size:15px;">El control de asistencia se ejecutó correctamente</p><button id="btn-cerrar-exito" style="padding:14px 32px;background:var(--success);color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Cerrar y Refrescar</button>';
-      document.getElementById('btn-cerrar-exito').onclick = function() { overlay.remove(); if (!currentModule) loadDashboard(); };
+      document.getElementById('btn-cerrar-exito').onclick = function() {
+        overlay.remove();
+        // El procesamiento cambió los datos en GAS — invalidar TODO el cache
+        // para que se recarguen del servidor
+        if (typeof _invalidarCache === 'function') _invalidarCache();
+        if (!currentModule) loadDashboard(true);
+        else openModule(currentModule);
+      };
     }
   }, 1000);
 }
