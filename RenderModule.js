@@ -1148,3 +1148,166 @@ function limpiarTablaEventualidad(tableId, numColumnas, countId) {
   actualizarContador(tableId, countId);
   mostrarNotificacion('success', '🗑️ Tabla limpiada');
 }
+
+// ============================================================================
+// RENDER GYM — Bono por asistencia al gimnasio
+// ============================================================================
+// Estructura de la hoja GYM:
+//   Col A: ID empleado
+//   Col B: Nombre empleado
+//   Col C: "Día" — día del mes en que se entrega el bono
+//   Col D+: una columna por mes (ej. "abr 2026", "may 2026"). El VALOR es:
+//          - 0 → el empleado no fue al gym ese mes (sin registros)
+//          - N > 0 → cantidad de registros / visitas que tuvo en el mes
+//
+// Regla de bono:
+//   - ≥ 15 visitas en el mes → BONO COMPLETO (verde)
+//   - < 15 visitas → SIN BONO (rojo)
+// ============================================================================
+function renderGym(result) {
+  const container = document.getElementById('popup-container');
+  if (!result || result.error || !result.data || result.data.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">ℹ️ La hoja GYM está vacía o no existe</div>';
+    return;
+  }
+
+  currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
+  currentRenderFunction = renderGym;
+
+  const headers = result.headers;
+  const data    = result.data;
+
+  // Detectar columnas: A=id (idx 0), B=nombre (idx 1), C=día pago (idx 2),
+  // D en adelante = meses. Las columnas-mes pueden venir como string "abr 2026"
+  // o como Date (Sheets a veces parsea el header como fecha).
+  const idxNombre = 1;
+  const idxDia    = 2;
+  const idxMesInicio = 3;
+  const numMeses = headers.length - idxMesInicio;
+  if (numMeses < 1) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">ℹ️ La hoja GYM no tiene columnas de mes</div>';
+    return;
+  }
+
+  // Normalizar headers de mes a algo legible — "abr 2026" o convertir Date
+  const mesesLabels = headers.slice(idxMesInicio).map(function(h) {
+    if (h instanceof Date) {
+      const ms = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      return ms[h.getMonth()] + ' ' + h.getFullYear();
+    }
+    return (h || '').toString().trim();
+  });
+
+  // Detectar el índice del mes ACTUAL (para resaltarlo en la tarjeta)
+  const ahora = new Date();
+  const mesesNombre = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const mesActualLabel = mesesNombre[ahora.getMonth()] + ' ' + ahora.getFullYear();
+  let idxMesActual = -1;
+  mesesLabels.forEach(function(l, i) {
+    if (l.toLowerCase().includes(mesActualLabel.toLowerCase())) idxMesActual = i;
+  });
+
+  // ── Construir lista de empleados con sus datos por mes ────────────────────
+  const empleados = data.map(function(row) {
+    const nombre = (row[idxNombre] || '').toString().trim();
+    const diaPago = parseInt(row[idxDia], 10) || 0;
+    const visitasPorMes = row.slice(idxMesInicio).map(function(v) {
+      return parseInt(v, 10) || 0;
+    });
+    return { nombre: nombre, diaPago: diaPago, visitas: visitasPorMes };
+  }).filter(function(e) { return e.nombre; });
+
+  if (empleados.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">ℹ️ No hay empleados registrados en GYM</div>';
+    return;
+  }
+
+  // ── Calcular KPIs del mes actual ──────────────────────────────────────────
+  let kpiTotal       = empleados.length;
+  let kpiConBono     = 0;
+  let kpiSinBono     = 0;
+  let kpiSinRegistro = 0;
+  if (idxMesActual !== -1) {
+    empleados.forEach(function(emp) {
+      const v = emp.visitas[idxMesActual];
+      if (v === 0) kpiSinRegistro++;
+      else if (v >= 15) kpiConBono++;
+      else kpiSinBono++;
+    });
+  }
+
+  // ── HTML: tarjetas KPI arriba ────────────────────────────────────────────
+  function tarjetaKpi(icon, label, val, color) {
+    return '<div style="flex:1;min-width:140px;background:rgba(30,41,59,0.6);border:1px solid ' + color + '33;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;">' +
+      '<span style="font-size:24px;">' + icon + '</span>' +
+      '<div>' +
+        '<div style="font-size:10px;color:#94A3B8;font-weight:700;letter-spacing:1px;text-transform:uppercase;">' + label + '</div>' +
+        '<div style="font-size:26px;font-weight:800;color:' + color + ';">' + val + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  let html =
+    '<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">' +
+      tarjetaKpi('💪', 'Registrados', kpiTotal, '#3B82F6') +
+      tarjetaKpi('🏆', 'Con bono (≥15)', kpiConBono, '#10B981') +
+      tarjetaKpi('❌', 'Sin bono (<15)', kpiSinBono, '#EF4444') +
+      tarjetaKpi('⚪', 'Sin registros', kpiSinRegistro, '#64748B') +
+    '</div>';
+
+  if (idxMesActual !== -1) {
+    html += '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;">📅 KPIs calculados para el mes actual: <b style="color:#F1F5F9;">' + mesesLabels[idxMesActual] + '</b></div>';
+  }
+
+  // ── Grid de tarjetas por empleado ────────────────────────────────────────
+  html += '<div class="employees-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));">';
+
+  // Ordenar por nombre alfabéticamente
+  empleados.sort(function(a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+
+  empleados.forEach(function(emp) {
+    // Render filas de meses
+    const filasMeses = emp.visitas.map(function(v, i) {
+      const esMesActual = i === idxMesActual;
+      let estado, color, bg, label;
+      if (v === 0) {
+        estado = '⚪'; color = '#64748B'; bg = 'rgba(100,116,139,0.08)'; label = 'Sin registros';
+      } else if (v >= 15) {
+        estado = '🏆'; color = '#10B981'; bg = 'rgba(16,185,129,0.10)'; label = 'BONO';
+      } else {
+        estado = '❌'; color = '#EF4444'; bg = 'rgba(239,68,68,0.10)'; label = 'Sin bono';
+      }
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:' + bg + ';border-radius:6px;margin-bottom:4px;' + (esMesActual ? 'border:1px solid ' + color + '66;' : '') + '">' +
+        '<span style="font-size:12px;color:#94A3B8;font-weight:' + (esMesActual ? '700' : '500') + ';">' + estado + ' ' + mesesLabels[i] + (esMesActual ? ' <span style="font-size:9px;color:#7fdfff;letter-spacing:1px;">·HOY</span>' : '') + '</span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + color + ';">' + v + ' <span style="font-size:10px;font-weight:500;opacity:0.7;">visitas</span></span>' +
+      '</div>';
+    }).join('');
+
+    // Determinar badge basado en mes actual
+    let badgeHtml = '';
+    if (idxMesActual !== -1) {
+      const vAct = emp.visitas[idxMesActual];
+      if (vAct >= 15) badgeHtml = '<span class="badge badge-success">🏆 BONO</span>';
+      else if (vAct === 0) badgeHtml = '<span class="badge" style="background:rgba(100,116,139,0.2);color:#94A3B8;">SIN REGISTROS</span>';
+      else badgeHtml = '<span class="badge badge-danger">❌ SIN BONO</span>';
+    }
+
+    html += '<div class="employee-card">' +
+      '<div class="employee-name" style="display:flex;align-items:center;gap:12px;">' +
+        crearAvatarElement(emp.nombre, 40) +
+        '<span style="font-weight:700;">' + emp.nombre + '</span>' +
+      '</div>' +
+      '<div class="employee-stats">' +
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+          '<div class="stat-row" style="flex:1;margin:0;"><span class="label">Día bono:</span><span class="value" style="color:#7fdfff;font-size:16px;font-weight:700;">' + emp.diaPago + '</span></div>' +
+        '</div>' +
+        '<div style="max-height:280px;overflow-y:auto;">' + filasMeses + '</div>' +
+      '</div>' +
+      badgeHtml +
+    '</div>';
+  });
+
+  html += '</div>';
+
+  container.innerHTML = html;
+}
