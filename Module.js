@@ -17,6 +17,7 @@ function openModule(moduleName) {
     case 'alertas':             loadModule('ALERTAS', 'Alertas', renderAlertas, true); break;
     case 'excesos':             loadModule('METRICAS_DIARIAS', 'Excesos Desayuno/Comida', renderExcesos, true); break;
     case 'vacaciones':          loadModule('METRICAS_DIARIAS', 'Vacaciones', renderVacaciones, true); break;
+    case 'gym':                 loadModule('GYM', 'GYM — Bono por Asistencia', renderGym, false); break;
     case 'resumen-mensual':     loadModule('RESUMEN_MENSUAL', 'Resumen Mensual', renderResumenMensual, true); break;
     case 'bono-puntualidad':    loadBonoPuntualidad(); break;
     case 'top-horas-extra':     loadRankingCompleto('horas-extra'); break;
@@ -106,8 +107,11 @@ function closeModulePopup() {
 }
 
 function loadCurrentModule() {
+  // El botón Refrescar de la topbar debe traer datos frescos, no del cache.
+  // Si hay un módulo abierto, lo reabrimos para que vuelva a llamar GAS.
+  // Si está el dashboard, lo recargamos con forzar=true.
   if (currentModule) openModule(currentModule);
-  else loadDashboard();
+  else loadDashboard(true);
 }
 
 function showLoading() {
