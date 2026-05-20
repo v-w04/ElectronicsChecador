@@ -2041,7 +2041,11 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 
   /* Botón central reducido en móvil — proporcional al panel pequeño */
   .login-ring .ring-btn { width: 13%; height: 13%; min-width: 46px; min-height: 46px; max-width: 72px; max-height: 72px; }
+<<<<<<< HEAD
   .login-ring .ring-btn__logo { width: 52%; height: 52%; }
+=======
+  .login-ring .ring-btn__logo { max-width: 44px; max-height: 44px; }
+>>>>>>> 94f62e3d521d2d6d5f36a04437a5aaf0628e91f3
 
   /* Texto en móvil: las labels y el flow status crecen más en pantallas pequeñas */
   .login-ring .ring-label { font-size: clamp(20px, 5vw, 26px); }
@@ -2062,7 +2066,11 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   .login-ring .ring-panel { padding: 0 6%; }
   .login-ring .ring-field { max-width: 90%; }
   .login-ring .ring-btn { width: 12%; height: 12%; min-width: 42px; min-height: 42px; max-width: 60px; max-height: 60px; }
+<<<<<<< HEAD
   .login-ring .ring-btn__logo { width: 50%; height: 50%; }
+=======
+  .login-ring .ring-btn__logo { max-width: 36px; max-height: 36px; }
+>>>>>>> 94f62e3d521d2d6d5f36a04437a5aaf0628e91f3
 }
 
 /* ── Pantallas en horizontal (landscape) — evitar que el círculo se salga ── */
