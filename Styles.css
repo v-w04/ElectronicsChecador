@@ -1648,8 +1648,8 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width:  clamp(96px, 22%, 140px);
-  height: clamp(96px, 22%, 140px);
+  width:  clamp(64px, 18%, 128px);
+  height: clamp(64px, 18%, 128px);
   border-radius: 50%;
   border: none;
   background: var(--lr-btn-grad);
@@ -2026,6 +2026,9 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   .pin-overlay { padding: 8px; }
   .login-ring { width: clamp(300px, 92vmin, 540px); height: clamp(300px, 92vmin, 540px); }
   .login-ring .ring-panel { padding: 0 9%; }
+  /* Botón central más chico en tablets — el clamp anterior daba 96-140px que se
+     veía desproporcionado en pantallas medianas */
+  .login-ring .ring-btn { width: 15%; height: 15%; min-width: 56px; min-height: 56px; max-width: 90px; max-height: 90px; }
 }
 
 /* ── Móviles (≤ 480px) — máximo aprovechamiento del viewport ─────────────── */
@@ -2037,6 +2040,10 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   .login-ring .ring-input { padding: 8px 12px; }
   .login-ring .ring-field--top    { padding-bottom: clamp(20px, 4%, 36px); }
   .login-ring .ring-field--bottom { padding-top:    clamp(20px, 4%, 36px); }
+
+  /* Botón central reducido en móvil — proporcional al panel pequeño */
+  .login-ring .ring-btn { width: 13%; height: 13%; min-width: 46px; min-height: 46px; max-width: 72px; max-height: 72px; }
+  .login-ring .ring-btn__logo { max-width: 44px; max-height: 44px; }
 
   /* Texto en móvil: las labels y el flow status crecen más en pantallas pequeñas */
   .login-ring .ring-label { font-size: clamp(20px, 5vw, 26px); }
@@ -2056,6 +2063,8 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   .login-ring { width: 98vmin; height: 98vmin; }
   .login-ring .ring-panel { padding: 0 6%; }
   .login-ring .ring-field { max-width: 90%; }
+  .login-ring .ring-btn { width: 12%; height: 12%; min-width: 42px; min-height: 42px; max-width: 60px; max-height: 60px; }
+  .login-ring .ring-btn__logo { max-width: 36px; max-height: 36px; }
 }
 
 /* ── Pantallas en horizontal (landscape) — evitar que el círculo se salga ── */
