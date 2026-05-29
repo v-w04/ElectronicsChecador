@@ -620,7 +620,9 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
   });
   var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
 
-  var zonaInfo = gpsData ? verificarZonaChofer(gpsData.lat, gpsData.lng) : { estadoZona: 'SIN_GPS', zonaCercana: '' };
+  // verificarZonaChofer ahora solo sirve para obtener el NOMBRE de la zona
+  // más cercana. El estado siempre es VÁLIDA — ya no se rechazan checadas.
+  var zonaInfo = gpsData ? verificarZonaChofer(gpsData.lat, gpsData.lng) : { zonaCercana: '' };
 
   var datos = {
     idUsuario: idUsuario,
@@ -630,19 +632,15 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     timestampCompleto: timestamp,
     lat: gpsData ? gpsData.lat : '',
     lng: gpsData ? gpsData.lng : '',
-    direccion: gpsData ? gpsData.direccion : '',
-    precision: gpsData ? gpsData.precision : '',
-    linkMaps: gpsData ? gpsData.linkMaps : '',
-    estadoZona: zonaInfo.estadoZona,
-    zonaCercana: zonaInfo.zonaCercana
+    estadoZona: 'VÁLIDA',
+    zonaCercana: zonaInfo.zonaCercana || ''
   };
 
   // ── Mostrar pantalla de éxito INMEDIATA — no esperar respuesta del GAS ──
   var box = document.getElementById('pin-box');
   if (box) {
-    var zonaValida = datos.estadoZona === 'VÁLIDA';
-    var colorZona = zonaValida ? '#3ddc84' : '#f4c542';
-    var textoZona = zonaValida ? '📍 ' + zonaInfo.zonaCercana : '📍 Fuera de zona';
+    var colorZona = '#3ddc84';
+    var textoZona = zonaInfo.zonaCercana ? '📍 ' + zonaInfo.zonaCercana : '📍 Ubicación registrada';
 
     box.removeAttribute('data-state');
     box.innerHTML =
