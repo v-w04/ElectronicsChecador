@@ -1152,20 +1152,14 @@ function limpiarTablaEventualidad(tableId, numColumnas, countId) {
 // ============================================================================
 // RENDER GYM — Bono por asistencia al gimnasio
 // ============================================================================
-// Estructura de la hoja GYM:
-//   Col A: ID empleado
-//   Col B: Nombre empleado
-//   Col C: "Día" — día del mes en que se entrega el bono
-//   Col D+: una columna por mes (ej. "abr 2026", "may 2026"). El VALOR es:
-//          - 0 → el empleado no fue al gym ese mes (sin registros)
-//          - N > 0 → cantidad de registros / visitas que tuvo en el mes
-//
-// Regla de bono:
-//   - ≥ 15 visitas en el mes → BONO COMPLETO (verde)
-//   - < 15 visitas → SIN BONO (rojo)
+// Hoja GYM:  Col A=ID, B=Nombre, C=Día del bono, D+=un mes por columna.
+// Valor de columna-mes = cantidad de visitas al gym ese mes.
+// Regla:  >=15 visitas = BONO (verde) | <15 = SIN BONO (rojo) | 0 = sin registros
 // ============================================================================
 function renderGym(result) {
   const container = document.getElementById('popup-container');
+  if (!container) return;
+
   if (!result || result.error || !result.data || result.data.length === 0) {
     container.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">ℹ️ La hoja GYM está vacía o no existe</div>';
     return;
@@ -1176,45 +1170,40 @@ function renderGym(result) {
 
   const headers = result.headers;
   const data    = result.data;
+  const idxNombre = 1, idxDia = 2, idxMesInicio = 3;
 
-  // Detectar columnas: A=id (idx 0), B=nombre (idx 1), C=día pago (idx 2),
-  // D en adelante = meses. Las columnas-mes pueden venir como string "abr 2026"
-  // o como Date (Sheets a veces parsea el header como fecha).
-  const idxNombre = 1;
-  const idxDia    = 2;
-  const idxMesInicio = 3;
-  const numMeses = headers.length - idxMesInicio;
-  if (numMeses < 1) {
+  if (headers.length - idxMesInicio < 1) {
     container.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">ℹ️ La hoja GYM no tiene columnas de mes</div>';
     return;
   }
 
-  // Normalizar headers de mes a algo legible — "abr 2026" o convertir Date
-  const mesesLabels = headers.slice(idxMesInicio).map(function(h) {
-    if (h instanceof Date) {
-      const ms = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-      return ms[h.getMonth()] + ' ' + h.getFullYear();
-    }
-    return (h || '').toString().trim();
-  });
+  // Normaliza el encabezado de un mes. Puede venir como "abr 2026", Date, o
+  // ISO string "2026-04-01T..." (GAS convierte Dates a ISO al enviar al frontend).
+  const MS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  function normalizarHeaderMes(h) {
+    if (!h) return '';
+    if (h instanceof Date) return MS[h.getMonth()] + ' ' + h.getFullYear();
+    const str = h.toString().trim();
+    const iso = str.match(/^(\d{4})-(\d{2})-\d{2}/);
+    if (iso) return MS[parseInt(iso[2],10) - 1] + ' ' + iso[1];
+    return str;
+  }
+  const mesesLabels = headers.slice(idxMesInicio).map(normalizarHeaderMes);
 
-  // Detectar el índice del mes ACTUAL (para resaltarlo en la tarjeta)
+  // Índice del mes actual (para resaltarlo)
   const ahora = new Date();
-  const mesesNombre = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const mesActualLabel = mesesNombre[ahora.getMonth()] + ' ' + ahora.getFullYear();
+  const mesActualTxt = MS[ahora.getMonth()] + ' ' + ahora.getFullYear();
   let idxMesActual = -1;
   mesesLabels.forEach(function(l, i) {
-    if (l.toLowerCase().includes(mesActualLabel.toLowerCase())) idxMesActual = i;
+    if (l.toLowerCase() === mesActualTxt.toLowerCase()) idxMesActual = i;
   });
 
-  // ── Construir lista de empleados con sus datos por mes ────────────────────
   const empleados = data.map(function(row) {
-    const nombre = (row[idxNombre] || '').toString().trim();
-    const diaPago = parseInt(row[idxDia], 10) || 0;
-    const visitasPorMes = row.slice(idxMesInicio).map(function(v) {
-      return parseInt(v, 10) || 0;
-    });
-    return { nombre: nombre, diaPago: diaPago, visitas: visitasPorMes };
+    return {
+      nombre: (row[idxNombre] || '').toString().trim(),
+      diaBono: parseInt(row[idxDia], 10) || 0,
+      visitas: row.slice(idxMesInicio).map(function(v) { return parseInt(v, 10) || 0; })
+    };
   }).filter(function(e) { return e.nombre; });
 
   if (empleados.length === 0) {
@@ -1222,92 +1211,75 @@ function renderGym(result) {
     return;
   }
 
-  // ── Calcular KPIs del mes actual ──────────────────────────────────────────
-  let kpiTotal       = empleados.length;
-  let kpiConBono     = 0;
-  let kpiSinBono     = 0;
-  let kpiSinRegistro = 0;
+  empleados.sort(function(a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+
+  // KPIs del mes actual
+  let kTotal = empleados.length, kBono = 0, kSin = 0, kCero = 0;
   if (idxMesActual !== -1) {
-    empleados.forEach(function(emp) {
-      const v = emp.visitas[idxMesActual];
-      if (v === 0) kpiSinRegistro++;
-      else if (v >= 15) kpiConBono++;
-      else kpiSinBono++;
+    empleados.forEach(function(e) {
+      const v = e.visitas[idxMesActual];
+      if (v === 0) kCero++; else if (v >= 15) kBono++; else kSin++;
     });
   }
 
-  // ── HTML: tarjetas KPI arriba ────────────────────────────────────────────
-  function tarjetaKpi(icon, label, val, color) {
-    return '<div style="flex:1;min-width:140px;background:rgba(30,41,59,0.6);border:1px solid ' + color + '33;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;">' +
-      '<span style="font-size:24px;">' + icon + '</span>' +
-      '<div>' +
-        '<div style="font-size:10px;color:#94A3B8;font-weight:700;letter-spacing:1px;text-transform:uppercase;">' + label + '</div>' +
-        '<div style="font-size:26px;font-weight:800;color:' + color + ';">' + val + '</div>' +
-      '</div>' +
-    '</div>';
+  function kpi(icon, label, val, color) {
+    return '<div style="flex:1;min-width:130px;background:rgba(30,41,59,0.6);border:1px solid ' + color +
+      '33;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">' +
+      '<span style="font-size:22px;">' + icon + '</span><div>' +
+      '<div style="font-size:10px;color:#94A3B8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">' + label + '</div>' +
+      '<div style="font-size:24px;font-weight:800;color:' + color + ';">' + val + '</div></div></div>';
   }
 
-  let html =
-    '<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">' +
-      tarjetaKpi('💪', 'Registrados', kpiTotal, '#3B82F6') +
-      tarjetaKpi('🏆', 'Con bono (≥15)', kpiConBono, '#10B981') +
-      tarjetaKpi('❌', 'Sin bono (<15)', kpiSinBono, '#EF4444') +
-      tarjetaKpi('⚪', 'Sin registros', kpiSinRegistro, '#64748B') +
+  let html = '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">' +
+    kpi('💪', 'Registrados', kTotal, '#3B82F6') +
+    kpi('🏆', 'Con bono', kBono, '#10B981') +
+    kpi('❌', 'Sin bono', kSin, '#EF4444') +
+    kpi('⚪', 'Sin registros', kCero, '#64748B') +
     '</div>';
 
   if (idxMesActual !== -1) {
-    html += '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;">📅 KPIs calculados para el mes actual: <b style="color:#F1F5F9;">' + mesesLabels[idxMesActual] + '</b></div>';
+    html += '<div style="font-size:11px;color:#94A3B8;margin-bottom:14px;">📅 Mes actual: <b style="color:#F1F5F9;">' + mesesLabels[idxMesActual] + '</b> · Bono se gana con 15+ visitas</div>';
   }
 
-  // ── Grid de tarjetas por empleado ────────────────────────────────────────
-  html += '<div class="employees-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));">';
-
-  // Ordenar por nombre alfabéticamente
-  empleados.sort(function(a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+  // Grid de tarjetas — una por empleado, con los meses en chips horizontales
+  html += '<div class="employees-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));">';
 
   empleados.forEach(function(emp) {
-    // Render filas de meses
-    const filasMeses = emp.visitas.map(function(v, i) {
-      const esMesActual = i === idxMesActual;
-      let estado, color, bg, label;
-      if (v === 0) {
-        estado = '⚪'; color = '#64748B'; bg = 'rgba(100,116,139,0.08)'; label = 'Sin registros';
-      } else if (v >= 15) {
-        estado = '🏆'; color = '#10B981'; bg = 'rgba(16,185,129,0.10)'; label = 'BONO';
-      } else {
-        estado = '❌'; color = '#EF4444'; bg = 'rgba(239,68,68,0.10)'; label = 'Sin bono';
-      }
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:' + bg + ';border-radius:6px;margin-bottom:4px;' + (esMesActual ? 'border:1px solid ' + color + '66;' : '') + '">' +
-        '<span style="font-size:12px;color:#94A3B8;font-weight:' + (esMesActual ? '700' : '500') + ';">' + estado + ' ' + mesesLabels[i] + (esMesActual ? ' <span style="font-size:9px;color:#7fdfff;letter-spacing:1px;">·HOY</span>' : '') + '</span>' +
-        '<span style="font-size:13px;font-weight:700;color:' + color + ';">' + v + ' <span style="font-size:10px;font-weight:500;opacity:0.7;">visitas</span></span>' +
+    const chips = emp.visitas.map(function(v, i) {
+      const esActual = i === idxMesActual;
+      let color, bg;
+      if (v === 0)        { color = '#64748B'; bg = 'rgba(100,116,139,0.12)'; }
+      else if (v >= 15)   { color = '#10B981'; bg = 'rgba(16,185,129,0.14)'; }
+      else                { color = '#EF4444'; bg = 'rgba(239,68,68,0.14)'; }
+      return '<div style="flex:1;min-width:64px;text-align:center;padding:6px 4px;border-radius:7px;background:' + bg +
+        ';' + (esActual ? 'outline:2px solid ' + color + '88;' : '') + '">' +
+        '<div style="font-size:9px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">' + mesesLabels[i] + '</div>' +
+        '<div style="font-size:18px;font-weight:800;color:' + color + ';line-height:1.2;">' + v + '</div>' +
+        '<div style="font-size:8px;color:' + color + ';opacity:0.7;">visitas</div>' +
       '</div>';
     }).join('');
 
-    // Determinar badge basado en mes actual
-    let badgeHtml = '';
+    let badge = '';
     if (idxMesActual !== -1) {
-      const vAct = emp.visitas[idxMesActual];
-      if (vAct >= 15) badgeHtml = '<span class="badge badge-success">🏆 BONO</span>';
-      else if (vAct === 0) badgeHtml = '<span class="badge" style="background:rgba(100,116,139,0.2);color:#94A3B8;">SIN REGISTROS</span>';
-      else badgeHtml = '<span class="badge badge-danger">❌ SIN BONO</span>';
+      const vA = emp.visitas[idxMesActual];
+      if (vA >= 15)      badge = '<span class="badge badge-success">🏆 BONO</span>';
+      else if (vA === 0) badge = '<span class="badge" style="background:rgba(100,116,139,0.2);color:#94A3B8;">SIN REGISTROS</span>';
+      else               badge = '<span class="badge badge-danger">❌ SIN BONO (' + vA + '/15)</span>';
     }
 
     html += '<div class="employee-card">' +
-      '<div class="employee-name" style="display:flex;align-items:center;gap:12px;">' +
-        crearAvatarElement(emp.nombre, 40) +
-        '<span style="font-weight:700;">' + emp.nombre + '</span>' +
+      '<div class="employee-name" style="display:flex;align-items:center;gap:10px;">' +
+        crearAvatarElement(emp.nombre, 38) +
+        '<span style="font-weight:700;font-size:13px;">' + emp.nombre + '</span>' +
       '</div>' +
-      '<div class="employee-stats">' +
-        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-          '<div class="stat-row" style="flex:1;margin:0;"><span class="label">Día bono:</span><span class="value" style="color:#7fdfff;font-size:16px;font-weight:700;">' + emp.diaPago + '</span></div>' +
-        '</div>' +
-        '<div style="max-height:280px;overflow-y:auto;">' + filasMeses + '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin:8px 0;font-size:11px;color:#94A3B8;">' +
+        '📆 Día de entrega del bono: <b style="color:#7fdfff;font-size:14px;">' + emp.diaBono + '</b>' +
       '</div>' +
-      badgeHtml +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">' + chips + '</div>' +
+      badge +
     '</div>';
   });
 
   html += '</div>';
-
   container.innerHTML = html;
 }
