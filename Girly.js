@@ -10,3 +10,6 @@ function toggleGirlyMode() {
     window.tendenciaChart.update();
   }
 }
+
+
+
