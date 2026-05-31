@@ -1156,6 +1156,20 @@ function limpiarTablaEventualidad(tableId, numColumnas, countId) {
 // Valor de columna-mes = cantidad de visitas al gym ese mes.
 // Regla:  >=15 visitas = BONO (verde) | <15 = SIN BONO (rojo) | 0 = sin registros
 // ============================================================================
+
+// ============================================================================
+// RENDER GYM — Bono por asistencia al gimnasio
+// ============================================================================
+// Hoja GYM:  Col A=ID, B=Nombre, C=Día del bono, D+=un mes por columna.
+// Valor de columna-mes = cantidad de visitas al gym ese mes.
+// Regla:  >=umbral visitas = BONO (verde) | <umbral = SIN BONO (rojo) | 0 = sin registros
+// El umbral es DINÁMICO — se carga del backend (CONFIG_GYM) y es editable
+// desde el botón "⚙️ Cambiar umbral" en el panel.
+// ============================================================================
+
+// Umbral cacheado en memoria — se carga del backend cuando se abre GYM
+window._umbralGym = window._umbralGym || 15;
+
 function renderGym(result) {
   const container = document.getElementById('popup-container');
   if (!container) return;
@@ -1165,12 +1179,41 @@ function renderGym(result) {
     return;
   }
 
+  // ⭐ Cargar umbral actual del backend antes de renderizar
+  // (solo la primera vez por sesión; después usa el cacheado)
+  if (!window._umbralGymCargado) {
+    container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Cargando configuración GYM...</p></div>';
+    google.script.run
+      .withSuccessHandler(function(resp) {
+        if (resp && resp.ok && resp.umbral) {
+          window._umbralGym = resp.umbral;
+        }
+        window._umbralGymCargado = true;
+        _renderGymContenido(result);
+      })
+      .withFailureHandler(function() {
+        // Si falla, usar default 15 y seguir
+        window._umbralGymCargado = true;
+        _renderGymContenido(result);
+      })
+      .getUmbralGym();
+    return;
+  }
+
+  _renderGymContenido(result);
+}
+
+function _renderGymContenido(result) {
+  const container = document.getElementById('popup-container');
+  if (!container) return;
+
   currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
   currentRenderFunction = renderGym;
 
   const headers = result.headers;
   const data    = result.data;
   const idxNombre = 1, idxDia = 2, idxMesInicio = 3;
+  const UMBRAL = window._umbralGym || 15;
 
   if (headers.length - idxMesInicio < 1) {
     container.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">ℹ️ La hoja GYM no tiene columnas de mes</div>';
@@ -1218,7 +1261,7 @@ function renderGym(result) {
   if (idxMesActual !== -1) {
     empleados.forEach(function(e) {
       const v = e.visitas[idxMesActual];
-      if (v === 0) kCero++; else if (v >= 15) kBono++; else kSin++;
+      if (v === 0) kCero++; else if (v >= UMBRAL) kBono++; else kSin++;
     });
   }
 
@@ -1230,15 +1273,28 @@ function renderGym(result) {
       '<div style="font-size:24px;font-weight:800;color:' + color + ';">' + val + '</div></div></div>';
   }
 
-  let html = '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">' +
-    kpi('💪', 'Registrados', kTotal, '#3B82F6') +
-    kpi('🏆', 'Con bono', kBono, '#10B981') +
-    kpi('❌', 'Sin bono', kSin, '#EF4444') +
-    kpi('⚪', 'Sin registros', kCero, '#64748B') +
+  // ⭐ BARRA SUPERIOR: KPIs + botón de umbral
+  let html =
+    '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:stretch;">' +
+      kpi('💪', 'Registrados', kTotal, '#3B82F6') +
+      kpi('🏆', 'Con bono', kBono, '#10B981') +
+      kpi('❌', 'Sin bono', kSin, '#EF4444') +
+      kpi('⚪', 'Sin registros', kCero, '#64748B') +
+      // Botón de configuración del umbral
+      '<button onclick="abrirModalUmbralGym()" ' +
+        'style="flex:0 0 auto;min-width:140px;background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2));' +
+        'border:1px solid rgba(59,130,246,0.5);border-radius:10px;padding:10px 14px;cursor:pointer;color:#7fdfff;' +
+        'font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;' +
+        'transition:all 0.2s;" ' +
+        'onmouseover="this.style.background=\'linear-gradient(135deg,rgba(59,130,246,0.35),rgba(139,92,246,0.35))\';this.style.transform=\'translateY(-2px)\'" ' +
+        'onmouseout="this.style.background=\'linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2))\';this.style.transform=\'translateY(0)\'">' +
+        '<span style="font-size:18px;">⚙️</span>' +
+        '<span style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Umbral: <b style="font-size:14px;color:#F1F5F9;">' + UMBRAL + '</b></span>' +
+      '</button>' +
     '</div>';
 
   if (idxMesActual !== -1) {
-    html += '<div style="font-size:11px;color:#94A3B8;margin-bottom:14px;">📅 Mes actual: <b style="color:#F1F5F9;">' + mesesLabels[idxMesActual] + '</b> · Bono se gana con 15+ visitas</div>';
+    html += '<div style="font-size:11px;color:#94A3B8;margin-bottom:14px;">📅 Mes actual: <b style="color:#F1F5F9;">' + mesesLabels[idxMesActual] + '</b> · Bono se gana con <b style="color:#10B981;">' + UMBRAL + '+ visitas</b></div>';
   }
 
   // Grid de tarjetas — una por empleado, con los meses en chips horizontales
@@ -1248,9 +1304,9 @@ function renderGym(result) {
     const chips = emp.visitas.map(function(v, i) {
       const esActual = i === idxMesActual;
       let color, bg;
-      if (v === 0)        { color = '#64748B'; bg = 'rgba(100,116,139,0.12)'; }
-      else if (v >= 15)   { color = '#10B981'; bg = 'rgba(16,185,129,0.14)'; }
-      else                { color = '#EF4444'; bg = 'rgba(239,68,68,0.14)'; }
+      if (v === 0)         { color = '#64748B'; bg = 'rgba(100,116,139,0.12)'; }
+      else if (v >= UMBRAL){ color = '#10B981'; bg = 'rgba(16,185,129,0.14)'; }
+      else                 { color = '#EF4444'; bg = 'rgba(239,68,68,0.14)'; }
       return '<div style="flex:1;min-width:64px;text-align:center;padding:6px 4px;border-radius:7px;background:' + bg +
         ';' + (esActual ? 'outline:2px solid ' + color + '88;' : '') + '">' +
         '<div style="font-size:9px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">' + mesesLabels[i] + '</div>' +
@@ -1262,9 +1318,9 @@ function renderGym(result) {
     let badge = '';
     if (idxMesActual !== -1) {
       const vA = emp.visitas[idxMesActual];
-      if (vA >= 15)      badge = '<span class="badge badge-success">🏆 BONO</span>';
+      if (vA >= UMBRAL)  badge = '<span class="badge badge-success">🏆 BONO</span>';
       else if (vA === 0) badge = '<span class="badge" style="background:rgba(100,116,139,0.2);color:#94A3B8;">SIN REGISTROS</span>';
-      else               badge = '<span class="badge badge-danger">❌ SIN BONO (' + vA + '/15)</span>';
+      else               badge = '<span class="badge badge-danger">❌ SIN BONO (' + vA + '/' + UMBRAL + ')</span>';
     }
 
     html += '<div class="employee-card">' +
@@ -1282,4 +1338,156 @@ function renderGym(result) {
 
   html += '</div>';
   container.innerHTML = html;
+}
+
+// ============================================================================
+// MODAL para cambiar el umbral del GYM
+// ============================================================================
+function abrirModalUmbralGym() {
+  // Quitar modal previo si existe
+  const previo = document.getElementById('modal-umbral-gym');
+  if (previo) previo.remove();
+
+  const umbralActual = window._umbralGym || 15;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-umbral-gym';
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;' +
+    'display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);' +
+    'animation:fadeIn 0.2s ease;';
+
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#1E293B,#0F172A);' +
+      'border:1px solid rgba(59,130,246,0.4);border-radius:16px;padding:28px;' +
+      'width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.5);">' +
+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">' +
+        '<div style="width:44px;height:44px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);' +
+          'border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;">🏋️</div>' +
+        '<div>' +
+          '<div style="font-size:18px;font-weight:800;color:#F1F5F9;">Umbral del bono GYM</div>' +
+          '<div style="font-size:12px;color:#94A3B8;">Visitas mínimas para ganar bono</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="background:rgba(15,23,42,0.6);border:1px solid rgba(59,130,246,0.2);' +
+        'border-radius:12px;padding:16px;margin-bottom:16px;">' +
+        '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:8px;">' +
+          'Valor actual</div>' +
+        '<div style="display:flex;align-items:center;gap:14px;">' +
+          '<input type="number" id="input-umbral-gym" value="' + umbralActual + '" min="1" max="31" ' +
+            'style="flex:1;background:#0F172A;border:2px solid rgba(59,130,246,0.4);' +
+            'border-radius:10px;padding:14px;color:#F1F5F9;font-size:28px;font-weight:800;' +
+            'text-align:center;outline:none;transition:border-color 0.2s;" ' +
+            'onfocus="this.style.borderColor=\'#3B82F6\'" ' +
+            'onblur="this.style.borderColor=\'rgba(59,130,246,0.4)\'">' +
+          '<div style="font-size:11px;color:#64748B;line-height:1.4;">visitas\nmínimas\nal mes</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="font-size:11px;color:#64748B;margin-bottom:18px;line-height:1.5;">' +
+        '💡 Este valor afecta a TODOS los meses y a TODOS los empleados. ' +
+        'Al cambiarlo, se recalcula quién gana bono y quién no en tiempo real.' +
+      '</div>' +
+
+      '<div id="modal-umbral-status" style="display:none;font-size:12px;text-align:center;' +
+        'padding:10px;border-radius:8px;margin-bottom:14px;"></div>' +
+
+      '<div style="display:flex;gap:10px;">' +
+        '<button onclick="document.getElementById(\'modal-umbral-gym\').remove()" ' +
+          'style="flex:1;padding:12px;background:rgba(100,116,139,0.2);border:1px solid rgba(100,116,139,0.4);' +
+          'border-radius:10px;color:#94A3B8;font-weight:700;cursor:pointer;font-size:13px;transition:all 0.2s;" ' +
+          'onmouseover="this.style.background=\'rgba(100,116,139,0.35)\'" ' +
+          'onmouseout="this.style.background=\'rgba(100,116,139,0.2)\'">' +
+          'Cancelar' +
+        '</button>' +
+        '<button id="btn-guardar-umbral" onclick="guardarUmbralGym()" ' +
+          'style="flex:2;padding:12px;background:linear-gradient(135deg,#10B981,#059669);border:none;' +
+          'border-radius:10px;color:white;font-weight:800;cursor:pointer;font-size:13px;transition:all 0.2s;" ' +
+          'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 16px rgba(16,185,129,0.4)\'" ' +
+          'onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'none\'">' +
+          '💾 Guardar y aplicar' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+  setTimeout(function() { document.getElementById('input-umbral-gym').focus(); }, 100);
+
+  // Enter para guardar
+  document.getElementById('input-umbral-gym').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') guardarUmbralGym();
+    if (e.key === 'Escape') document.getElementById('modal-umbral-gym').remove();
+  });
+}
+
+function guardarUmbralGym() {
+  const input = document.getElementById('input-umbral-gym');
+  const status = document.getElementById('modal-umbral-status');
+  const btn = document.getElementById('btn-guardar-umbral');
+  if (!input) return;
+
+  const nuevoValor = parseInt(input.value, 10);
+  if (isNaN(nuevoValor) || nuevoValor < 1 || nuevoValor > 31) {
+    status.style.display = 'block';
+    status.style.background = 'rgba(239,68,68,0.15)';
+    status.style.border = '1px solid rgba(239,68,68,0.4)';
+    status.style.color = '#FCA5A5';
+    status.textContent = '❌ El umbral debe ser un número entre 1 y 31';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Guardando...';
+  btn.style.opacity = '0.7';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      if (resp && resp.ok) {
+        window._umbralGym = resp.umbral;
+        status.style.display = 'block';
+        status.style.background = 'rgba(16,185,129,0.15)';
+        status.style.border = '1px solid rgba(16,185,129,0.4)';
+        status.style.color = '#6EE7B7';
+        status.textContent = '✅ Umbral actualizado a ' + resp.umbral + ' visitas';
+
+        // Cerrar el modal y recargar el módulo GYM con el nuevo umbral
+        setTimeout(function() {
+          const modal = document.getElementById('modal-umbral-gym');
+          if (modal) modal.remove();
+          // Re-render usando currentData en cache (sin volver a llamar GAS)
+          if (currentData && currentRenderFunction === renderGym) {
+            _renderGymContenido({
+              headers: currentData.headers,
+              data: currentData.originalData
+            });
+          }
+        }, 800);
+      } else {
+        status.style.display = 'block';
+        status.style.background = 'rgba(239,68,68,0.15)';
+        status.style.border = '1px solid rgba(239,68,68,0.4)';
+        status.style.color = '#FCA5A5';
+        status.textContent = '❌ ' + (resp && resp.message ? resp.message : 'Error al guardar');
+        btn.disabled = false;
+        btn.innerHTML = '💾 Guardar y aplicar';
+        btn.style.opacity = '1';
+      }
+    })
+    .withFailureHandler(function(err) {
+      status.style.display = 'block';
+      status.style.background = 'rgba(239,68,68,0.15)';
+      status.style.border = '1px solid rgba(239,68,68,0.4)';
+      status.style.color = '#FCA5A5';
+      status.textContent = '❌ ' + (err && err.message ? err.message : 'Error de conexión');
+      btn.disabled = false;
+      btn.innerHTML = '💾 Guardar y aplicar';
+      btn.style.opacity = '1';
+    })
+    .setUmbralGym(nuevoValor);
 }
