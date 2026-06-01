@@ -521,7 +521,7 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
     '<div class="ring-panel ring-panel--flow">' +
       '<div class="ring-flow__avatar">👤</div>' +
       '<div class="ring-flow__name">' + nombre + '</div>' +
-      '<div id="flujo-status" class="ring-flow__status">Obteniendo ubicación GPS...</div>' +
+      '<div id="flujo-status" class="ring-flow__status">Registrando checada...</div>' +
       '<div class="ring-flow__spinner"></div>' +
     '</div>';
 
@@ -535,94 +535,25 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
     if (el) { el.textContent = msg; if (color) el.style.color = color; }
   }
 
-  function lanzarGPS() {
-    if (!navigator.geolocation) {
-      _registrarChecada(nombre, idUsuario, null, setStatus);
-      return;
-    }
-
-    if (!_zonasValidas || _zonasValidas.length === 0) {
-      // Intentar leer de localStorage primero (instantáneo)
-      try {
-        var z = localStorage.getItem('em_zonas_cache');
-        if (z) {
-          var parsed = JSON.parse(z);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            _zonasValidas = parsed;
-            obtenerGPS();
-            return;
-          }
-        }
-      } catch(e) {}
-
-      // Fallback: pedir a GAS solo si no hay cache
-      setStatus('Cargando zonas...', '#94A3B8');
-      google.script.run
-        .withSuccessHandler(function(res) {
-          _zonasValidas = (res && res.zonas) ? res.zonas : [];
-          try { localStorage.setItem('em_zonas_cache', JSON.stringify(_zonasValidas)); } catch(e) {}
-          obtenerGPS();
-        })
-        .withFailureHandler(function() { _zonasValidas = []; obtenerGPS(); })
-        .getZonasValidas();
-    } else {
-      obtenerGPS();
-    }
-  }
-
-  function obtenerGPS() {
-    setStatus('Obteniendo ubicación GPS...', '#94A3B8');
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        var lat = pos.coords.latitude;
-        var lng = pos.coords.longitude;
-        var precision = Math.round(pos.coords.accuracy);
-        var linkMaps = 'https://maps.google.com/?q=' + lat + ',' + lng;
-        setStatus('Verificando zona...', '#94A3B8');
-
-        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&accept-language=es')
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            _registrarChecada(nombre, idUsuario, {
-              lat: lat, lng: lng, precision: precision,
-              direccion: d.display_name || (lat.toFixed(6) + ',' + lng.toFixed(6)),
-              linkMaps: linkMaps
-            }, setStatus);
-          })
-          .catch(function() {
-            _registrarChecada(nombre, idUsuario, {
-              lat: lat, lng: lng, precision: precision,
-              direccion: lat.toFixed(6) + ',' + lng.toFixed(6),
-              linkMaps: linkMaps
-            }, setStatus);
-          });
-      },
-      function() {
-        _registrarChecada(nombre, idUsuario, null, setStatus);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  }
-
-  lanzarGPS();
+  // ⭐ CHECADA INMEDIATA — sin GPS, sin zonas, sin validación de ubicación.
+  // El empleado ya validó PIN y contraseña, eso es suficiente para registrar
+  // su asistencia. No hay nada que esperar.
+  _registrarChecada(nombre, idUsuario, null, setStatus);
 }
 
 function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
+  // gpsData se mantiene en la firma por compatibilidad pero ya no se usa.
+  // La checada se registra al instante después de validar PIN + contraseña.
   var ahora = new Date();
-  // Forzar timezone de Ciudad de México para hora/fecha — no depender del
-  // dispositivo del usuario (algunos pueden tener zona "America/Chicago" o
-  // "UTC" mal configurada y la hora sale +1h adelantada).
+  // Forzar timezone de Ciudad de México — no depender del dispositivo
+  // (algunos tablets tienen zona mal configurada y la hora salía +1h adelantada).
   var TZ_MEX = 'America/Mexico_City';
-  var fecha = ahora.toLocaleDateString('en-CA', { timeZone: TZ_MEX });  // "yyyy-MM-dd"
+  var fecha = ahora.toLocaleDateString('en-CA', { timeZone: TZ_MEX });
   var hora  = ahora.toLocaleTimeString('es-MX', {
     timeZone: TZ_MEX,
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   });
   var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
-
-  // verificarZonaChofer ahora solo sirve para obtener el NOMBRE de la zona
-  // más cercana. El estado siempre es VÁLIDA — ya no se rechazan checadas.
-  var zonaInfo = gpsData ? verificarZonaChofer(gpsData.lat, gpsData.lng) : { zonaCercana: '' };
 
   var datos = {
     idUsuario: idUsuario,
@@ -630,18 +561,12 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     fecha: fecha,
     hora: hora,
     timestampCompleto: timestamp,
-    lat: gpsData ? gpsData.lat : '',
-    lng: gpsData ? gpsData.lng : '',
-    estadoZona: 'VÁLIDA',
-    zonaCercana: zonaInfo.zonaCercana || ''
+    estadoZona: 'VÁLIDA'  // siempre válida — ya no hay validación de ubicación
   };
 
-  // ── Mostrar pantalla de éxito INMEDIATA — no esperar respuesta del GAS ──
+  // ── Pantalla de éxito INMEDIATA ──
   var box = document.getElementById('pin-box');
   if (box) {
-    var colorZona = '#3ddc84';
-    var textoZona = zonaInfo.zonaCercana ? '📍 ' + zonaInfo.zonaCercana : '📍 Ubicación registrada';
-
     box.removeAttribute('data-state');
     box.innerHTML =
       '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
@@ -671,14 +596,11 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
         '<div class="ring-flow__check">✓</div>' +
         '<div class="ring-flow__title">¡Checada Registrada!</div>' +
         '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
-        '<div class="ring-flow__zone" style="color:' + colorZona + ';border-color:' + colorZona + ';">' + textoZona + '</div>' +
       '</div>';
 
-    // Forzar reflow para que el flash de success se aplique al nuevo SVG
     void box.offsetWidth;
     box.setAttribute('data-state', 'success');
 
-    // Volver al PIN en 1.5s (antes era countdown de 5s)
     setTimeout(function() { mostrarPantallaPIN(); }, 1500);
   }
 
@@ -803,11 +725,17 @@ function ejecutarControlAsistencia() {
       const result = safeResult(raw);
       if (result.error === true) { console.error(result.message); return; }
       procesoTerminado = true;
-      if (result && result.registros === 0) {
+      // Mostrar "Sin Datos" SOLO si no se generó ninguna métrica.
+      // Caso típico: aunque RAW esté vacío, el PASO 4B puede haber generado
+      // faltas/vacaciones/inhábiles que SÍ son métricas válidas — eso NO es
+      // "sin datos", es un proceso exitoso normal.
+      const sinChecadas = (result.registros || 0) === 0;
+      const sinMetricas = (result.metricas  || 0) === 0;
+      if (sinChecadas && sinMetricas) {
         clearInterval(progressInterval);
         progressBar.style.width = '100%';
         progressText.textContent = '100%';
-        modalHTML.innerHTML = '<div style="font-size:72px;margin-bottom:24px;"><i class="fas fa-info-circle" style="color:#F59E0B;"></i></div><h2 style="color:#F59E0B;margin-bottom:12px;font-size:28px;font-weight:700;">Sin Datos para Procesar</h2><p style="color:var(--text-secondary);margin-bottom:28px;font-size:15px;">No se encontraron registros en RAW.</p><button id="btn-cerrar-info" style="padding:14px 32px;background:#F59E0B;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Cerrar y Refrescar</button>';
+        modalHTML.innerHTML = '<div style="font-size:72px;margin-bottom:24px;"><i class="fas fa-info-circle" style="color:#F59E0B;"></i></div><h2 style="color:#F59E0B;margin-bottom:12px;font-size:28px;font-weight:700;">Sin Datos para Procesar</h2><p style="color:var(--text-secondary);margin-bottom:28px;font-size:15px;">No se encontraron registros ni se generaron métricas.</p><button id="btn-cerrar-info" style="padding:14px 32px;background:#F59E0B;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Cerrar y Refrescar</button>';
         document.getElementById('btn-cerrar-info').onclick = function() {
           overlay.remove();
           if (typeof _invalidarCache === 'function') _invalidarCache();
