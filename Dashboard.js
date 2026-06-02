@@ -193,10 +193,23 @@ function procesarMapaDashboard(rTurnos, rMetricas) {
     }
   });
 
+  // ⭐ Considerar PRESENTE solo si tiene hora de entrada REAL (no vacía).
+  // Antes bastaba con que la fila existiera y no estuviera marcada como
+  // falta/inhábil/vacaciones — pero ahora también existen filas en estatus
+  // PENDIENTE (empleados que aún no checan pero todavía no se consideran
+  // falta porque su turno aún no termina su ventana). Esas filas tienen
+  // entrada vacía → no son presentes.
   const presentesHoyNorm = new Set();
   const presentesHoyOriginal = new Set();
   registrosHoy
-    .filter(function(r) { return r[iFaltaM] !== 'SÍ' && r[iInhabilM] !== 'SÍ' && r[iVacacionesM] !== 'SÍ' && r[iEnfermedadM] !== 'SÍ'; })
+    .filter(function(r) {
+      // Debe NO estar marcado como falta/inhábil/vacaciones/enfermedad
+      if (r[iFaltaM] === 'SÍ' || r[iInhabilM] === 'SÍ' || r[iVacacionesM] === 'SÍ' || r[iEnfermedadM] === 'SÍ') return false;
+      // Y debe tener hora de entrada real
+      const entrada = r[iEntradaM];
+      if (!entrada || entrada === '' || entrada === null) return false;
+      return true;
+    })
     .forEach(function(r) {
       const nombreOriginal = (r[iNombreM] || '').toString().trim();
       presentesHoyNorm.add(normalizarNombre(nombreOriginal));
