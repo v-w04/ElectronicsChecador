@@ -92,55 +92,46 @@ function enviarReporteWhatsApp() {
 }
 
 // ============================================================================
-// AUTO-REFRESH cada 15 minutos en ventana 7:30 AM → 4:45 PM
+// AUTO-REFRESH cada 5 minutos
 // ============================================================================
-// Refresca el dashboard automáticamente (equivalente a darle al botón Refrescar)
-// para que los datos siempre reflejen lo que el control de asistencia acaba
-// de procesar — sin que el usuario tenga que tocar nada.
+// Simula el click del botón "Refrescar" del sidebar (el que llama
+// loadCurrentModule) cada 5 minutos reales, en la ventana 7:30 AM → 4:45 PM.
+// El usuario deja la app abierta y los datos se actualizan solos.
 //
-// La verificación se hace cada minuto y compara contra los minutos
-// múltiplos de 15 (00, 15, 30, 45). En esas horas, llama loadCurrentModule()
-// que internamente decide si recargar el dashboard o el módulo abierto.
+// Estrategia: setInterval cada 5 min reales desde que se abre la app.
+// El backend GAS corre el control cada 15 min — al refrescar cada 5 min,
+// nunca pasarás más de 5 min sin ver los datos más recientes.
 
 (function() {
-  // Configuración de ventana
+  const INTERVALO_MS = 5 * 60 * 1000; // 5 minutos
   const INICIO_MIN = 7 * 60 + 30;   // 7:30 AM
   const FIN_MIN    = 16 * 60 + 45;  // 4:45 PM
-  let ultimoRefreshMin = -1;
 
-  function _esHorarioRefresh() {
+  function _enVentana() {
     const ahora = new Date();
     const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-
-    // ¿Estamos dentro de la ventana?
-    if (minutosAhora < INICIO_MIN || minutosAhora > FIN_MIN) return false;
-
-    // ¿Es múltiplo de 15? Solo en :00, :15, :30, :45
-    if (ahora.getMinutes() % 15 !== 0) return false;
-
-    // ¿Ya refrescamos este minuto exacto? (evita doble disparo si el timer fue impreciso)
-    const claveMinuto = ahora.getHours() * 60 + ahora.getMinutes();
-    if (claveMinuto === ultimoRefreshMin) return false;
-    ultimoRefreshMin = claveMinuto;
-
-    return true;
+    return minutosAhora >= INICIO_MIN && minutosAhora <= FIN_MIN;
   }
 
   function _autoRefresh() {
-    if (!_esHorarioRefresh()) return;
+    if (!_enVentana()) {
+      console.log('[AUTO-REFRESH] Fuera de ventana, omitido (' + new Date().toLocaleTimeString() + ')');
+      return;
+    }
 
-    console.log('[AUTO-REFRESH] Recargando vista a las ' + new Date().toLocaleTimeString());
+    console.log('[AUTO-REFRESH] 🔄 Refrescando vista (' + new Date().toLocaleTimeString() + ')');
 
-    // Llama loadCurrentModule si existe (recarga módulo abierto o dashboard)
+    // Simular click en el botón Refrescar de la topbar
     if (typeof loadCurrentModule === 'function') {
       try { loadCurrentModule(); } catch (e) { console.warn('[AUTO-REFRESH] error:', e); }
     } else if (typeof loadDashboard === 'function') {
-      // Fallback: si por alguna razón loadCurrentModule no existe, recarga dashboard
       try { loadDashboard(true); } catch (e) { console.warn('[AUTO-REFRESH] error fallback:', e); }
+    } else {
+      console.warn('[AUTO-REFRESH] loadCurrentModule no disponible');
     }
   }
 
-  // Revisar cada minuto si toca refrescar
-  setInterval(_autoRefresh, 60 * 1000);
-  console.log('[AUTO-REFRESH] Activo · ventana 7:30 AM → 4:45 PM · cada 15 min');
+  setInterval(_autoRefresh, INTERVALO_MS);
+  console.log('[AUTO-REFRESH] ✅ Activado · cada 5 min · ventana 7:30 AM → 4:45 PM');
+  console.log('[AUTO-REFRESH] Próximo refresh: ' + new Date(Date.now() + INTERVALO_MS).toLocaleTimeString());
 })();
