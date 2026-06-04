@@ -212,7 +212,10 @@ function _buildUrl(seed, bgHex, isFem, override, forZoom) {
 
   var params = [];
   params.push('seed=' + encodeURIComponent(seed || 'user'));
-  params.push('radius=50');
+  // Para forZoom: NO redondear el SVG ni recortarlo, queremos ver el torso completo
+  if (!forZoom) {
+    params.push('radius=50');
+  }
   params.push('backgroundColor=' + bgHex);
   params.push('backgroundType=solid');
 
@@ -251,13 +254,6 @@ function _buildUrl(seed, bgHex, isFem, override, forZoom) {
     }
   } else {
     params.push('facialHairProbability=0');
-  }
-
-  // Para miniaturas del tab Ropa: zoom out y bajar la imagen para que se vea
-  // el cuello y los hombros (donde se aprecia la ropa)
-  if (forZoom) {
-    params.push('scale=75');
-    params.push('translateY=10');
   }
 
   return 'https://api.dicebear.com/9.x/' + _STYLE + '/svg?' + params.join('&');
@@ -387,17 +383,23 @@ window._abrirTab = function(tab) {
     return _buildUrl(nombreSeed, bg, isFem, miniOv, forZoom);
   }
 
-  // forZoom=true → miniaturas con scale reducido para mostrar el torso
+  // forZoom=true → miniaturas cuadradas (sin recorte circular) para mostrar
+  //                la ropa completa (de hombros para abajo)
   function gridOpciones(opciones, propPath, forZoom) {
     var actual = ov[propPath];
     var g = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px;">';
     opciones.forEach(function(opt) {
       var sel = (actual === opt.v);
       var miniUrl = makeMini(propPath, opt.v, forZoom);
+      // Para tab ropa: miniaturas cuadradas con esquinas redondeadas (no círculo)
+      // para que se vea el torso/ropa que normalmente queda fuera del recorte circular
+      var imgStyle = forZoom
+        ? 'border-radius:8px;display:block;margin:0 auto 4px;background:rgba(15,23,42,0.3);'
+        : 'border-radius:50%;display:block;margin:0 auto 4px;';
       g += '<div onclick="window._cambiarProp(\'' + propPath + '\',\'' + opt.v + '\')" ' +
         'style="cursor:pointer;padding:6px;border-radius:10px;border:2px solid ' + (sel ? '#10B981' : 'rgba(51,65,85,0.4)') +
         ';background:' + (sel ? 'rgba(16,185,129,0.1)' : 'transparent') + ';transition:all 0.15s;text-align:center;">' +
-        '<img src="' + miniUrl + '" width="56" height="56" style="border-radius:50%;display:block;margin:0 auto 4px;" onerror="this.style.background=\'#64748B\'"/>' +
+        '<img src="' + miniUrl + '" width="64" height="64" style="' + imgStyle + '" onerror="this.style.background=\'#64748B\'"/>' +
         '<div style="font-size:9px;color:' + (sel ? '#10B981' : '#94A3B8') + ';line-height:1.2;font-weight:' + (sel ? '700' : '500') + ';">' + opt.l + '</div>' +
         '</div>';
     });
