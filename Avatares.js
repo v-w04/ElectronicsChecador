@@ -1,13 +1,14 @@
 // ============================================================================
 // SISTEMA DE AVATARES — DiceBear Avataaars
 // ============================================================================
-// Estrategia: el seed es el nombre del empleado. Por default, mandamos al
-// API una LISTA de opciones permitidas (curadas, sin elementos raros) y el
-// PRNG de DiceBear elige una basándose en el seed → cada empleado tiene un
-// avatar consistente. Al personalizar, fijamos valores específicos.
+// Valores extraídos del schema oficial DiceBear v10.x:
+// https://cdn.hopjs.net/npm/@dicebear/styles@10.1.0/dist/avataaars.min.json
 //
-// IMPORTANTE: DiceBear 9.x usa COMAS para arrays, NO `[]=`.
-// Ejemplo: top=ShortHairShortFlat,ShortHairTheCaesar  (no top[]=...)
+// IMPORTANTE:
+// - Los parámetros van como CSV (separados por coma), NO `[]=`
+// - Nombres son camelCase exactos del schema (no PascalCase)
+// - Colores son valores HEX sin el `#` al inicio
+// - El parámetro de ropa se llama `clothes`, NO `clothing`
 
 var _AV_DEPT_HEX = {
   'CHOFER':'f59e0b','COMPRAS':'10b981','DEVOLUCIONES':'ef4444',
@@ -18,100 +19,129 @@ var _FALLBACK_HEX = ['3b82f6','8b5cf6','ec4899','10b981','f59e0b','ef4444','06b6
 
 var _STYLE = "avataaars";
 
-// ── Catálogos curados ─────────────────────────────────────────────────────────
+// ── Opciones CURADAS verificadas contra el schema oficial ───────────────────
 var _OPCIONES = {
+  // Piel: tonos mexicanos (sin amarillos ni blancos extremos)
   skinColor: [
-    { v:'Light',     l:'Claro' },
-    { v:'Tanned',    l:'Tostado' },
-    { v:'Brown',     l:'Moreno' },
-    { v:'DarkBrown', l:'Moreno oscuro' }
+    { v:'edb98a', l:'Claro' },
+    { v:'d08b5b', l:'Tostado' },
+    { v:'ae5d29', l:'Moreno' },
+    { v:'614335', l:'Moreno oscuro' }
   ],
+
+  // Cabello: colores naturales (sin rosa, sin gris pálido)
   hairColor: [
-    { v:'Black',     l:'Negro' },
-    { v:'BrownDark', l:'Castaño oscuro' },
-    { v:'Brown',     l:'Castaño' },
-    { v:'Auburn',    l:'Caoba' },
-    { v:'Blonde',    l:'Rubio' }
+    { v:'2c1b18', l:'Negro' },
+    { v:'4a312c', l:'Castaño oscuro' },
+    { v:'724133', l:'Castaño medio' },
+    { v:'a55728', l:'Castaño' },
+    { v:'b58143', l:'Caoba' },
+    { v:'c93305', l:'Rojo' },
+    { v:'d6b370', l:'Rubio claro' }
   ],
+
+  // Peinados (todos válidos del schema, sin sombreros/hijabs/turbantes)
   topM: [
-    { v:'ShortHairShortCurly',        l:'Corto rizado' },
-    { v:'ShortHairShortFlat',         l:'Corto plano' },
-    { v:'ShortHairShortRound',        l:'Corto redondo' },
-    { v:'ShortHairShortWaved',        l:'Corto ondulado' },
-    { v:'ShortHairSides',             l:'Rapado lados' },
-    { v:'ShortHairTheCaesar',         l:'Estilo César' },
-    { v:'ShortHairTheCaesarSidePart', l:'César con raya' },
-    { v:'ShortHairDreads01',          l:'Dreads cortos' },
-    { v:'ShortHairFrizzle',           l:'Rizos' }
+    { v:'shortCurly',           l:'Corto rizado' },
+    { v:'shortFlat',            l:'Corto plano' },
+    { v:'shortRound',           l:'Corto redondo' },
+    { v:'shortWaved',           l:'Corto ondulado' },
+    { v:'sides',                l:'Rapado lados' },
+    { v:'theCaesar',            l:'Estilo César' },
+    { v:'theCaesarAndSidePart', l:'César con raya' },
+    { v:'shavedSides',          l:'Rapado mohawk' },
+    { v:'frizzle',              l:'Rizos' }
   ],
+
   topF: [
-    { v:'LongHairStraight',      l:'Lacio largo' },
-    { v:'LongHairStraight2',     l:'Lacio largo 2' },
-    { v:'LongHairStraightStrand',l:'Lacio con mechón' },
-    { v:'LongHairBigHair',       l:'Voluminoso' },
-    { v:'LongHairBob',           l:'Bob' },
-    { v:'LongHairBun',           l:'Chongo' },
-    { v:'LongHairCurly',         l:'Rizado largo' },
-    { v:'LongHairCurvy',         l:'Ondulado' },
-    { v:'LongHairDreads',        l:'Dreads largos' },
-    { v:'LongHairFro',           l:'Afro' },
-    { v:'LongHairFroBand',       l:'Afro con banda' },
-    { v:'LongHairNotTooLong',    l:'Medio' },
-    { v:'LongHairMiaWallace',    l:'Mia Wallace' },
-    { v:'LongHairShavedSides',   l:'Rapado lateral' }
+    { v:'straight01',         l:'Lacio largo' },
+    { v:'straight02',         l:'Lacio recto' },
+    { v:'straightAndStrand',  l:'Lacio con mechón' },
+    { v:'bigHair',            l:'Voluminoso' },
+    { v:'bob',                l:'Bob' },
+    { v:'bun',                l:'Chongo' },
+    { v:'curly',              l:'Rizado largo' },
+    { v:'curvy',              l:'Ondulado' },
+    { v:'longButNotTooLong',  l:'Medio' },
+    { v:'miaWallace',         l:'Mia Wallace' },
+    { v:'shaggy',             l:'Despeinado' },
+    { v:'shaggyMullet',       l:'Capas' }
   ],
+
+  // Cejas neutras (sin enojadas/tristes/unibrow)
   eyebrows: [
-    { v:'Default',        l:'Normal' },
-    { v:'DefaultNatural', l:'Natural' },
-    { v:'FlatNatural',    l:'Plana' },
-    { v:'RaisedExcited',  l:'Levantada' },
-    { v:'UpDown',         l:'Asimétrica' }
+    { v:'default',              l:'Normal' },
+    { v:'defaultNatural',       l:'Natural' },
+    { v:'flatNatural',          l:'Plana' },
+    { v:'raisedExcited',        l:'Levantada' },
+    { v:'raisedExcitedNatural', l:'Levantada nat.' },
+    { v:'upDown',               l:'Asimétrica' },
+    { v:'upDownNatural',        l:'Asimétrica nat.' }
   ],
+
+  // Ojos naturales (sin xDizzy, sin cry, sin hearts, sin surprised, sin closed)
   eyes: [
-    { v:'Default', l:'Normal' },
-    { v:'Happy',   l:'Felices' },
-    { v:'Squint',  l:'Entrecerrados' },
-    { v:'Wink',    l:'Guiño' }
+    { v:'default', l:'Normal' },
+    { v:'happy',   l:'Felices' },
+    { v:'side',    l:'De lado' },
+    { v:'squint',  l:'Entrecerrados' },
+    { v:'wink',    l:'Guiño' }
   ],
+
+  // Boca sonriente o neutral (sin tristes, sin gritando, sin vomit, sin tongue)
   mouth: [
-    { v:'Default', l:'Normal' },
-    { v:'Smile',   l:'Sonrisa' },
-    { v:'Twinkle', l:'Sonrisa amplia' },
-    { v:'Serious', l:'Serio' }
+    { v:'default', l:'Normal' },
+    { v:'serious', l:'Serio' },
+    { v:'smile',   l:'Sonrisa' },
+    { v:'twinkle', l:'Sonrisa amplia' }
   ],
+
+  // Accesorios (sin eyepatch ni kurt)
+  // Blank = sin lentes; los demás son del schema
   accessories: [
     { v:'Blank',          l:'Sin lentes' },
-    { v:'Round',          l:'Redondos' },
-    { v:'Prescription01', l:'Cuadrados' },
-    { v:'Prescription02', l:'Modernos' },
-    { v:'Wayfarers',      l:'Wayfarer' }
+    { v:'round',          l:'Redondos' },
+    { v:'prescription01', l:'Cuadrados' },
+    { v:'prescription02', l:'Modernos' },
+    { v:'sunglasses',     l:'Sol' },
+    { v:'wayfarers',      l:'Wayfarer' }
   ],
+
+  // Barba
   facialHair: [
     { v:'Blank',         l:'Sin barba' },
-    { v:'BeardLight',    l:'Ligera' },
-    { v:'BeardMedium',   l:'Mediana' },
-    { v:'BeardMajestic', l:'Tupida' }
+    { v:'beardLight',    l:'Ligera' },
+    { v:'beardMedium',   l:'Mediana' },
+    { v:'beardMajestic', l:'Tupida' }
   ],
-  clothing: [
-    { v:'BlazerShirt',   l:'Saco y camisa' },
-    { v:'BlazerSweater', l:'Saco y sweater' },
-    { v:'CollarSweater', l:'Sweater cuello' },
-    { v:'GraphicShirt',  l:'Playera estampada' },
-    { v:'Hoodie',        l:'Sudadera' },
-    { v:'ShirtCrewNeck', l:'Camiseta' },
-    { v:'ShirtVNeck',    l:'Camiseta V' }
+
+  // Ropa - nombre real es `clothes`
+  clothes: [
+    { v:'blazerAndShirt',   l:'Saco y camisa' },
+    { v:'blazerAndSweater', l:'Saco y sweater' },
+    { v:'collarAndSweater', l:'Sweater cuello' },
+    { v:'graphicShirt',     l:'Playera estampada' },
+    { v:'hoodie',           l:'Sudadera' },
+    { v:'shirtCrewNeck',    l:'Camiseta' },
+    { v:'shirtScoopNeck',   l:'Camiseta cuello redondo' },
+    { v:'shirtVNeck',       l:'Camiseta V' }
   ],
+
+  // Color de ropa (hex del schema)
   clothesColor: [
-    { v:'Black',       l:'Negro' },
-    { v:'Blue01',      l:'Azul claro' },
-    { v:'Blue02',      l:'Azul medio' },
-    { v:'Blue03',      l:'Azul fuerte' },
-    { v:'Gray01',      l:'Gris claro' },
-    { v:'Gray02',      l:'Gris oscuro' },
-    { v:'Heather',     l:'Jaspeado' },
-    { v:'PastelBlue',  l:'Pastel azul' },
-    { v:'PastelGreen', l:'Pastel verde' },
-    { v:'White',       l:'Blanco' }
+    { v:'262e33', l:'Negro' },
+    { v:'3c4f5c', l:'Gris oscuro' },
+    { v:'929598', l:'Gris' },
+    { v:'e6e6e6', l:'Gris claro' },
+    { v:'ffffff', l:'Blanco' },
+    { v:'25557c', l:'Azul marino' },
+    { v:'5199e4', l:'Azul' },
+    { v:'65c9ff', l:'Azul claro' },
+    { v:'b1e2ff', l:'Azul pastel' },
+    { v:'a7ffc4', l:'Verde pastel' },
+    { v:'ff5c5c', l:'Rojo' },
+    { v:'ff488e', l:'Rosa fuerte' },
+    { v:'ffafb9', l:'Rosa claro' }
   ]
 };
 
@@ -162,17 +192,17 @@ function _buildUrl(seed, bgHex, isFem, override) {
   params.push('backgroundColor=' + bgHex);
   params.push('backgroundType=solid');
 
-  // Para cada propiedad: si hay override, fijar valor; si no, pasar lista curada
+  // skin / hair: colores como hex (sin #)
   params.push('skinColor=' + (override.skinColor || _valoresDe(_OPCIONES.skinColor).join(',')));
   params.push('hairColor=' + (override.hairColor || _valoresDe(_OPCIONES.hairColor).join(',')));
-  params.push('top='       + (override.top       || topAllowed.join(',')));
-  params.push('eyebrows='  + (override.eyebrows  || _valoresDe(_OPCIONES.eyebrows).join(',')));
-  params.push('eyes='      + (override.eyes      || _valoresDe(_OPCIONES.eyes).join(',')));
-  params.push('mouth='     + (override.mouth     || _valoresDe(_OPCIONES.mouth).join(',')));
-  params.push('clothing='  + (override.clothing  || _valoresDe(_OPCIONES.clothing).join(',')));
+  params.push('top='        + (override.top      || topAllowed.join(',')));
+  params.push('eyebrows='   + (override.eyebrows || _valoresDe(_OPCIONES.eyebrows).join(',')));
+  params.push('eyes='       + (override.eyes     || _valoresDe(_OPCIONES.eyes).join(',')));
+  params.push('mouth='      + (override.mouth    || _valoresDe(_OPCIONES.mouth).join(',')));
+  params.push('clothes='    + (override.clothes  || _valoresDe(_OPCIONES.clothes).join(',')));
   params.push('clothesColor=' + (override.clothesColor || _valoresDe(_OPCIONES.clothesColor).join(',')));
 
-  // Accesorios y barba: por default = 0 probabilidad (sin nada)
+  // Lentes: por default SIN, solo si override pide algo específico distinto a Blank
   if (override.accessories && override.accessories !== 'Blank') {
     params.push('accessories=' + override.accessories);
     params.push('accessoriesProbability=100');
@@ -180,6 +210,7 @@ function _buildUrl(seed, bgHex, isFem, override) {
     params.push('accessoriesProbability=0');
   }
 
+  // Barba: por default SIN, solo si override pide algo específico
   if (override.facialHair && override.facialHair !== 'Blank') {
     params.push('facialHair=' + override.facialHair);
     params.push('facialHairProbability=100');
@@ -352,7 +383,7 @@ window._abrirTab = function(tab) {
   } else if (tab === 'barba') {
     html = tituloSeccion('Barba') + gridOpciones(_OPCIONES.facialHair, 'facialHair');
   } else if (tab === 'ropa') {
-    html = tituloSeccion('Tipo de ropa') + gridOpciones(_OPCIONES.clothing, 'clothing') +
+    html = tituloSeccion('Tipo de ropa') + gridOpciones(_OPCIONES.clothes, 'clothes') +
            '<div style="margin-top:18px;"></div>' +
            tituloSeccion('Color de ropa') + gridOpciones(_OPCIONES.clothesColor, 'clothesColor');
   }
@@ -393,7 +424,7 @@ window._aleatorizarAvatar = function() {
     mouth:        rnd(_OPCIONES.mouth),
     accessories:  Math.random() < 0.3 ? rnd(_OPCIONES.accessories.slice(1)) : 'Blank',
     facialHair:   (!isFem && Math.random() < 0.25) ? rnd(_OPCIONES.facialHair.slice(1)) : 'Blank',
-    clothing:     rnd(_OPCIONES.clothing),
+    clothes:      rnd(_OPCIONES.clothes),
     clothesColor: rnd(_OPCIONES.clothesColor)
   };
   _renderPreview();
