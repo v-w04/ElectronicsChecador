@@ -1,25 +1,14 @@
 // ============================================================================
 // SISTEMA DE AVATARES — DiceBear Avataaars
 // ============================================================================
-// Avatares limpios estilo Bitmoji con personalización por persona.
+// Estrategia: el seed es el nombre del empleado. Por default, mandamos al
+// API una LISTA de opciones permitidas (curadas, sin elementos raros) y el
+// PRNG de DiceBear elige una basándose en el seed → cada empleado tiene un
+// avatar consistente. Al personalizar, fijamos valores específicos.
 //
-// Cada empleado tiene un avatar default generado por hash del nombre, con:
-// - Piel: tonos mexicanos (Light, Tanned, Brown)
-// - Cabello: colores naturales
-// - Cara: expresiones neutras o sonrientes (no enojadas)
-// - SIN: sombreros, parches de ojo, bigotes raros, cejas enojadas, boca de estresado
-//
-// Editor por persona — al hacer click se abre un modal con tabs:
-//   Piel · Pelo · Ojos · Boca · Lentes · Barba · Ropa
-// donde se puede cambiar cada parte. Cambios se guardan en Sheets
-// (hoja AVATAR_OVERRIDES) y persisten entre sesiones.
+// IMPORTANTE: DiceBear 9.x usa COMAS para arrays, NO `[]=`.
+// Ejemplo: top=ShortHairShortFlat,ShortHairTheCaesar  (no top[]=...)
 
-// ── Colores de fondo por departamento ─────────────────────────────────────────
-var _AV_DEPT_COLORS = {
-  'CHOFER':'#F59E0B','COMPRAS':'#10B981','DEVOLUCIONES':'#EF4444',
-  'KAM':'#8B5CF6','OPERACIONES':'#3B82F6','PACKING':'#06B6D4',
-  'PICKING':'#EC4899','RRHH':'#84CC16','SEGURIDAD':'#F97316','DEFAULT':'#64748B',
-};
 var _AV_DEPT_HEX = {
   'CHOFER':'f59e0b','COMPRAS':'10b981','DEVOLUCIONES':'ef4444',
   'KAM':'8b5cf6','OPERACIONES':'3b82f6','PACKING':'06b6d4',
@@ -27,119 +16,129 @@ var _AV_DEPT_HEX = {
 };
 var _FALLBACK_HEX = ['3b82f6','8b5cf6','ec4899','10b981','f59e0b','ef4444','06b6d4','84cc16'];
 
-// ── Estilo y parámetros base ──────────────────────────────────────────────────
 var _STYLE = "avataaars";
 
-// Catálogos curados — solo opciones limpias, sin elementos raros
+// ── Catálogos curados ─────────────────────────────────────────────────────────
 var _OPCIONES = {
-  // Tonos de piel mexicanos: claro, tostado, moreno
-  skinColor: ['Light', 'Tanned', 'Brown', 'DarkBrown'],
-
-  // Colores de cabello naturales (sin azules, morados, rosas, etc.)
-  hairColor: ['Black', 'BrownDark', 'Brown', 'Auburn', 'Blonde'],
-
-  // Peinados — masculinos (cortos sin sombreros)
+  skinColor: [
+    { v:'Light',     l:'Claro' },
+    { v:'Tanned',    l:'Tostado' },
+    { v:'Brown',     l:'Moreno' },
+    { v:'DarkBrown', l:'Moreno oscuro' }
+  ],
+  hairColor: [
+    { v:'Black',     l:'Negro' },
+    { v:'BrownDark', l:'Castaño oscuro' },
+    { v:'Brown',     l:'Castaño' },
+    { v:'Auburn',    l:'Caoba' },
+    { v:'Blonde',    l:'Rubio' }
+  ],
   topM: [
-    'ShortHairShortCurly',
-    'ShortHairShortFlat',
-    'ShortHairShortRound',
-    'ShortHairShortWaved',
-    'ShortHairSides',
-    'ShortHairTheCaesar',
-    'ShortHairTheCaesarSidePart',
-    'ShortHairDreads01',
-    'ShortHairFrizzle'
+    { v:'ShortHairShortCurly',        l:'Corto rizado' },
+    { v:'ShortHairShortFlat',         l:'Corto plano' },
+    { v:'ShortHairShortRound',        l:'Corto redondo' },
+    { v:'ShortHairShortWaved',        l:'Corto ondulado' },
+    { v:'ShortHairSides',             l:'Rapado lados' },
+    { v:'ShortHairTheCaesar',         l:'Estilo César' },
+    { v:'ShortHairTheCaesarSidePart', l:'César con raya' },
+    { v:'ShortHairDreads01',          l:'Dreads cortos' },
+    { v:'ShortHairFrizzle',           l:'Rizos' }
   ],
-
-  // Peinados — femeninos (largos y medios sin sombreros)
   topF: [
-    'LongHairStraight',
-    'LongHairStraight2',
-    'LongHairStraightStrand',
-    'LongHairBigHair',
-    'LongHairBob',
-    'LongHairBun',
-    'LongHairCurly',
-    'LongHairCurvy',
-    'LongHairDreads',
-    'LongHairFro',
-    'LongHairFroBand',
-    'LongHairNotTooLong',
-    'LongHairMiaWallace',
-    'LongHairShavedSides'
+    { v:'LongHairStraight',      l:'Lacio largo' },
+    { v:'LongHairStraight2',     l:'Lacio largo 2' },
+    { v:'LongHairStraightStrand',l:'Lacio con mechón' },
+    { v:'LongHairBigHair',       l:'Voluminoso' },
+    { v:'LongHairBob',           l:'Bob' },
+    { v:'LongHairBun',           l:'Chongo' },
+    { v:'LongHairCurly',         l:'Rizado largo' },
+    { v:'LongHairCurvy',         l:'Ondulado' },
+    { v:'LongHairDreads',        l:'Dreads largos' },
+    { v:'LongHairFro',           l:'Afro' },
+    { v:'LongHairFroBand',       l:'Afro con banda' },
+    { v:'LongHairNotTooLong',    l:'Medio' },
+    { v:'LongHairMiaWallace',    l:'Mia Wallace' },
+    { v:'LongHairShavedSides',   l:'Rapado lateral' }
   ],
-
-  // Cejas — solo neutras, sin enojadas
-  eyebrows: ['Default', 'DefaultNatural', 'FlatNatural', 'RaisedExcited', 'UpDown'],
-
-  // Ojos — naturales, sin lágrimas, sin x, sin asustados
-  eyes: ['Default', 'Happy', 'Squint', 'Wink'],
-
-  // Boca — sonriente o neutral
-  mouth: ['Default', 'Smile', 'Twinkle', 'Serious'],
-
-  // Lentes — incluye opción sin lentes
-  accessories: ['Blank', 'Round', 'Prescription01', 'Prescription02', 'Wayfarers'],
-
-  // Barba — incluye opción sin barba
-  facialHair: ['Blank', 'BeardLight', 'BeardMedium', 'BeardMajestic'],
-
-  // Ropa — formal y casual sin estampados raros
-  clothing: ['BlazerShirt', 'BlazerSweater', 'CollarSweater', 'GraphicShirt', 'Hoodie', 'ShirtCrewNeck', 'ShirtVNeck'],
-
-  // Color de ropa
-  clothesColor: ['Black', 'Blue01', 'Blue02', 'Blue03', 'Gray01', 'Gray02', 'Heather', 'PastelBlue', 'PastelGreen', 'White']
+  eyebrows: [
+    { v:'Default',        l:'Normal' },
+    { v:'DefaultNatural', l:'Natural' },
+    { v:'FlatNatural',    l:'Plana' },
+    { v:'RaisedExcited',  l:'Levantada' },
+    { v:'UpDown',         l:'Asimétrica' }
+  ],
+  eyes: [
+    { v:'Default', l:'Normal' },
+    { v:'Happy',   l:'Felices' },
+    { v:'Squint',  l:'Entrecerrados' },
+    { v:'Wink',    l:'Guiño' }
+  ],
+  mouth: [
+    { v:'Default', l:'Normal' },
+    { v:'Smile',   l:'Sonrisa' },
+    { v:'Twinkle', l:'Sonrisa amplia' },
+    { v:'Serious', l:'Serio' }
+  ],
+  accessories: [
+    { v:'Blank',          l:'Sin lentes' },
+    { v:'Round',          l:'Redondos' },
+    { v:'Prescription01', l:'Cuadrados' },
+    { v:'Prescription02', l:'Modernos' },
+    { v:'Wayfarers',      l:'Wayfarer' }
+  ],
+  facialHair: [
+    { v:'Blank',         l:'Sin barba' },
+    { v:'BeardLight',    l:'Ligera' },
+    { v:'BeardMedium',   l:'Mediana' },
+    { v:'BeardMajestic', l:'Tupida' }
+  ],
+  clothing: [
+    { v:'BlazerShirt',   l:'Saco y camisa' },
+    { v:'BlazerSweater', l:'Saco y sweater' },
+    { v:'CollarSweater', l:'Sweater cuello' },
+    { v:'GraphicShirt',  l:'Playera estampada' },
+    { v:'Hoodie',        l:'Sudadera' },
+    { v:'ShirtCrewNeck', l:'Camiseta' },
+    { v:'ShirtVNeck',    l:'Camiseta V' }
+  ],
+  clothesColor: [
+    { v:'Black',       l:'Negro' },
+    { v:'Blue01',      l:'Azul claro' },
+    { v:'Blue02',      l:'Azul medio' },
+    { v:'Blue03',      l:'Azul fuerte' },
+    { v:'Gray01',      l:'Gris claro' },
+    { v:'Gray02',      l:'Gris oscuro' },
+    { v:'Heather',     l:'Jaspeado' },
+    { v:'PastelBlue',  l:'Pastel azul' },
+    { v:'PastelGreen', l:'Pastel verde' },
+    { v:'White',       l:'Blanco' }
+  ]
 };
 
-// ── Detección de género por primer nombre ─────────────────────────────────────
+// ── Detección de género ───────────────────────────────────────────────────────
 var _NOMBRES_F = new Set([
   'maria','ana','carmen','rosa','laura','patricia','daniela','gabriela','andrea','monica',
   'claudia','veronica','sandra','silvia','elizabeth','martha','guadalupe','beatriz','teresa','adriana',
   'alejandra','carolina','diana','karla','paola','fernanda','jessica','isabel','lorena','mariana',
   'cristina','yolanda','leticia','rocio','julia','victoria','valeria','sofia','ximena','gladys',
   'marissa','aida','yaneth','wendy','brenda','cynthia','estrella','gisela','irene','janet','karina',
-  'liliana','miriam','nadia','olga','rebeca','susana','tania','ursula','viviana','samantha','maribel',
-  'jocelyn','dennis','marin','sara','vanessa','natalia','jimena','michelle','denisse','daphne'
+  'liliana','miriam','nadia','olga','rebeca','susana','tania','samantha','maribel','jocelyn',
+  'dennis','marin','sara','vanessa','natalia','jimena','michelle'
 ]);
 
 function _isFem(nombre) {
   var p = (nombre || '').toLowerCase().trim().split(/\s+/)[0];
   if (_NOMBRES_F.has(p)) return true;
-  // Regla heurística: termina en 'a' pero no 'ia' ni 'ua' y no 'ma' final
   return p.endsWith('a') && !p.endsWith('ia') && !p.endsWith('ua');
 }
 
-// ── Estado global ────────────────────────────────────────────────────────────
-window._avatarOverrides = {}; // { nombre: { skinColor, hairColor, top, eyebrows, eyes, mouth, accessories, facialHair, clothing, clothesColor } }
-window._avatarCache = {};
+// ── Estado global ─────────────────────────────────────────────────────────────
+window._avatarOverrides = {};
 
 function _hashN(s) {
   var h = 5381;
   for (var i = 0; i < s.length; i++) { h = ((h << 5) + h) ^ s.charCodeAt(i); h = h >>> 0; }
   return h;
-}
-
-// Selecciona una opción de un array usando el hash del nombre como semilla
-function _pickFromHash(arr, nombre, offset) {
-  var h = _hashN((nombre || '') + (offset || 0));
-  return arr[h % arr.length];
-}
-
-// Genera el avatar default para un empleado (basado en su nombre)
-function _generarAvatarDefault(nombre) {
-  var isFem = _isFem(nombre);
-  return {
-    skinColor:     _pickFromHash(_OPCIONES.skinColor, nombre, 1),
-    hairColor:     _pickFromHash(_OPCIONES.hairColor, nombre, 2),
-    top:           _pickFromHash(isFem ? _OPCIONES.topF : _OPCIONES.topM, nombre, 3),
-    eyebrows:      _pickFromHash(_OPCIONES.eyebrows, nombre, 4),
-    eyes:          _pickFromHash(_OPCIONES.eyes, nombre, 5),
-    mouth:         _pickFromHash(_OPCIONES.mouth, nombre, 6),
-    accessories:   'Blank',  // ⭐ por default SIN lentes
-    facialHair:    'Blank',  // ⭐ por default SIN barba (incluso en hombres)
-    clothing:      _pickFromHash(_OPCIONES.clothing, nombre, 9),
-    clothesColor:  _pickFromHash(_OPCIONES.clothesColor, nombre, 10)
-  };
 }
 
 function _getBgHex(nombre, departamento) {
@@ -148,59 +147,65 @@ function _getBgHex(nombre, departamento) {
   return _FALLBACK_HEX[_hashN(nombre || '') % _FALLBACK_HEX.length];
 }
 
-// Construye la URL del avatar dado un objeto de configuración
-function _buildUrl(config, bgHex) {
-  var params = [
-    'seed=' + encodeURIComponent('x'),  // seed fijo, las opciones lo definen
-    'radius=50',
-    'backgroundColor=' + bgHex,
-    'backgroundType=solid',
-    'skinColor=' + config.skinColor,
-    'hairColor=' + config.hairColor,
-    'top[]=' + config.top,
-    'eyebrows[]=' + config.eyebrows,
-    'eyes[]=' + config.eyes,
-    'mouth[]=' + config.mouth,
-    'accessories[]=' + (config.accessories || 'Blank'),
-    'accessoriesProbability=' + (config.accessories === 'Blank' || !config.accessories ? '0' : '100'),
-    'facialHair[]=' + (config.facialHair || 'Blank'),
-    'facialHairProbability=' + (config.facialHair === 'Blank' || !config.facialHair ? '0' : '100'),
-    'clothing[]=' + config.clothing,
-    'clothesColor[]=' + config.clothesColor
-  ];
+function _valoresDe(opcionesArr) {
+  return opcionesArr.map(function(o) { return o.v; });
+}
+
+// ── Construcción de URL ───────────────────────────────────────────────────────
+function _buildUrl(seed, bgHex, isFem, override) {
+  override = override || {};
+  var topAllowed = _valoresDe(isFem ? _OPCIONES.topF : _OPCIONES.topM);
+
+  var params = [];
+  params.push('seed=' + encodeURIComponent(seed || 'user'));
+  params.push('radius=50');
+  params.push('backgroundColor=' + bgHex);
+  params.push('backgroundType=solid');
+
+  // Para cada propiedad: si hay override, fijar valor; si no, pasar lista curada
+  params.push('skinColor=' + (override.skinColor || _valoresDe(_OPCIONES.skinColor).join(',')));
+  params.push('hairColor=' + (override.hairColor || _valoresDe(_OPCIONES.hairColor).join(',')));
+  params.push('top='       + (override.top       || topAllowed.join(',')));
+  params.push('eyebrows='  + (override.eyebrows  || _valoresDe(_OPCIONES.eyebrows).join(',')));
+  params.push('eyes='      + (override.eyes      || _valoresDe(_OPCIONES.eyes).join(',')));
+  params.push('mouth='     + (override.mouth     || _valoresDe(_OPCIONES.mouth).join(',')));
+  params.push('clothing='  + (override.clothing  || _valoresDe(_OPCIONES.clothing).join(',')));
+  params.push('clothesColor=' + (override.clothesColor || _valoresDe(_OPCIONES.clothesColor).join(',')));
+
+  // Accesorios y barba: por default = 0 probabilidad (sin nada)
+  if (override.accessories && override.accessories !== 'Blank') {
+    params.push('accessories=' + override.accessories);
+    params.push('accessoriesProbability=100');
+  } else {
+    params.push('accessoriesProbability=0');
+  }
+
+  if (override.facialHair && override.facialHair !== 'Blank') {
+    params.push('facialHair=' + override.facialHair);
+    params.push('facialHairProbability=100');
+  } else {
+    params.push('facialHairProbability=0');
+  }
+
   return 'https://api.dicebear.com/9.x/' + _STYLE + '/svg?' + params.join('&');
 }
 
-function _getConfig(nombre) {
-  var nombreTrim = (nombre || '').trim();
-  var override = window._avatarOverrides[nombreTrim];
-  if (override) {
-    // Si tiene override, combinar con default (override sobreescribe)
-    var def = _generarAvatarDefault(nombreTrim);
-    var merged = {};
-    Object.keys(def).forEach(function(k) { merged[k] = def[k]; });
-    Object.keys(override).forEach(function(k) {
-      if (override[k]) merged[k] = override[k];
-    });
-    return merged;
-  }
-  return _generarAvatarDefault(nombreTrim);
-}
-
 function _getAvatarUrl(nombre, departamento) {
-  var bg = _getBgHex(nombre, departamento);
-  var config = _getConfig(nombre);
-  return _buildUrl(config, bg);
+  var nombreTrim = (nombre || '').trim();
+  var bg = _getBgHex(nombreTrim, departamento);
+  var isFem = _isFem(nombreTrim);
+  var override = window._avatarOverrides[nombreTrim];
+  return _buildUrl(nombreTrim, bg, isFem, override);
 }
 
-// ── API pública para usar avatares ────────────────────────────────────────────
+// ── API pública ───────────────────────────────────────────────────────────────
 function crearAvatarElement(nombreCompleto, size, departamento) {
   if (size === undefined) size = 40;
   if (departamento === undefined) departamento = null;
   var url = _getAvatarUrl(nombreCompleto, departamento);
   return '<img src="' + url + '" width="' + size + '" height="' + size +
     '" style="border-radius:50%;flex-shrink:0;display:inline-block;vertical-align:middle;" ' +
-    'title="' + (nombreCompleto || '') + '" alt="' + (nombreCompleto || '') + '" ' +
+    'title="' + (nombreCompleto || '') + '" alt="" ' +
     'onerror="this.style.background=\'#64748B\'">';
 }
 
@@ -208,46 +213,36 @@ function crearAvatarElementConDepto(nombreCompleto, size, departamento) {
   return crearAvatarElement(nombreCompleto, size, departamento);
 }
 
-// ── Cargar overrides desde el servidor ────────────────────────────────────────
 function cargarAvatarOverrides(callback) {
   google.script.run
     .withSuccessHandler(function(data) {
-      if (data && typeof data === 'object') {
-        window._avatarOverrides = data;
-      }
+      if (data && typeof data === 'object') window._avatarOverrides = data;
       if (typeof callback === 'function') callback();
     })
-    .withFailureHandler(function() {
-      if (typeof callback === 'function') callback();
-    })
+    .withFailureHandler(function() { if (typeof callback === 'function') callback(); })
     .getAvatarOverrides();
 }
 
 // ============================================================================
-// EDITOR DE AVATAR — Modal con tabs para personalizar cada parte
+// EDITOR
 // ============================================================================
+window._currentTab = 'piel';
 
 window.abrirSelectorAvatar = function(nombre) {
   var prev = document.getElementById('avatar-editor-overlay');
   if (prev) prev.remove();
 
   var nombreTrim = (nombre || '').trim();
-  var nombreSeg = nombreTrim.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
-  // Estado actual (se va modificando con cada cambio)
-  window._editorConfig = _getConfig(nombreTrim);
-  window._editorNombre = nombreTrim;
-
   var isFem = _isFem(nombreTrim);
+  window._editorNombre = nombreTrim;
+  window._editorOverride = JSON.parse(JSON.stringify(window._avatarOverrides[nombreTrim] || {}));
 
   var overlay = document.createElement('div');
   overlay.id = 'avatar-editor-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);';
 
   overlay.innerHTML =
-    '<div style="background:linear-gradient(135deg,#1E293B,#0F172A);border:1px solid rgba(59,130,246,0.4);border-radius:16px;width:520px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.5);">' +
-
-      // ── Header ──
+    '<div style="background:linear-gradient(135deg,#1E293B,#0F172A);border:1px solid rgba(59,130,246,0.4);border-radius:16px;width:540px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.5);">' +
       '<div style="padding:20px 24px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(51,65,85,0.4);">' +
         '<div>' +
           '<div style="font-size:18px;font-weight:800;color:#F1F5F9;">Personalizar avatar</div>' +
@@ -255,49 +250,38 @@ window.abrirSelectorAvatar = function(nombre) {
         '</div>' +
         '<button onclick="document.getElementById(\'avatar-editor-overlay\').remove()" style="background:none;border:none;color:#64748B;font-size:24px;cursor:pointer;line-height:1;">×</button>' +
       '</div>' +
-
-      // ── Preview grande ──
       '<div style="padding:20px;display:flex;justify-content:center;background:rgba(15,23,42,0.4);">' +
-        '<div id="avatar-preview-container" style="width:140px;height:140px;border-radius:50%;overflow:hidden;border:3px solid rgba(59,130,246,0.4);">' +
-        '</div>' +
+        '<div id="avatar-preview-container" style="width:140px;height:140px;border-radius:50%;overflow:hidden;border:3px solid rgba(59,130,246,0.4);"></div>' +
       '</div>' +
-
-      // ── Tabs (Piel / Pelo / Ojos / Boca / Lentes / Barba / Ropa) ──
       '<div id="avatar-tabs" style="display:flex;gap:4px;padding:0 16px;border-bottom:1px solid rgba(51,65,85,0.4);overflow-x:auto;">' +
-        _crearTabBtn('piel', '🎨 Piel', true) +
-        _crearTabBtn('pelo', '💇 Pelo') +
-        _crearTabBtn('cara', '😊 Cara') +
-        _crearTabBtn('lentes', '👓 Lentes') +
-        (isFem ? '' : _crearTabBtn('barba', '🧔 Barba')) +
-        _crearTabBtn('ropa', '👕 Ropa') +
+        _crearTabBtn('piel','🎨 Piel', true) +
+        _crearTabBtn('pelo','💇 Pelo') +
+        _crearTabBtn('cara','😊 Cara') +
+        _crearTabBtn('lentes','👓 Lentes') +
+        (isFem ? '' : _crearTabBtn('barba','🧔 Barba')) +
+        _crearTabBtn('ropa','👕 Ropa') +
       '</div>' +
-
-      // ── Contenido de tab ──
-      '<div id="avatar-tab-content" style="padding:20px;flex:1;overflow-y:auto;min-height:200px;"></div>' +
-
-      // ── Footer con botones ──
+      '<div id="avatar-tab-content" style="padding:18px;flex:1;overflow-y:auto;min-height:200px;max-height:340px;"></div>' +
       '<div style="padding:14px 20px;display:flex;gap:10px;border-top:1px solid rgba(51,65,85,0.4);">' +
         '<button onclick="window._resetAvatar()" style="padding:10px 16px;background:rgba(100,116,139,0.2);border:1px solid rgba(100,116,139,0.4);border-radius:8px;color:#94A3B8;font-weight:700;cursor:pointer;font-size:12px;">↺ Restaurar</button>' +
         '<button onclick="window._aleatorizarAvatar()" style="padding:10px 16px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);border-radius:8px;color:#A855F7;font-weight:700;cursor:pointer;font-size:12px;">🎲 Aleatorio</button>' +
         '<div style="flex:1;"></div>' +
         '<button id="btn-guardar-avatar" onclick="window._guardarAvatar()" style="padding:10px 20px;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:8px;color:white;font-weight:800;cursor:pointer;font-size:13px;">💾 Guardar</button>' +
       '</div>' +
-
     '</div>';
 
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) overlay.remove();
   });
-
   document.body.appendChild(overlay);
   _renderPreview();
-  _abrirTab('piel');
+  window._abrirTab('piel');
 };
 
 function _crearTabBtn(id, label, activo) {
-  var bg    = activo ? 'rgba(59,130,246,0.15)' : 'transparent';
+  var bg = activo ? 'rgba(59,130,246,0.15)' : 'transparent';
   var color = activo ? '#3B82F6' : '#94A3B8';
-  var border= activo ? '2px solid #3B82F6' : '2px solid transparent';
+  var border = activo ? '2px solid #3B82F6' : '2px solid transparent';
   return '<button id="tab-btn-' + id + '" onclick="window._abrirTab(\'' + id + '\')" ' +
     'style="padding:10px 12px;background:' + bg + ';border:none;border-bottom:' + border +
     ';color:' + color + ';font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">' +
@@ -305,138 +289,115 @@ function _crearTabBtn(id, label, activo) {
 }
 
 window._abrirTab = function(tab) {
-  // Actualizar estilos de tabs
+  window._currentTab = tab;
   ['piel','pelo','cara','lentes','barba','ropa'].forEach(function(t) {
     var btn = document.getElementById('tab-btn-' + t);
     if (!btn) return;
-    var activo = (t === tab);
-    btn.style.background    = activo ? 'rgba(59,130,246,0.15)' : 'transparent';
-    btn.style.color         = activo ? '#3B82F6' : '#94A3B8';
-    btn.style.borderBottom  = activo ? '2px solid #3B82F6' : '2px solid transparent';
+    var act = (t === tab);
+    btn.style.background = act ? 'rgba(59,130,246,0.15)' : 'transparent';
+    btn.style.color = act ? '#3B82F6' : '#94A3B8';
+    btn.style.borderBottom = act ? '2px solid #3B82F6' : '2px solid transparent';
   });
 
   var contenido = document.getElementById('avatar-tab-content');
   if (!contenido) return;
 
-  var html = '';
-  var cfg = window._editorConfig;
+  var ov = window._editorOverride;
   var isFem = _isFem(window._editorNombre);
+  var nombreSeed = window._editorNombre;
+  var bg = _getBgHex(nombreSeed);
 
-  function gridOpciones(opciones, propActual, propPath, labels) {
-    var g = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;">';
-    opciones.forEach(function(opt, i) {
-      var sel = (cfg[propPath] === opt);
-      var label = labels && labels[i] ? labels[i] : opt.replace(/^(Long|Short)Hair/, '').replace(/([A-Z])/g, ' $1').trim();
-      // Generar mini-preview con esta opción cambiada
-      var miniCfg = {};
-      Object.keys(cfg).forEach(function(k) { miniCfg[k] = cfg[k]; });
-      miniCfg[propPath] = opt;
-      // Si es 'accessories' o 'facialHair' = 'Blank', desactivar probability
-      var miniUrl = _buildUrl(miniCfg, _getBgHex(window._editorNombre));
+  function makeMini(propPath, opcionVal) {
+    var miniOv = {};
+    Object.keys(ov).forEach(function(k) { miniOv[k] = ov[k]; });
+    miniOv[propPath] = opcionVal;
+    return _buildUrl(nombreSeed, bg, isFem, miniOv);
+  }
 
-      g += '<div onclick="window._cambiarProp(\'' + propPath + '\',\'' + opt + '\')" ' +
+  function gridOpciones(opciones, propPath) {
+    var actual = ov[propPath];
+    var g = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px;">';
+    opciones.forEach(function(opt) {
+      var sel = (actual === opt.v);
+      var miniUrl = makeMini(propPath, opt.v);
+      g += '<div onclick="window._cambiarProp(\'' + propPath + '\',\'' + opt.v + '\')" ' +
         'style="cursor:pointer;padding:6px;border-radius:10px;border:2px solid ' + (sel ? '#10B981' : 'rgba(51,65,85,0.4)') +
         ';background:' + (sel ? 'rgba(16,185,129,0.1)' : 'transparent') + ';transition:all 0.15s;text-align:center;">' +
-        '<img src="' + miniUrl + '" width="56" height="56" style="border-radius:50%;display:block;margin:0 auto 4px;" />' +
-        '<div style="font-size:9px;color:' + (sel ? '#10B981' : '#94A3B8') + ';line-height:1.2;font-weight:' + (sel ? '700' : '500') + ';">' + label + '</div>' +
+        '<img src="' + miniUrl + '" width="56" height="56" style="border-radius:50%;display:block;margin:0 auto 4px;" onerror="this.style.background=\'#64748B\'"/>' +
+        '<div style="font-size:9px;color:' + (sel ? '#10B981' : '#94A3B8') + ';line-height:1.2;font-weight:' + (sel ? '700' : '500') + ';">' + opt.l + '</div>' +
         '</div>';
     });
     return g + '</div>';
   }
 
-  // Switch por tab
+  function tituloSeccion(t) {
+    return '<div style="font-size:11px;color:#94A3B8;margin-bottom:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">' + t + '</div>';
+  }
+
+  var html = '';
   if (tab === 'piel') {
-    html = '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Tono de piel</div>' +
-      gridOpciones(_OPCIONES.skinColor, cfg.skinColor, 'skinColor', ['Claro','Tostado','Moreno','Moreno oscuro']);
+    html = tituloSeccion('Tono de piel') + gridOpciones(_OPCIONES.skinColor, 'skinColor');
   } else if (tab === 'pelo') {
-    var peinados = isFem ? _OPCIONES.topF : _OPCIONES.topM;
-    html = '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Peinado</div>' +
-      gridOpciones(peinados, cfg.top, 'top') +
-      '<div style="font-size:11px;color:#94A3B8;margin:16px 0 12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Color de cabello</div>' +
-      gridOpciones(_OPCIONES.hairColor, cfg.hairColor, 'hairColor', ['Negro','Castaño oscuro','Castaño','Caoba','Rubio']);
+    html = tituloSeccion('Peinado') + gridOpciones(isFem ? _OPCIONES.topF : _OPCIONES.topM, 'top') +
+           '<div style="margin-top:18px;"></div>' +
+           tituloSeccion('Color de cabello') + gridOpciones(_OPCIONES.hairColor, 'hairColor');
   } else if (tab === 'cara') {
-    html = '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Cejas</div>' +
-      gridOpciones(_OPCIONES.eyebrows, cfg.eyebrows, 'eyebrows') +
-      '<div style="font-size:11px;color:#94A3B8;margin:16px 0 12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Ojos</div>' +
-      gridOpciones(_OPCIONES.eyes, cfg.eyes, 'eyes') +
-      '<div style="font-size:11px;color:#94A3B8;margin:16px 0 12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Boca</div>' +
-      gridOpciones(_OPCIONES.mouth, cfg.mouth, 'mouth');
+    html = tituloSeccion('Cejas') + gridOpciones(_OPCIONES.eyebrows, 'eyebrows') +
+           '<div style="margin-top:18px;"></div>' +
+           tituloSeccion('Ojos') + gridOpciones(_OPCIONES.eyes, 'eyes') +
+           '<div style="margin-top:18px;"></div>' +
+           tituloSeccion('Boca') + gridOpciones(_OPCIONES.mouth, 'mouth');
   } else if (tab === 'lentes') {
-    html = '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Accesorios</div>' +
-      gridOpciones(_OPCIONES.accessories, cfg.accessories, 'accessories', ['Sin lentes','Redondos','Cuadrados','Modernos','Wayfarer']);
+    html = tituloSeccion('Accesorios') + gridOpciones(_OPCIONES.accessories, 'accessories');
   } else if (tab === 'barba') {
-    html = '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Barba</div>' +
-      gridOpciones(_OPCIONES.facialHair, cfg.facialHair, 'facialHair', ['Sin barba','Ligera','Mediana','Tupida']);
+    html = tituloSeccion('Barba') + gridOpciones(_OPCIONES.facialHair, 'facialHair');
   } else if (tab === 'ropa') {
-    html = '<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Tipo de ropa</div>' +
-      gridOpciones(_OPCIONES.clothing, cfg.clothing, 'clothing', ['Saco-camisa','Saco-sweater','Sweater cuello','Playera estampada','Sudadera','Camiseta','Camiseta V']) +
-      '<div style="font-size:11px;color:#94A3B8;margin:16px 0 12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Color de ropa</div>' +
-      gridOpciones(_OPCIONES.clothesColor, cfg.clothesColor, 'clothesColor');
+    html = tituloSeccion('Tipo de ropa') + gridOpciones(_OPCIONES.clothing, 'clothing') +
+           '<div style="margin-top:18px;"></div>' +
+           tituloSeccion('Color de ropa') + gridOpciones(_OPCIONES.clothesColor, 'clothesColor');
   }
 
   contenido.innerHTML = html;
 };
 
 window._cambiarProp = function(prop, valor) {
-  window._editorConfig[prop] = valor;
+  window._editorOverride[prop] = valor;
   _renderPreview();
-  // Re-renderizar tab para actualizar selección
-  var tabs = ['piel','pelo','cara','lentes','barba','ropa'];
-  for (var i = 0; i < tabs.length; i++) {
-    var btn = document.getElementById('tab-btn-' + tabs[i]);
-    if (btn && btn.style.color === 'rgb(59, 130, 246)') {
-      window._abrirTab(tabs[i]);
-      break;
-    }
-  }
+  window._abrirTab(window._currentTab);
 };
 
 function _renderPreview() {
   var container = document.getElementById('avatar-preview-container');
   if (!container) return;
   var bg = _getBgHex(window._editorNombre);
-  var url = _buildUrl(window._editorConfig, bg);
-  container.innerHTML = '<img src="' + url + '" width="140" height="140" style="border-radius:50%;display:block;" />';
+  var isFem = _isFem(window._editorNombre);
+  var url = _buildUrl(window._editorNombre, bg, isFem, window._editorOverride);
+  container.innerHTML = '<img src="' + url + '" width="140" height="140" style="border-radius:50%;display:block;" onerror="this.style.background=\'#64748B\'"/>';
 }
 
 window._resetAvatar = function() {
-  window._editorConfig = _generarAvatarDefault(window._editorNombre);
+  window._editorOverride = {};
   _renderPreview();
-  // Re-renderizar tab actual
-  var tabs = ['piel','pelo','cara','lentes','barba','ropa'];
-  for (var i = 0; i < tabs.length; i++) {
-    var btn = document.getElementById('tab-btn-' + tabs[i]);
-    if (btn && btn.style.color === 'rgb(59, 130, 246)') {
-      window._abrirTab(tabs[i]);
-      break;
-    }
-  }
+  window._abrirTab(window._currentTab);
 };
 
 window._aleatorizarAvatar = function() {
   var isFem = _isFem(window._editorNombre);
-  var rnd = function(arr) { return arr[Math.floor(Math.random() * arr.length)]; };
-  window._editorConfig = {
-    skinColor:     rnd(_OPCIONES.skinColor),
-    hairColor:     rnd(_OPCIONES.hairColor),
-    top:           rnd(isFem ? _OPCIONES.topF : _OPCIONES.topM),
-    eyebrows:      rnd(_OPCIONES.eyebrows),
-    eyes:          rnd(_OPCIONES.eyes),
-    mouth:         rnd(_OPCIONES.mouth),
-    accessories:   Math.random() < 0.3 ? rnd(_OPCIONES.accessories.slice(1)) : 'Blank', // 30% lentes
-    facialHair:    (!isFem && Math.random() < 0.25) ? rnd(_OPCIONES.facialHair.slice(1)) : 'Blank', // 25% barba en hombres
-    clothing:      rnd(_OPCIONES.clothing),
-    clothesColor:  rnd(_OPCIONES.clothesColor)
+  var rnd = function(arr) { return arr[Math.floor(Math.random() * arr.length)].v; };
+  window._editorOverride = {
+    skinColor:    rnd(_OPCIONES.skinColor),
+    hairColor:    rnd(_OPCIONES.hairColor),
+    top:          rnd(isFem ? _OPCIONES.topF : _OPCIONES.topM),
+    eyebrows:     rnd(_OPCIONES.eyebrows),
+    eyes:         rnd(_OPCIONES.eyes),
+    mouth:        rnd(_OPCIONES.mouth),
+    accessories:  Math.random() < 0.3 ? rnd(_OPCIONES.accessories.slice(1)) : 'Blank',
+    facialHair:   (!isFem && Math.random() < 0.25) ? rnd(_OPCIONES.facialHair.slice(1)) : 'Blank',
+    clothing:     rnd(_OPCIONES.clothing),
+    clothesColor: rnd(_OPCIONES.clothesColor)
   };
   _renderPreview();
-  var tabs = ['piel','pelo','cara','lentes','barba','ropa'];
-  for (var i = 0; i < tabs.length; i++) {
-    var btn = document.getElementById('tab-btn-' + tabs[i]);
-    if (btn && btn.style.color === 'rgb(59, 130, 246)') {
-      window._abrirTab(tabs[i]);
-      break;
-    }
-  }
+  window._abrirTab(window._currentTab);
 };
 
 window._guardarAvatar = function() {
@@ -447,10 +408,8 @@ window._guardarAvatar = function() {
     btn.style.opacity = '0.7';
   }
 
-  // Aplicar inmediato en memoria
-  window._avatarOverrides[window._editorNombre] = window._editorConfig;
+  window._avatarOverrides[window._editorNombre] = window._editorOverride;
 
-  // Re-renderizar el mapa si está visible
   if (typeof renderMapaDashboard === 'function' && window._mapaEmpleadosDashboard) {
     renderMapaDashboard(window._mapaEmpleadosDashboard);
   }
@@ -468,7 +427,7 @@ window._guardarAvatar = function() {
       }
       console.error('Error guardando avatar:', err);
     })
-    .guardarAvatarOverride(window._editorNombre, window._editorConfig);
+    .guardarAvatarOverride(window._editorNombre, window._editorOverride);
 };
 
 // ============================================================================
