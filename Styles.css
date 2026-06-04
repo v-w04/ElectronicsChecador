@@ -2041,11 +2041,7 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
 
   /* Botón central reducido en móvil — proporcional al panel pequeño */
   .login-ring .ring-btn { width: 13%; height: 13%; min-width: 46px; min-height: 46px; max-width: 72px; max-height: 72px; }
-<<<<<<< HEAD
   .login-ring .ring-btn__logo { width: 52%; height: 52%; }
-=======
-  .login-ring .ring-btn__logo { max-width: 44px; max-height: 44px; }
->>>>>>> 94f62e3d521d2d6d5f36a04437a5aaf0628e91f3
 
   /* Texto en móvil: las labels y el flow status crecen más en pantallas pequeñas */
   .login-ring .ring-label { font-size: clamp(20px, 5vw, 26px); }
@@ -2066,14 +2062,72 @@ body.girly-mode button[onclick="resetearAHoy()"]:hover {
   .login-ring .ring-panel { padding: 0 6%; }
   .login-ring .ring-field { max-width: 90%; }
   .login-ring .ring-btn { width: 12%; height: 12%; min-width: 42px; min-height: 42px; max-width: 60px; max-height: 60px; }
-<<<<<<< HEAD
   .login-ring .ring-btn__logo { width: 50%; height: 50%; }
-=======
-  .login-ring .ring-btn__logo { max-width: 36px; max-height: 36px; }
->>>>>>> 94f62e3d521d2d6d5f36a04437a5aaf0628e91f3
 }
 
 /* ── Pantallas en horizontal (landscape) — evitar que el círculo se salga ── */
 @media (max-height: 500px) and (orientation: landscape) {
   .login-ring { width: 92vmin; height: 92vmin; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LOGIN GRANDE — MÓVIL Y TABLET (≤1024px)
+   ════════════════════════════════════════════════════════════════════════════
+   El login en celular/tablet se veía demasiado chico.
+   Este bloque DUPLICA aprox los tamaños del label, input, y demás texto del
+   login para que sea perfectamente legible y tocable en pantalla pequeña.
+   Solo afecta a las pantallas <=1024px. Desktop queda intacto.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  /* El círculo aprovecha más viewport */
+  .login-ring {
+    width:  clamp(320px, 96vmin, 720px) !important;
+    height: clamp(320px, 96vmin, 720px) !important;
+  }
+
+  /* Inputs y labels: aprox al doble */
+  .login-ring .ring-label {
+    font-size: clamp(36px, 8vmin, 52px) !important;
+    font-weight: 700 !important;
+  }
+  .login-ring .ring-input {
+    font-size: clamp(48px, 11vmin, 68px) !important;
+    max-width: 480px !important;
+    padding: 12px 0 !important;
+    letter-spacing: 14px !important;
+  }
+  .login-ring .ring-input--pin {
+    letter-spacing: 24px !important;
+  }
+  .login-ring .ring-input::placeholder {
+    letter-spacing: 16px !important;
+  }
+
+  /* Botón central más grande para tocar bien con el dedo */
+  .login-ring .ring-btn {
+    width: 16% !important;
+    height: 16% !important;
+    min-width: 72px !important;
+    min-height: 72px !important;
+    max-width: 110px !important;
+    max-height: 110px !important;
+  }
+  .login-ring .ring-btn__logo {
+    width: 55% !important;
+    height: 55% !important;
+  }
+  .login-ring .ring-btn__label {
+    font-size: clamp(22px, 5vmin, 30px) !important;
+  }
+
+  /* Pantalla "flow" (durante el proceso de login: bienvenida, checada, etc) */
+  .login-ring--flow .ring-flow__title  { font-size: clamp(40px, 9vmin, 56px) !important; }
+  .login-ring--flow .ring-flow__name   { font-size: clamp(28px, 6vmin, 38px) !important; }
+  .login-ring--flow .ring-flow__status { font-size: clamp(32px, 7vmin, 44px) !important; }
+  .login-ring--flow .ring-flow__zone   { font-size: clamp(22px, 5vmin, 30px) !important; padding: 10px 20px !important; }
+  .login-ring--flow .ring-flow__check,
+  .login-ring--flow .ring-flow__cross  { font-size: clamp(90px, 22vmin, 130px) !important; }
+
+  /* Mensajes de error: legibles */
+  .login-ring .ring-error { font-size: clamp(24px, 5.5vmin, 32px) !important; }
 }
