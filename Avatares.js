@@ -142,6 +142,28 @@ var _OPCIONES = {
     { v:'ff5c5c', l:'Rojo' },
     { v:'ff488e', l:'Rosa fuerte' },
     { v:'ffafb9', l:'Rosa claro' }
+  ],
+
+  // Color de lentes (mismos hex que ropa según el schema oficial)
+  accessoriesColor: [
+    { v:'262e33', l:'Negro' },
+    { v:'3c4f5c', l:'Gris oscuro' },
+    { v:'929598', l:'Gris' },
+    { v:'e6e6e6', l:'Gris claro' },
+    { v:'25557c', l:'Azul marino' },
+    { v:'5199e4', l:'Azul' },
+    { v:'ff5c5c', l:'Rojo' }
+  ],
+
+  // Color de barba (mismos hex que cabello según el schema oficial)
+  facialHairColor: [
+    { v:'2c1b18', l:'Negro' },
+    { v:'4a312c', l:'Castaño oscuro' },
+    { v:'724133', l:'Castaño medio' },
+    { v:'a55728', l:'Castaño' },
+    { v:'b58143', l:'Caoba' },
+    { v:'c93305', l:'Rojo' },
+    { v:'d6b370', l:'Rubio' }
   ]
 };
 
@@ -182,7 +204,9 @@ function _valoresDe(opcionesArr) {
 }
 
 // ── Construcción de URL ───────────────────────────────────────────────────────
-function _buildUrl(seed, bgHex, isFem, override) {
+// forZoom=true → reduce el zoom para que se vea más del torso (útil al
+//                mostrar miniaturas del tab Ropa).
+function _buildUrl(seed, bgHex, isFem, override, forZoom) {
   override = override || {};
   var topAllowed = _valoresDe(isFem ? _OPCIONES.topF : _OPCIONES.topM);
 
@@ -206,6 +230,11 @@ function _buildUrl(seed, bgHex, isFem, override) {
   if (override.accessories && override.accessories !== 'Blank') {
     params.push('accessories=' + override.accessories);
     params.push('accessoriesProbability=100');
+    if (override.accessoriesColor) {
+      params.push('accessoriesColor=' + override.accessoriesColor);
+    } else {
+      params.push('accessoriesColor=' + _valoresDe(_OPCIONES.accessoriesColor).join(','));
+    }
   } else {
     params.push('accessoriesProbability=0');
   }
@@ -214,8 +243,21 @@ function _buildUrl(seed, bgHex, isFem, override) {
   if (override.facialHair && override.facialHair !== 'Blank') {
     params.push('facialHair=' + override.facialHair);
     params.push('facialHairProbability=100');
+    if (override.facialHairColor) {
+      params.push('facialHairColor=' + override.facialHairColor);
+    } else {
+      // Default: heredar el color del cabello (mismo override.hairColor) o paleta completa
+      params.push('facialHairColor=' + (override.hairColor || _valoresDe(_OPCIONES.facialHairColor).join(',')));
+    }
   } else {
     params.push('facialHairProbability=0');
+  }
+
+  // Para miniaturas del tab Ropa: zoom out y bajar la imagen para que se vea
+  // el cuello y los hombros (donde se aprecia la ropa)
+  if (forZoom) {
+    params.push('scale=75');
+    params.push('translateY=10');
   }
 
   return 'https://api.dicebear.com/9.x/' + _STYLE + '/svg?' + params.join('&');
@@ -338,19 +380,20 @@ window._abrirTab = function(tab) {
   var nombreSeed = window._editorNombre;
   var bg = _getBgHex(nombreSeed);
 
-  function makeMini(propPath, opcionVal) {
+  function makeMini(propPath, opcionVal, forZoom) {
     var miniOv = {};
     Object.keys(ov).forEach(function(k) { miniOv[k] = ov[k]; });
     miniOv[propPath] = opcionVal;
-    return _buildUrl(nombreSeed, bg, isFem, miniOv);
+    return _buildUrl(nombreSeed, bg, isFem, miniOv, forZoom);
   }
 
-  function gridOpciones(opciones, propPath) {
+  // forZoom=true → miniaturas con scale reducido para mostrar el torso
+  function gridOpciones(opciones, propPath, forZoom) {
     var actual = ov[propPath];
     var g = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px;">';
     opciones.forEach(function(opt) {
       var sel = (actual === opt.v);
-      var miniUrl = makeMini(propPath, opt.v);
+      var miniUrl = makeMini(propPath, opt.v, forZoom);
       g += '<div onclick="window._cambiarProp(\'' + propPath + '\',\'' + opt.v + '\')" ' +
         'style="cursor:pointer;padding:6px;border-radius:10px;border:2px solid ' + (sel ? '#10B981' : 'rgba(51,65,85,0.4)') +
         ';background:' + (sel ? 'rgba(16,185,129,0.1)' : 'transparent') + ';transition:all 0.15s;text-align:center;">' +
@@ -361,17 +404,37 @@ window._abrirTab = function(tab) {
     return g + '</div>';
   }
 
+  // Grid de swatches puramente de color (solo el círculo de color, sin avatar)
+  function gridColores(opciones, propPath) {
+    var actual = ov[propPath];
+    var g = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:10px;">';
+    opciones.forEach(function(opt) {
+      var sel = (actual === opt.v);
+      g += '<div onclick="window._cambiarProp(\'' + propPath + '\',\'' + opt.v + '\')" ' +
+        'style="cursor:pointer;padding:6px;border-radius:10px;border:2px solid ' + (sel ? '#10B981' : 'rgba(51,65,85,0.4)') +
+        ';background:' + (sel ? 'rgba(16,185,129,0.1)' : 'transparent') + ';transition:all 0.15s;text-align:center;">' +
+        '<div style="width:40px;height:40px;border-radius:50%;background:#' + opt.v + ';margin:0 auto 4px;border:1px solid rgba(255,255,255,0.15);"></div>' +
+        '<div style="font-size:9px;color:' + (sel ? '#10B981' : '#94A3B8') + ';line-height:1.2;font-weight:' + (sel ? '700' : '500') + ';">' + opt.l + '</div>' +
+        '</div>';
+    });
+    return g + '</div>';
+  }
+
   function tituloSeccion(t) {
     return '<div style="font-size:11px;color:#94A3B8;margin-bottom:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">' + t + '</div>';
   }
 
+  // El tab "lentes" muestra el color solo si hay lentes seleccionados (no Blank)
+  var lentesActivos = ov.accessories && ov.accessories !== 'Blank';
+  var barbaActiva = ov.facialHair && ov.facialHair !== 'Blank';
+
   var html = '';
   if (tab === 'piel') {
-    html = tituloSeccion('Tono de piel') + gridOpciones(_OPCIONES.skinColor, 'skinColor');
+    html = tituloSeccion('Tono de piel') + gridColores(_OPCIONES.skinColor, 'skinColor');
   } else if (tab === 'pelo') {
     html = tituloSeccion('Peinado') + gridOpciones(isFem ? _OPCIONES.topF : _OPCIONES.topM, 'top') +
            '<div style="margin-top:18px;"></div>' +
-           tituloSeccion('Color de cabello') + gridOpciones(_OPCIONES.hairColor, 'hairColor');
+           tituloSeccion('Color de cabello') + gridColores(_OPCIONES.hairColor, 'hairColor');
   } else if (tab === 'cara') {
     html = tituloSeccion('Cejas') + gridOpciones(_OPCIONES.eyebrows, 'eyebrows') +
            '<div style="margin-top:18px;"></div>' +
@@ -380,12 +443,21 @@ window._abrirTab = function(tab) {
            tituloSeccion('Boca') + gridOpciones(_OPCIONES.mouth, 'mouth');
   } else if (tab === 'lentes') {
     html = tituloSeccion('Accesorios') + gridOpciones(_OPCIONES.accessories, 'accessories');
+    if (lentesActivos) {
+      html += '<div style="margin-top:18px;"></div>' +
+              tituloSeccion('Color de lentes') + gridColores(_OPCIONES.accessoriesColor, 'accessoriesColor');
+    }
   } else if (tab === 'barba') {
     html = tituloSeccion('Barba') + gridOpciones(_OPCIONES.facialHair, 'facialHair');
+    if (barbaActiva) {
+      html += '<div style="margin-top:18px;"></div>' +
+              tituloSeccion('Color de barba') + gridColores(_OPCIONES.facialHairColor, 'facialHairColor');
+    }
   } else if (tab === 'ropa') {
-    html = tituloSeccion('Tipo de ropa') + gridOpciones(_OPCIONES.clothes, 'clothes') +
+    // forZoom=true para que las miniaturas muestren el torso (ropa) y no solo la cara
+    html = tituloSeccion('Tipo de ropa') + gridOpciones(_OPCIONES.clothes, 'clothes', true) +
            '<div style="margin-top:18px;"></div>' +
-           tituloSeccion('Color de ropa') + gridOpciones(_OPCIONES.clothesColor, 'clothesColor');
+           tituloSeccion('Color de ropa') + gridColores(_OPCIONES.clothesColor, 'clothesColor');
   }
 
   contenido.innerHTML = html;
@@ -415,6 +487,8 @@ window._resetAvatar = function() {
 window._aleatorizarAvatar = function() {
   var isFem = _isFem(window._editorNombre);
   var rnd = function(arr) { return arr[Math.floor(Math.random() * arr.length)].v; };
+  var ponerLentes  = Math.random() < 0.3;
+  var ponerBarba   = !isFem && Math.random() < 0.25;
   window._editorOverride = {
     skinColor:    rnd(_OPCIONES.skinColor),
     hairColor:    rnd(_OPCIONES.hairColor),
@@ -422,11 +496,19 @@ window._aleatorizarAvatar = function() {
     eyebrows:     rnd(_OPCIONES.eyebrows),
     eyes:         rnd(_OPCIONES.eyes),
     mouth:        rnd(_OPCIONES.mouth),
-    accessories:  Math.random() < 0.3 ? rnd(_OPCIONES.accessories.slice(1)) : 'Blank',
-    facialHair:   (!isFem && Math.random() < 0.25) ? rnd(_OPCIONES.facialHair.slice(1)) : 'Blank',
+    accessories:  ponerLentes ? rnd(_OPCIONES.accessories.slice(1)) : 'Blank',
+    facialHair:   ponerBarba ? rnd(_OPCIONES.facialHair.slice(1)) : 'Blank',
     clothes:      rnd(_OPCIONES.clothes),
     clothesColor: rnd(_OPCIONES.clothesColor)
   };
+  // Si hay lentes, también color
+  if (ponerLentes) {
+    window._editorOverride.accessoriesColor = rnd(_OPCIONES.accessoriesColor);
+  }
+  // Si hay barba, también color (por default que coincida con el cabello)
+  if (ponerBarba) {
+    window._editorOverride.facialHairColor = window._editorOverride.hairColor;
+  }
   _renderPreview();
   window._abrirTab(window._currentTab);
 };
