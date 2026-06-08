@@ -1,10 +1,16 @@
 // ============================================================================
-// CHECADOR CHOFERES — Utilidades GPS
+// CHECADOR CHOFERES — Utilidades GPS y validación de zona
+// ============================================================================
+// Estado global compartido con WebApp.js:
+//   _zonasValidas → array de { zona, descripcion, lat, lng, radio } cargado
+//                   desde CONFIG_CHOFERES al iniciar la PWA
+//   _gpsData      → última ubicación obtenida del navegador { lat, lng, accuracy }
 // ============================================================================
 
 var _zonasValidas = [];
 var _gpsData = null;
 
+// ── Distancia Haversine en metros ──────────────────────────────────────────
 function calcularDistanciaMetros(lat1, lng1, lat2, lng2) {
   var R = 6371000;
   var dLat = (lat2 - lat1) * Math.PI / 180;
@@ -15,6 +21,11 @@ function calcularDistanciaMetros(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ── Verifica si la ubicación cae dentro de alguna zona activa ──────────────
+// Retorna:
+//   { estadoZona: 'VÁLIDA' | 'FUERA DE ZONA' | 'SIN_ZONAS',
+//     zonaCercana: 'NOMBRE_ZONA',
+//     distancia: metros }
 function verificarZonaChofer(lat, lng) {
   if (!_zonasValidas || _zonasValidas.length === 0)
     return { estadoZona: 'SIN_ZONAS', zonaCercana: '', distancia: 0 };
@@ -31,4 +42,74 @@ function verificarZonaChofer(lat, lng) {
 
   if (zonaValida) return { estadoZona: 'VÁLIDA', zonaCercana: zonaValida.zona, distancia: Math.round(distanciaMinima) };
   return { estadoZona: 'FUERA DE ZONA', zonaCercana: zonaMasCercana, distancia: Math.round(distanciaMinima) };
+}
+
+// ── Cargar zonas válidas desde el backend al iniciar ───────────────────────
+// Se llama desde DOMContentLoaded en WebApp.js
+function cargarZonasValidas() {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    console.warn('⚠️ google.script.run no disponible, no se cargarán zonas');
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && !result.error && Array.isArray(result.zonas)) {
+        _zonasValidas = result.zonas;
+        console.log('✅ Zonas cargadas:', _zonasValidas.length, _zonasValidas.map(function(z){return z.zona;}).join(', '));
+      } else {
+        _zonasValidas = [];
+        console.warn('⚠️ getZonasValidas respondió sin zonas:', result);
+      }
+    })
+    .withFailureHandler(function(err) {
+      _zonasValidas = [];
+      console.warn('⚠️ getZonasValidas falló:', err && err.message);
+    })
+    .getZonasValidas();
+}
+
+// ── Pedir ubicación al navegador (Promise) ─────────────────────────────────
+// Resuelve con { lat, lng, accuracy } si el usuario aprueba y se obtiene GPS.
+// Resuelve con null si: navegador no soporta, usuario denegó, o timeout.
+// NUNCA rechaza — siempre resuelve para no bloquear el flow de checada.
+function solicitarUbicacion(timeoutMs) {
+  if (timeoutMs === undefined) timeoutMs = 8000;
+  return new Promise(function(resolve) {
+    if (!('geolocation' in navigator)) {
+      console.warn('⚠️ navigator.geolocation no soportado');
+      resolve(null);
+      return;
+    }
+    var resolved = false;
+    var timer = setTimeout(function() {
+      if (!resolved) { resolved = true; console.warn('⚠️ GPS timeout'); resolve(null); }
+    }, timeoutMs);
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        var data = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        };
+        _gpsData = data;
+        resolve(data);
+      },
+      function(err) {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        console.warn('⚠️ GPS error:', err.code, err.message);
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: timeoutMs - 500,
+        maximumAge: 30000  // aceptar ubicación cacheada hasta 30s vieja
+      }
+    );
+  });
 }

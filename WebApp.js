@@ -535,15 +535,18 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
     if (el) { el.textContent = msg; if (color) el.style.color = color; }
   }
 
-  // ⭐ CHECADA INMEDIATA — sin GPS, sin zonas, sin validación de ubicación.
-  // El empleado ya validó PIN y contraseña, eso es suficiente para registrar
-  // su asistencia. No hay nada que esperar.
-  _registrarChecada(nombre, idUsuario, null, setStatus);
+  // ⭐ VALIDACIÓN DE ZONA — pedir GPS, validar contra CONFIG_CHOFERES.
+  // Si está fuera de zona, igual se registra (con estado 'FUERA DE ZONA')
+  // pero no se procesa como asistencia hasta que se valide manualmente.
+  // Si el navegador no da GPS (denegado/timeout), se registra como 'SIN_GPS'.
+  setStatus('Obteniendo ubicación...');
+  solicitarUbicacion(8000).then(function(gpsData) {
+    _registrarChecada(nombre, idUsuario, gpsData, setStatus);
+  });
 }
 
 function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
-  // gpsData se mantiene en la firma por compatibilidad pero ya no se usa.
-  // La checada se registra al instante después de validar PIN + contraseña.
+  // gpsData = { lat, lng, accuracy } si el navegador dio ubicación, o null.
   var ahora = new Date();
   // Forzar timezone de Ciudad de México — no depender del dispositivo
   // (algunos tablets tienen zona mal configurada y la hora salía +1h adelantada).
@@ -555,57 +558,136 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
   });
   var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
 
+  // ── Validación de zona ───────────────────────────────────────────────
+  // Si no hay GPS → 'SIN_GPS'. Si hay GPS, verificarZonaChofer dirá si
+  // está 'VÁLIDA' o 'FUERA DE ZONA'. El backend revalida igualmente.
+  var zonaResult;
+  if (gpsData && typeof gpsData.lat === 'number' && typeof gpsData.lng === 'number') {
+    zonaResult = verificarZonaChofer(gpsData.lat, gpsData.lng);
+  } else {
+    zonaResult = { estadoZona: 'SIN_GPS', zonaCercana: '', distancia: 0 };
+  }
+  var esValida = (zonaResult.estadoZona === 'VÁLIDA');
+
   var datos = {
     idUsuario: idUsuario,
     nombre: nombre,
     fecha: fecha,
     hora: hora,
     timestampCompleto: timestamp,
-    estadoZona: 'VÁLIDA'  // siempre válida — ya no hay validación de ubicación
+    lat: gpsData ? gpsData.lat : '',
+    lng: gpsData ? gpsData.lng : '',
+    accuracy: gpsData ? gpsData.accuracy : '',
+    estadoZona: zonaResult.estadoZona,
+    zonaCercana: zonaResult.zonaCercana,
+    distancia: zonaResult.distancia
   };
 
-  // ── Pantalla de éxito INMEDIATA ──
+  // ── Pantalla de resultado: VERDE si VÁLIDA, ROJA si FUERA DE ZONA ──
   var box = document.getElementById('pin-box');
   if (box) {
     box.removeAttribute('data-state');
-    box.innerHTML =
-      '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
-        '<defs>' +
-          '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
-            '<stop offset="0%"  stop-color="#14633e"/>' +
-            '<stop offset="100%" stop-color="#3ddc84"/>' +
-          '</linearGradient>' +
-          '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
-            '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
-            '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
-            '<feMerge>' +
-              '<feMergeNode in="blur2"/>' +
-              '<feMergeNode in="blur1"/>' +
-              '<feMergeNode in="SourceGraphic"/>' +
-            '</feMerge>' +
-          '</filter>' +
-        '</defs>' +
-        '<circle class="ring__track" cx="300" cy="300" r="295" />' +
-        '<g class="ring__rotor">' +
-          '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                  'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
-                  'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
-        '</g>' +
-      '</svg>' +
-      '<div class="ring-panel ring-panel--flow">' +
-        '<div class="ring-flow__check">✓</div>' +
-        '<div class="ring-flow__title">¡Checada Registrada!</div>' +
-        '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
-      '</div>';
 
-    void box.offsetWidth;
-    box.setAttribute('data-state', 'success');
+    if (esValida) {
+      // ✅ VERDE — checada válida
+      box.innerHTML =
+        '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+          '<defs>' +
+            '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+              '<stop offset="0%"  stop-color="#14633e"/>' +
+              '<stop offset="100%" stop-color="#3ddc84"/>' +
+            '</linearGradient>' +
+            '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
+              '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
+              '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
+              '<feMerge>' +
+                '<feMergeNode in="blur2"/>' +
+                '<feMergeNode in="blur1"/>' +
+                '<feMergeNode in="SourceGraphic"/>' +
+              '</feMerge>' +
+            '</filter>' +
+          '</defs>' +
+          '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+          '<g class="ring__rotor">' +
+            '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                    'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
+                    'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+          '</g>' +
+        '</svg>' +
+        '<div class="ring-panel ring-panel--flow">' +
+          '<div class="ring-flow__check">✓</div>' +
+          '<div class="ring-flow__title">¡Checada Registrada!</div>' +
+          '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
+          (zonaResult.zonaCercana
+            ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:13px;color:#a7ffc4;">📍 ' + zonaResult.zonaCercana + '</div>'
+            : '') +
+        '</div>';
 
-    setTimeout(function() { mostrarPantallaPIN(); }, 1500);
+      void box.offsetWidth;
+      box.setAttribute('data-state', 'success');
+
+    } else {
+      // ❌ ROJO — fuera de zona / sin GPS / sin zonas
+      var mensajePrincipal = (zonaResult.estadoZona === 'SIN_GPS')
+        ? 'Ubicación no disponible'
+        : (zonaResult.estadoZona === 'SIN_ZONAS')
+          ? 'Sin zonas configuradas'
+          : 'Fuera de zona';
+
+      var detalle = '';
+      if (zonaResult.estadoZona === 'FUERA DE ZONA' && zonaResult.zonaCercana) {
+        detalle = 'Zona más cercana: ' + zonaResult.zonaCercana +
+                  ' (' + zonaResult.distancia + ' m)';
+      } else if (zonaResult.estadoZona === 'SIN_GPS') {
+        detalle = 'No se pudo obtener ubicación del dispositivo';
+      } else if (zonaResult.estadoZona === 'SIN_ZONAS') {
+        detalle = 'Avisa al administrador';
+      }
+
+      box.innerHTML =
+        '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+          '<defs>' +
+            '<linearGradient id="ringErrorFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+              '<stop offset="0%"  stop-color="#7f1d1d"/>' +
+              '<stop offset="100%" stop-color="#ef4444"/>' +
+            '</linearGradient>' +
+            '<filter id="ringGlowError" x="-50%" y="-50%" width="200%" height="200%">' +
+              '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
+              '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
+              '<feMerge>' +
+                '<feMergeNode in="blur2"/>' +
+                '<feMergeNode in="blur1"/>' +
+                '<feMergeNode in="SourceGraphic"/>' +
+              '</feMerge>' +
+            '</filter>' +
+          '</defs>' +
+          '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+          '<g class="ring__rotor">' +
+            '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                    'stroke="url(#ringErrorFlow)" filter="url(#ringGlowError)" stroke-dasharray="1853.54" ' +
+                    'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+          '</g>' +
+        '</svg>' +
+        '<div class="ring-panel ring-panel--flow">' +
+          '<div class="ring-flow__cross" style="color:#ef4444;font-size:80px;font-weight:700;">✗</div>' +
+          '<div class="ring-flow__title" style="color:#ef4444;">' + mensajePrincipal + '</div>' +
+          '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
+          (detalle
+            ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:13px;color:#fca5a5;">📍 ' + detalle + '</div>'
+            : '') +
+        '</div>';
+
+      void box.offsetWidth;
+      box.setAttribute('data-state', 'error');
+    }
+
+    // Ambos estados: regresar a PIN después de 2.2s (un poco más para que lean el mensaje)
+    setTimeout(function() { mostrarPantallaPIN(); }, esValida ? 1500 : 2500);
   }
 
-  // ── Enviar a GAS en BACKGROUND — no bloquea la pantalla de éxito ──
-  // Si falla, se registra en consola pero el usuario ya vio "Registrada"
+  // ── Enviar a GAS en BACKGROUND — siempre, aunque sea fuera de zona ──
+  // El backend revalida zona y solo la cuenta como asistencia si es VÁLIDA,
+  // pero la fila siempre se guarda con sus coordenadas para auditoría.
   google.script.run
     .withSuccessHandler(function(result) {
       if (!result || !result.ok) {
@@ -785,6 +867,9 @@ document.addEventListener('DOMContentLoaded', function() {
   if (localStorage.getItem('theme') === 'girly') {
     document.body.classList.add('girly-mode');
   }
+  // ⭐ Cargar zonas válidas al inicio (CONFIG_CHOFERES → _zonasValidas).
+  // Si falla queda como [] y todas las checadas saldrán 'SIN_ZONAS' (rojo).
+  if (typeof cargarZonasValidas === 'function') cargarZonasValidas();
   mostrarPantallaPIN();
 });
 
