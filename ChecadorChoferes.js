@@ -10,6 +10,24 @@
 var _zonasValidas = [];
 var _gpsData = null;
 
+var _LS_KEY_ZONAS = 'em_zonas_validas_cache';
+
+// ── Restaurar zonas desde localStorage al arrancar (offline-first) ────────
+// Se ejecuta de inmediato al cargar el script. Si hay conexión, después se
+// refrescan con cargarZonasValidas() y se vuelven a guardar.
+(function _restaurarZonasDeCache() {
+  try {
+    var raw = localStorage.getItem(_LS_KEY_ZONAS);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        _zonasValidas = parsed;
+        console.log('📦 Zonas restauradas desde cache local:', _zonasValidas.length);
+      }
+    }
+  } catch(e) {}
+})();
+
 // ── Distancia Haversine en metros ──────────────────────────────────────────
 function calcularDistanciaMetros(lat1, lng1, lat2, lng2) {
   var R = 6371000;
@@ -55,15 +73,19 @@ function cargarZonasValidas() {
     .withSuccessHandler(function(result) {
       if (result && !result.error && Array.isArray(result.zonas)) {
         _zonasValidas = result.zonas;
+        try {
+          localStorage.setItem(_LS_KEY_ZONAS, JSON.stringify(_zonasValidas));
+        } catch(e) {}
         console.log('✅ Zonas cargadas:', _zonasValidas.length, _zonasValidas.map(function(z){return z.zona;}).join(', '));
       } else {
-        _zonasValidas = [];
+        // Si el backend respondió pero sin zonas, NO borramos el cache local
+        // (puede ser un error temporal — mejor mantener zonas viejas que ninguna)
         console.warn('⚠️ getZonasValidas respondió sin zonas:', result);
       }
     })
     .withFailureHandler(function(err) {
-      _zonasValidas = [];
-      console.warn('⚠️ getZonasValidas falló:', err && err.message);
+      // Sin internet o GAS falló → mantener zonas del cache local
+      console.warn('⚠️ getZonasValidas falló (se mantienen zonas en cache):', err && err.message);
     })
     .getZonasValidas();
 }

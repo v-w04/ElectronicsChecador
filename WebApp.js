@@ -74,7 +74,10 @@ function _sincronizarUsuarios(callback) {
         });
       }
       _usuariosCache = mapa;
-      try { localStorage.setItem('em_usuarios_cache', JSON.stringify(mapa)); } catch(e) {}
+      try {
+        localStorage.setItem('em_usuarios_cache', JSON.stringify(mapa));
+        localStorage.setItem('em_usuarios_cache_timestamp', Date.now().toString());
+      } catch(e) {}
 
       // Guardar también la versión actual del servidor para futuras comparaciones
       google.script.run
@@ -110,6 +113,97 @@ window.sincronizarUsuariosManual = function() {
     }
   });
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDACIÓN DE EDAD DEL CACHE OFFLINE
+// ─────────────────────────────────────────────────────────────────────────────
+// Regla solicitada por Electronics:
+//   < 24h    → confiar 100%, sin aviso
+//   24h–7d   → permitir checar pero avisar al usuario
+//   > 7d     → rechazar, forzar reconexión
+// Devuelve: { ok, edadMs, edadDias, mensaje } — mensaje vacío si no hay nada que mostrar
+function _verificarEdadCacheUsuarios() {
+  var resultado = { ok: true, edadMs: 0, edadDias: 0, mensaje: '' };
+  try {
+    var ts = parseInt(localStorage.getItem('em_usuarios_cache_timestamp') || '0', 10);
+    if (!ts || isNaN(ts)) {
+      // Sin timestamp registrado → cache podría ser anterior a esta feature.
+      // No bloqueamos pero avisamos.
+      resultado.mensaje = '';
+      return resultado;
+    }
+    var ahora = Date.now();
+    var edadMs = ahora - ts;
+    var edadHoras = edadMs / (1000 * 60 * 60);
+    var edadDias  = edadMs / (1000 * 60 * 60 * 24);
+    resultado.edadMs   = edadMs;
+    resultado.edadDias = edadDias;
+
+    if (edadHoras < 24) {
+      // Todo bien
+      return resultado;
+    }
+    if (edadDias <= 7) {
+      resultado.mensaje = '⚠️ Datos de hace ' + Math.floor(edadDias) + ' día(s). Conéctate pronto.';
+      return resultado;
+    }
+    // > 7 días
+    resultado.ok = false;
+    resultado.mensaje = '❌ Datos muy viejos (>' + Math.floor(edadDias) +
+                       ' días). Conéctate a internet para usar el checador.';
+    return resultado;
+  } catch(e) {
+    return resultado;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENVIAR O ENCOLAR CHECADA — decide según conexión
+// ─────────────────────────────────────────────────────────────────────────────
+// Si hay internet → manda directo a GAS (con uuid + clienteTimestamp).
+// Si NO hay internet → encola en IndexedDB, se mandará al volver internet.
+// El backend acepta uuid para deduplicación (si la PWA crash a mitad del envío
+// y vuelve a mandar, no se duplica la fila en CHECADOR_CHOFERES).
+function _enviarOEncolarChecada(datos) {
+  var hayInternet = navigator.onLine !== false;
+  var tieneCola = window.OfflineQueue && typeof OfflineQueue.encolar === 'function';
+
+  if (!hayInternet && tieneCola) {
+    // Sin internet → encolar
+    OfflineQueue.encolar(datos).then(function() {
+      console.log('📥 Checada encolada offline:', datos.uuid);
+    }).catch(function(err) {
+      console.error('❌ Error encolando offline:', err);
+      // Fallback: intentar enviar directo aunque sea sin internet (probablemente falle)
+      _enviarDirecto(datos);
+    });
+    return;
+  }
+
+  // Con internet → mandar directo
+  _enviarDirecto(datos);
+}
+
+function _enviarDirecto(datos) {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || !result.ok) {
+        console.warn('⚠️ guardarChecadaChofer respondió error:', result && result.message);
+        // Si falla por timeout / red intermitente, encolar como fallback
+        if (window.OfflineQueue) {
+          OfflineQueue.encolar(datos).catch(function() {});
+        }
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.warn('⚠️ guardarChecadaChofer falló:', err && err.message);
+      // Red caída a mitad de la llamada → encolar para reintento
+      if (window.OfflineQueue) {
+        OfflineQueue.encolar(datos).catch(function() {});
+      }
+    })
+    .guardarChecadaChofer(datos);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE ACCESO
@@ -444,6 +538,15 @@ function procesarAcceso() {
   // ── Validación LOCAL — usa cache en localStorage, sin llamar a GAS ──
   // Si el cache aún no se cargó (primera vez), se carga ahora y luego valida
   _cargarUsuariosCache(function(usuarios) {
+    // ⭐ VERIFICAR EDAD DEL CACHE (regla offline) ──
+    // <24h: confiar. 24h-7d: validar y mostrar aviso. >7d: bloquear.
+    var edad = _verificarEdadCacheUsuarios();
+    if (!edad.ok) {
+      mostrarErrorAcceso(edad.mensaje);
+      if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
+      return;
+    }
+
     var usuario = usuarios ? usuarios[pin] : null;
 
     if (!usuario) {
@@ -569,12 +672,26 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
   }
   var esValida = (zonaResult.estadoZona === 'VÁLIDA');
 
+  // ⭐ UUID local y timestamp del cliente — necesarios para offline
+  // - uuid permite al backend deduplicar si la misma checada se manda 2 veces
+  //   (caso típico: red intermitente, PWA crash a mitad del envío)
+  // - clienteTimestamp es la hora del DISPOSITIVO al momento de checar.
+  //   Cuando hay internet se ignora (GAS usa su propia hora), pero offline
+  //   es lo único que tenemos. Confiamos en el reloj del celular (decisión
+  //   del cliente — opción 1a confirmada).
+  var uuid = (window.OfflineQueue && OfflineQueue.generarUuid)
+    ? OfflineQueue.generarUuid()
+    : (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
+  var clienteTimestamp = ahora.toISOString();
+
   var datos = {
+    uuid: uuid,
     idUsuario: idUsuario,
     nombre: nombre,
     fecha: fecha,
     hora: hora,
     timestampCompleto: timestamp,
+    clienteTimestamp: clienteTimestamp,
     lat: gpsData ? gpsData.lat : '',
     lng: gpsData ? gpsData.lng : '',
     accuracy: gpsData ? gpsData.accuracy : '',
@@ -620,6 +737,9 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
           '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
           (zonaResult.zonaCercana
             ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:13px;color:#a7ffc4;">📍 ' + zonaResult.zonaCercana + '</div>'
+            : '') +
+          (navigator.onLine === false
+            ? '<div style="margin-top:6px;font-size:11px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
             : '') +
         '</div>';
 
@@ -685,19 +805,11 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     setTimeout(function() { mostrarPantallaPIN(); }, esValida ? 1500 : 2500);
   }
 
-  // ── Enviar a GAS en BACKGROUND — siempre, aunque sea fuera de zona ──
-  // El backend revalida zona y solo la cuenta como asistencia si es VÁLIDA,
-  // pero la fila siempre se guarda con sus coordenadas para auditoría.
-  google.script.run
-    .withSuccessHandler(function(result) {
-      if (!result || !result.ok) {
-        console.warn('⚠️ guardarChecadaChofer respondió error:', result && result.message);
-      }
-    })
-    .withFailureHandler(function(err) {
-      console.warn('⚠️ guardarChecadaChofer falló:', err && err.message);
-    })
-    .guardarChecadaChofer(datos);
+  // ── Enviar a GAS o encolar offline ──────────────────────────────────────
+  // Si hay internet → mandar directo. Si no → IndexedDB cola, se manda
+  // automáticamente cuando vuelva internet (listener 'online').
+  // El backend deduplica por uuid, así que es seguro reintentar.
+  _enviarOEncolarChecada(datos);
 }
 
 // ============================================================================
