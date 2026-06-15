@@ -36,13 +36,13 @@ function setupNavigation() {
 
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && currentModule) {
+    if (e.key === 'Escape' && window.currentModule) {
       closeModulePopup();
     }
   });
 
   window.addEventListener('popstate', () => {
-    if (currentModule) {
+    if (window.currentModule) {
       closeModulePopup();
     }
   });

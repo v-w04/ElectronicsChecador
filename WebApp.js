@@ -853,8 +853,8 @@ function ejecutarControlAsistencia() {
         // El procesamiento cambió los datos en GAS — invalidar TODO el cache
         // para que se recarguen del servidor
         if (typeof _invalidarCache === 'function') _invalidarCache();
-        if (!currentModule) loadDashboard(true);
-        else openModule(currentModule);
+        if (!window.currentModule) loadDashboard(true);
+        else openModule(window.currentModule);
       };
     }
   }, 1000);

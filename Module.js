@@ -1,5 +1,17 @@
+// ⭐ Variables globales del módulo. Declaradas explícitamente en window para
+// evitar ReferenceError cuando se leen antes de la primera asignación.
+//
+// - window.currentModule  → nombre del módulo abierto ('faltas', 'retardos', etc)
+//                           o null si está cerrado. Lo lee Sidebar.js, WebApp.js
+//                           y loadCurrentModule() (el botón Refrescar).
+// - window.pendingRequest → ID de la petición GAS en curso. Sirve para descartar
+//                           respuestas de peticiones viejas si el usuario abre
+//                           otro módulo antes de que termine la anterior.
+if (typeof window.currentModule  === 'undefined') window.currentModule  = null;
+if (typeof window.pendingRequest === 'undefined') window.pendingRequest = null;
+
 function openModule(moduleName) {
-  currentModule = moduleName;
+  window.currentModule = moduleName;
   const popup     = document.getElementById('module-popup');
   const container = document.getElementById('popup-container');
   const scrollY   = window.scrollY;
@@ -36,39 +48,39 @@ function openModule(moduleName) {
 }
 
 function loadModule(sheetName, title, renderFunction, usarFiltros) {
-  if (pendingRequest) pendingRequest = null;
+  if (window.pendingRequest) window.pendingRequest = null;
   document.getElementById('popup-title').textContent = title;
   if (usarFiltros) agregarControlesFiltros();
 
   const requestId = Date.now();
-  pendingRequest  = requestId;
+  window.pendingRequest = requestId;
 
   google.script.run
     .withSuccessHandler(raw => {
       const result = safeResult(raw);
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       if (result.error === true) {
         document.getElementById('popup-container').innerHTML =
           '<div style="text-align:center;padding:40px;color:var(--danger);">❌ ' + result.message + '</div>';
-        pendingRequest = null;
+        window.pendingRequest = null;
         return;
       }
       renderFunction(result);
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .withFailureHandler(err => {
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       document.getElementById('popup-container').innerHTML =
         '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' + err.message + '</div>';
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .getSheetData(sheetName);
 }
 
 function loadRankingCompleto(tipo) {
-  if (pendingRequest) pendingRequest = null;
+  if (window.pendingRequest) window.pendingRequest = null;
   const requestId = Date.now();
-  pendingRequest  = requestId;
+  window.pendingRequest = requestId;
   const titles = {
     'horas-extra':   'Horas Extra - Todos los Empleados',
     'excesos-comida':'Excesos Comida - Todos los Empleados',
@@ -80,26 +92,26 @@ function loadRankingCompleto(tipo) {
   google.script.run
     .withSuccessHandler(raw => {
       const result = safeResult(raw);
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       if (result.error === true) {
         document.getElementById('popup-container').innerHTML =
           '<div style="text-align:center;padding:40px;color:var(--danger);">❌ ' + result.message + '</div>';
         return;
       }
       renderRankingCompleto(result, tipo);
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .withFailureHandler(err => {
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       document.getElementById('popup-container').innerHTML =
         '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' + err.message + '</div>';
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .getSheetData(tipo === 'retardos' || tipo === 'faltas' ? 'RESUMEN_MENSUAL' : 'METRICAS_DIARIAS');
 }
 
 function closeModulePopup() {
-  currentModule = null;
+  window.currentModule = null;
   document.getElementById('module-popup').classList.remove('active');
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.module === 'dashboard');
@@ -110,7 +122,7 @@ function loadCurrentModule() {
   // El botón Refrescar de la topbar debe traer datos frescos, no del cache.
   // Si hay un módulo abierto, lo reabrimos para que vuelva a llamar GAS.
   // Si está el dashboard, lo recargamos con forzar=true.
-  if (currentModule) openModule(currentModule);
+  if (window.currentModule) openModule(window.currentModule);
   else loadDashboard(true);
 }
 
@@ -125,30 +137,30 @@ function hideLoading() {
 }
 
 function loadEnfermedades() {
-  if (pendingRequest) pendingRequest = null;
+  if (window.pendingRequest) window.pendingRequest = null;
   document.getElementById('popup-title').textContent = 'Enfermedades';
   agregarControlesFiltros();
   const requestId = Date.now();
-  pendingRequest  = requestId;
+  window.pendingRequest = requestId;
 
   google.script.run
     .withSuccessHandler(raw => {
       const result = safeResult(raw);
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       if (result.error === true) {
         document.getElementById('popup-container').innerHTML =
           '<div style="text-align:center;padding:40px;color:var(--danger);">❌ ' + result.message + '</div>';
-        pendingRequest = null;
+        window.pendingRequest = null;
         return;
       }
       renderEnfermedades(result);
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .withFailureHandler(err => {
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       document.getElementById('popup-container').innerHTML =
         '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' + err.message + '</div>';
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .getEnfermedades();
 }

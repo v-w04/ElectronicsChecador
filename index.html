@@ -2,6 +2,63 @@
 <html lang="es" translate="no">
 <head>
   <meta charset="UTF-8">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SEGURIDAD: Content Security Policy + headers de privacidad
+       ───────────────────────────────────────────────────────────────────────
+       Restringe DESDE DÓNDE se pueden cargar recursos y bloquea inyección
+       de scripts externos no autorizados (XSS).
+
+       Whitelist de dominios — solo agregar aquí si confirmas que la app
+       legítimamente carga algo de ese host:
+         · script.google.com / script.googleusercontent.com → backend GAS
+         · cdnjs.cloudflare.com → Font Awesome
+         · cdn.jsdelivr.net → Chart.js, html2pdf
+         · api.dicebear.com → avatares
+         · accounts.google.com → flujo OAuth de GAS (web app)
+         · *.googleusercontent.com → redirects de GAS
+
+       NOTAS:
+       · 'unsafe-inline' en script-src es necesario porque la app tiene
+         muchos onclick y bloques <script> embebidos. Sin esto, ROMPE.
+       · 'unsafe-eval' es necesario por html2pdf y librerías que usan eval.
+       · img-src es permisivo (https:) porque cargamos avatares dinámicos.
+       · frame-ancestors NO funciona en <meta> (solo en header HTTP). Para
+         clickjacking ya se mitiga porque GitHub Pages añade X-Frame-Options.
+       =================================================================== -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval'
+      https://cdnjs.cloudflare.com
+      https://cdn.jsdelivr.net
+      https://script.google.com
+      https://script.googleusercontent.com;
+    style-src 'self' 'unsafe-inline'
+      https://cdnjs.cloudflare.com
+      https://fonts.googleapis.com;
+    font-src 'self' data:
+      https://cdnjs.cloudflare.com
+      https://fonts.gstatic.com;
+    img-src 'self' data: blob: https:;
+    media-src 'self' data: blob:;
+    connect-src 'self'
+      https://script.google.com
+      https://script.googleusercontent.com
+      https://*.googleusercontent.com
+      https://accounts.google.com;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    upgrade-insecure-requests;
+  ">
+
+  <!-- No mandar referrer cuando el usuario navega afuera (privacidad) -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- Deshabilitar APIs sensibles que la app NO usa, para reducir superficie
+       de ataque (no podemos prohibir geolocalización porque sí se usa). -->
+  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=()">
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="google" content="notranslate">
   <meta name="format-detection" content="telephone=no">
@@ -29,7 +86,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="Styles.css?v=540">
+  <link rel="stylesheet" href="Styles.css?v=543">
 
   <!-- Registro del Service Worker — habilita modo standalone + cache offline.
        Solo en HTTPS / localhost (es requerimiento de los navegadores). -->
@@ -61,24 +118,24 @@
 </head>
 <body class="notranslate" translate="no">
 
-<script src="api.js?v=540"></script>
-<script src="Tablas.js?v=540"></script>
-<script src="Mapa.js?v=540"></script>
-<script src="Avatares.js?v=540"></script>
-<script src="Sidebar.js?v=540"></script>
-<script src="Dashboard.js?v=540"></script>
-<script src="KPIGauges.js?v=540"></script>
-<script src="Filtros.js?v=540"></script>
-<script src="Module.js?v=540"></script>
-<script src="RenderModule.js?v=540"></script>
-<script src="Inyectar.js?v=540"></script>
-<script src="IncidenciaEventualidad.js?v=540"></script>
-<script src="Productividad.js?v=540"></script>
-<script src="Girly.js?v=540"></script>
-<script src="ChecadorChoferes.js?v=540"></script>
-<script src="WebApp.js?v=540"></script>
-<script src="Oficina.js?v=540"></script>
-<script src="TooltipsGauges.js?v=540"></script>
+<script src="api.js?v=543"></script>
+<script src="Tablas.js?v=543"></script>
+<script src="Mapa.js?v=543"></script>
+<script src="Avatares.js?v=543"></script>
+<script src="Sidebar.js?v=543"></script>
+<script src="Dashboard.js?v=543"></script>
+<script src="KPIGauges.js?v=543"></script>
+<script src="Filtros.js?v=543"></script>
+<script src="Module.js?v=543"></script>
+<script src="RenderModule.js?v=543"></script>
+<script src="Inyectar.js?v=543"></script>
+<script src="IncidenciaEventualidad.js?v=543"></script>
+<script src="Productividad.js?v=543"></script>
+<script src="Girly.js?v=543"></script>
+<script src="ChecadorChoferes.js?v=543"></script>
+<script src="WebApp.js?v=543"></script>
+<script src="Oficina.js?v=543"></script>
+<script src="TooltipsGauges.js?v=543"></script>
 
   <!-- Partículas de fondo -->
   <div id="particles"></div>

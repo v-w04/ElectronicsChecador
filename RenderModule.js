@@ -738,21 +738,24 @@ function renderModuloEnConstruccion(nombreModulo) {
 }
 
 function loadBonoPuntualidad() {
-  if (pendingRequest) pendingRequest = null;
+  // ⭐ Usar window.pendingRequest para evitar ReferenceError. La primera vez
+  // que se ejecuta esta función, leer `pendingRequest` (sin declarar) tira
+  // ReferenceError. window.pendingRequest es seguro: undefined si no existe.
+  if (window.pendingRequest) window.pendingRequest = null;
   const requestId = Date.now();
-  pendingRequest = requestId;
+  window.pendingRequest = requestId;
   document.getElementById('popup-title').textContent = 'Bono de Puntualidad';
   google.script.run
     .withSuccessHandler(function(result) {
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       if (result.error) { document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' + result.message + '</div>'; return; }
       renderBonoPuntualidad(result);
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .withFailureHandler(function(err) {
-      if (pendingRequest !== requestId) return;
+      if (window.pendingRequest !== requestId) return;
       document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' + err.message + '</div>';
-      pendingRequest = null;
+      window.pendingRequest = null;
     })
     .getBonoPuntualidad();
 }
