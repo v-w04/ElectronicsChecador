@@ -44,6 +44,9 @@ function _cargarUsuariosCache(callback) {
 // y vuelve a sincronizar sin bloquear nada. El usuario actual sigue viendo el
 // PIN normalmente; la próxima carga de la app ya tendrá los datos nuevos.
 function _chequearVersionEnBackground() {
+  // Sin internet → omitir (evita esperar timeout). Cuando vuelva internet
+  // se llamará otra vez al recargar la app.
+  if (navigator.onLine === false) return;
   google.script.run
     .withSuccessHandler(function(result) {
       if (!result || !result.ok || !result.version) return;
@@ -63,6 +66,21 @@ function _chequearVersionEnBackground() {
 }
 
 function _sincronizarUsuarios(callback) {
+  // ⭐ Sin internet → no llamar al backend (evita esperar timeout de ~10s)
+  // y usar lo que haya en localStorage. Si no hay nada, callback con mapa vacío.
+  if (navigator.onLine === false) {
+    console.log('📡 Sin internet — usando usuarios del cache local');
+    if (!_usuariosCache) {
+      try {
+        var guardado = localStorage.getItem('em_usuarios_cache');
+        if (guardado) _usuariosCache = JSON.parse(guardado);
+      } catch(e) {}
+      if (!_usuariosCache) _usuariosCache = {};
+    }
+    if (callback) callback(_usuariosCache);
+    return;
+  }
+
   google.script.run
     .withSuccessHandler(function(result) {
       // El backend devuelve { ok, usuarios:[{pin, idUsuario, nombre, tipo, contrasena}, ...] }

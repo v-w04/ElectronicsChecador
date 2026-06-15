@@ -8,7 +8,7 @@
 //   - Auto-update: cuando sube nueva versión, los dispositivos la reciben al reabrir
 // ============================================================================
 
-const CACHE_VERSION = 'em-checador-v544';
+const CACHE_VERSION = 'em-checador-v545';
 const CACHE_NAME    = CACHE_VERSION;
 
 const APP_SHELL = [
@@ -71,6 +71,28 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET') return;
 
+  // ⭐ NAVEGACIONES (cuando se abre la PWA): SIEMPRE intentar cache primero
+  // si la red falla. Esto garantiza que la app abra sin internet aunque sea
+  // la primera vez del día.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(fresh => {
+          // Si la red funciona, actualizar cache en background
+          if (fresh && fresh.ok) {
+            const clone = fresh.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
+          return fresh;
+        })
+        .catch(() => {
+          // Red falla → servir index.html del cache
+          return caches.match('./index.html').then(c => c || caches.match('./'));
+        })
+    );
+    return;
+  }
+
   // No cachear llamadas a GAS y CDNs externos
   if (
     url.host.includes('script.google.com') ||
@@ -78,7 +100,9 @@ self.addEventListener('fetch', event => {
     url.host.includes('googleusercontent.com') ||
     url.host.includes('nominatim.openstreetmap.org') ||
     url.host.includes('cdnjs.cloudflare.com') ||
-    url.host.includes('cdn.jsdelivr.net')
+    url.host.includes('cdn.jsdelivr.net') ||
+    url.host.includes('imgur.com') ||
+    url.host.includes('i.imgur.com')
   ) {
     return;
   }

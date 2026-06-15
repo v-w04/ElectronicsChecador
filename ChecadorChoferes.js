@@ -63,8 +63,16 @@ function verificarZonaChofer(lat, lng) {
 }
 
 // ── Cargar zonas válidas desde el backend al iniciar ───────────────────────
-// Se llama desde DOMContentLoaded en WebApp.js
+// Se llama desde DOMContentLoaded en WebApp.js.
+// Si NO hay internet, NO llama al backend (evita esperar timeout).
+// Las zonas que ya están en _zonasValidas (cargadas del cache local en el
+// IIFE de arriba) se quedan tal cual.
 function cargarZonasValidas() {
+  // Si no hay internet, ni siquiera intentar — usamos lo que haya en cache
+  if (navigator.onLine === false) {
+    console.log('📡 Sin internet — usando zonas del cache local (' + _zonasValidas.length + ')');
+    return;
+  }
   if (typeof google === 'undefined' || !google.script || !google.script.run) {
     console.warn('⚠️ google.script.run no disponible, no se cargarán zonas');
     return;
@@ -78,13 +86,10 @@ function cargarZonasValidas() {
         } catch(e) {}
         console.log('✅ Zonas cargadas:', _zonasValidas.length, _zonasValidas.map(function(z){return z.zona;}).join(', '));
       } else {
-        // Si el backend respondió pero sin zonas, NO borramos el cache local
-        // (puede ser un error temporal — mejor mantener zonas viejas que ninguna)
         console.warn('⚠️ getZonasValidas respondió sin zonas:', result);
       }
     })
     .withFailureHandler(function(err) {
-      // Sin internet o GAS falló → mantener zonas del cache local
       console.warn('⚠️ getZonasValidas falló (se mantienen zonas en cache):', err && err.message);
     })
     .getZonasValidas();
