@@ -32,6 +32,7 @@ function openModule(moduleName) {
     case 'gym':                 loadModule('GYM', 'GYM — Bono por Asistencia', renderGym, false); break;
     case 'resumen-mensual':     loadModule('RESUMEN_MENSUAL', 'Resumen Mensual', renderResumenMensual, true); break;
     case 'bono-puntualidad':    loadBonoPuntualidad(); break;
+    case 'bonos':               loadBonos(); break;
     case 'top-horas-extra':     loadRankingCompleto('horas-extra'); break;
     case 'top-excesos-comida':  loadRankingCompleto('excesos-comida'); break;
     case 'top-retardos':        loadRankingCompleto('retardos'); break;

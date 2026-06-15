@@ -854,6 +854,164 @@ function renderBonoPuntualidad(result) {
   container.innerHTML = html;
 }
 
+// ============================================================================
+// BONOS POSITIVOS — Reconocimientos por quincena
+// ============================================================================
+// Muestra 3 secciones en un solo módulo:
+//   💰 Bono Puntualidad — quien ganó bono perfecto esta quincena
+//   🎂 Bono Cumpleañero — quien cumple años en esta quincena
+//   💪 Bono Gym         — quien llegó al umbral de visitas este mes
+// ============================================================================
+function loadBonos() {
+  if (window.pendingRequest) window.pendingRequest = null;
+  const requestId = Date.now();
+  window.pendingRequest = requestId;
+  document.getElementById('popup-title').textContent = '🏆 Bonos';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (window.pendingRequest !== requestId) return;
+      if (!result || !result.ok) {
+        document.getElementById('popup-container').innerHTML =
+          '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' +
+          (result && result.message ? result.message : 'No se pudo cargar') + '</div>';
+        window.pendingRequest = null;
+        return;
+      }
+      renderBonos(result);
+      window.pendingRequest = null;
+    })
+    .withFailureHandler(function(err) {
+      if (window.pendingRequest !== requestId) return;
+      document.getElementById('popup-container').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--danger);">❌ Error: ' + err.message + '</div>';
+      window.pendingRequest = null;
+    })
+    .getBonosPositivos();
+}
+
+function renderBonos(result) {
+  const container = document.getElementById('popup-container');
+  if (!container) return;
+
+  // Reutilizable para todas las secciones
+  function _card(args) {
+    // args: { titulo, emoji, color, count, contenido, subtitulo }
+    return (
+      '<div style="background:rgba(255,255,255,0.04);border:1px solid ' + args.color + '40;' +
+        'border-radius:16px;padding:20px;margin-bottom:18px;backdrop-filter:blur(8px);">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;' +
+          'padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+          '<div style="font-size:32px;line-height:1;">' + args.emoji + '</div>' +
+          '<div style="flex:1;">' +
+            '<div style="font-size:18px;font-weight:700;color:' + args.color + ';">' + args.titulo + '</div>' +
+            (args.subtitulo ? '<div style="font-size:12px;color:#94A3B8;margin-top:2px;">' + args.subtitulo + '</div>' : '') +
+          '</div>' +
+          '<div style="font-size:28px;font-weight:800;color:' + args.color + ';">' + args.count + '</div>' +
+        '</div>' +
+        args.contenido +
+      '</div>'
+    );
+  }
+
+  function _itemLista(texto, detalle, color) {
+    return (
+      '<div style="display:flex;justify-content:space-between;align-items:center;' +
+        'padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;' +
+        'margin-bottom:6px;border-left:3px solid ' + color + ';">' +
+        '<span style="font-size:14px;color:#E2E8F0;font-weight:500;">' + texto + '</span>' +
+        (detalle ? '<span style="font-size:13px;color:#94A3B8;font-weight:600;">' + detalle + '</span>' : '') +
+      '</div>'
+    );
+  }
+
+  function _vacio(msg) {
+    return '<div style="text-align:center;padding:20px;color:#64748B;font-style:italic;font-size:13px;">' + msg + '</div>';
+  }
+
+  // ── 💰 BONO PUNTUALIDAD ─────────────────────────────────────────────────
+  const bonoP = result.bonoPuntualidad || [];
+  let contenidoP;
+  if (bonoP.length === 0) {
+    contenidoP = _vacio('Nadie ha ganado bono perfecto en esta quincena');
+  } else {
+    contenidoP = bonoP.map(function(e) {
+      return _itemLista(e.nombre, e.diasTrabajados + ' días', '#10B981');
+    }).join('');
+  }
+  const tituloP = 'Bono Puntualidad — ' + result.quincena;
+
+  // ── 🎂 CUMPLEAÑEROS ─────────────────────────────────────────────────────
+  const cumples = result.cumpleanieros || [];
+  let contenidoC;
+  if (cumples.length === 0) {
+    contenidoC = _vacio('Nadie cumple años en esta quincena');
+  } else {
+    contenidoC = cumples.map(function(c) {
+      const detalle = c.fechaCorta + (c.depto ? ' · ' + c.depto : '');
+      return _itemLista('🎂 ' + c.nombre, detalle, '#EC4899');
+    }).join('');
+  }
+
+  // ── 💪 BONO GYM ─────────────────────────────────────────────────────────
+  const gym = result.bonoGym || { ganadores: [], umbral: 15 };
+  let contenidoG;
+  if (gym.ganadores.length === 0) {
+    contenidoG = _vacio('Aún nadie llega al umbral de ' + gym.umbral + ' visitas este mes');
+  } else {
+    contenidoG = gym.ganadores.map(function(g) {
+      return _itemLista('💪 ' + g.nombre, g.visitas + ' visitas', '#3B82F6');
+    }).join('');
+  }
+  const subtituloG = 'Umbral: ' + gym.umbral + '+ visitas en ' + result.mesTexto;
+
+  // ── Header con periodo en curso ────────────────────────────────────────
+  const periodoTxt = result.quincena === 'Q1' ? '1ª Quincena (1–15)' : '2ª Quincena (16–fin)';
+
+  let html = '';
+  html += '<div style="padding:24px;max-width:900px;margin:0 auto;">';
+
+  // Banner del periodo
+  html += '<div style="background:linear-gradient(135deg,#7c3aed20,#3b82f620);border:1px solid #7c3aed40;' +
+            'border-radius:16px;padding:18px 24px;margin-bottom:20px;text-align:center;">' +
+            '<div style="font-size:13px;color:#A78BFA;font-weight:600;text-transform:uppercase;letter-spacing:1px;">' +
+              'Periodo en curso' +
+            '</div>' +
+            '<div style="font-size:22px;color:#E2E8F0;font-weight:700;margin-top:4px;">' +
+              periodoTxt + ' · ' + result.mesTexto +
+            '</div>' +
+          '</div>';
+
+  html += _card({
+    titulo: tituloP,
+    emoji: '💰',
+    color: '#10B981',
+    count: bonoP.length,
+    contenido: contenidoP
+  });
+
+  html += _card({
+    titulo: 'Cumpleañeros · Bono Cumpleañero',
+    subtitulo: 'Todos reciben bono cumpleañero',
+    emoji: '🎂',
+    color: '#EC4899',
+    count: cumples.length,
+    contenido: contenidoC
+  });
+
+  html += _card({
+    titulo: 'Bono Gym',
+    subtitulo: subtituloG,
+    emoji: '💪',
+    color: '#3B82F6',
+    count: gym.ganadores.length,
+    contenido: contenidoG
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 function renderRankingCompleto(result, tipo) {
   currentData = { headers: result.headers, data: [...result.data], originalData: [...result.data] };
   currentRenderFunction = function(r) { renderRankingCompleto(r, tipo); };
