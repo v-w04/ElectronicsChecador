@@ -33,6 +33,8 @@ function openModule(moduleName) {
     case 'resumen-mensual':     loadModule('RESUMEN_MENSUAL', 'Resumen Mensual', renderResumenMensual, true); break;
     case 'bono-puntualidad':    loadBonoPuntualidad(); break;
     case 'bonos':               loadBonos(); break;
+    case 'reporte-quincenal':   loadReporteQuincenal(); break;
+    case 'top-horas-extra':
     case 'top-horas-extra':     loadRankingCompleto('horas-extra'); break;
     case 'top-excesos-comida':  loadRankingCompleto('excesos-comida'); break;
     case 'top-retardos':        loadRankingCompleto('retardos'); break;
