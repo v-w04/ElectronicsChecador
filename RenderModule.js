@@ -2,7 +2,7 @@
 // Declaradas explícitamente en window con guard para evitar ReferenceError
 // cuando OTRO archivo intenta leerlas, o cuando una función entra a una
 // rama que LEE la variable antes de asignarla (típico en renderAlertas y
-// renderFaltas que checan `if (!currentData || !currentData.originalData)`).
+// renderFaltas que checan `if (!window.currentData || !window.currentData.originalData)`).
 //
 // - window.currentData: { headers, data, originalData } — payload de la
 //   vista actual, usado para filtrar/refrescar sin volver a llamar a GAS.
@@ -19,9 +19,9 @@ function renderFaltas(result) {
     document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;">ℹ️ No hay datos de faltas</div>';
     return;
   }
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
-  } else { currentData.headers = result.headers; currentData.data = result.data.slice(); }
+  } else { window.currentData.headers = result.headers; window.currentData.data = result.data.slice(); }
   currentRenderFunction = renderFaltas;
   const container = document.getElementById('popup-container');
   const headers = result.headers;
@@ -100,9 +100,9 @@ function renderRetardos(result) {
     document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;">ℹ️ No hay datos de retardos</div>';
     return;
   }
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
-  } else { currentData.headers = result.headers; currentData.data = result.data.slice(); }
+  } else { window.currentData.headers = result.headers; window.currentData.data = result.data.slice(); }
   currentRenderFunction = renderRetardos;
   const container = document.getElementById('popup-container');
   const headers = result.headers;
@@ -318,9 +318,9 @@ function _procesarExcesos(data, headers, configResult, container) {
 
 function renderVacaciones(result) {
   if (!result || !result.data || result.data.length === 0) { document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;">ℹ️ No hay datos de vacaciones</div>'; return; }
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
-  } else { currentData.headers = result.headers; currentData.data = result.data.slice(); }
+  } else { window.currentData.headers = result.headers; window.currentData.data = result.data.slice(); }
   currentRenderFunction = renderVacaciones;
   const container = document.getElementById('popup-container');
   const headers = result.headers;
@@ -454,10 +454,10 @@ function renderEnfermedades(result) {
 
 function renderAlertas(result) {
   // result viene de la hoja ALERTAS (Tipo, ID, Nombre, Mes, Cantidad, Mensaje, Severidad)
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     if (result && result.data) currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
   } else if (result && result.data) {
-    currentData.headers = result.headers; currentData.data = result.data.slice();
+    window.currentData.headers = result.headers; window.currentData.data = result.data.slice();
   }
   currentRenderFunction = renderAlertas;
   const container = document.getElementById('popup-container');
@@ -1940,10 +1940,10 @@ function guardarUmbralGym() {
           const modal = document.getElementById('modal-umbral-gym');
           if (modal) modal.remove();
           // Re-render usando currentData en cache (sin volver a llamar GAS)
-          if (currentData && currentRenderFunction === renderGym) {
+          if (window.currentData && window.currentRenderFunction === renderGym) {
             _renderGymContenido({
-              headers: currentData.headers,
-              data: currentData.originalData
+              headers: window.currentData.headers,
+              data: window.currentData.originalData
             });
           }
         }, 800);
