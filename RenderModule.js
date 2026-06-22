@@ -1402,9 +1402,9 @@ function _rqEnviarMasivo(esPrueba) {
               'style="position:absolute;top:12px;right:12px;background:transparent;border:none;color:#94A3B8;font-size:22px;cursor:pointer;line-height:1;" ' +
               'title="Cerrar">×</button>' +
       '<div style="text-align:center;">' +
-        '<div style="font-size:18px;font-weight:700;margin-bottom:10px;">' + (esPrueba ? '🧪 Enviando reportes de PRUEBA...' : '📤 Enviando reportes...') + '</div>' +
-        '<div style="font-size:13px;color:#94A3B8;margin-bottom:18px;">Por favor no cierres esta ventana</div>' +
-        '<div class="spinner" style="margin:0 auto;"></div>' +
+        '<div id="rq-envio-titulo" style="font-size:18px;font-weight:700;margin-bottom:10px;">' + (esPrueba ? '🧪 Enviando reportes de PRUEBA...' : '📤 Enviando reportes...') + '</div>' +
+        '<div id="rq-envio-subtitulo" style="font-size:13px;color:#94A3B8;margin-bottom:18px;">Por favor no cierres esta ventana</div>' +
+        '<div id="rq-envio-spinner" class="spinner" style="margin:0 auto;"></div>' +
         '<div id="rq-envio-result" style="margin-top:16px;font-size:13px;text-align:left;"></div>' +
         '<div id="rq-envio-timeout" style="margin-top:14px;font-size:12px;color:#F59E0B;display:none;">' +
           '⚠️ Está tardando más de lo normal. Si ya recibiste correos, puedes cerrar.' +
@@ -1422,17 +1422,31 @@ function _rqEnviarMasivo(esPrueba) {
   google.script.run
     .withSuccessHandler(function(result) {
       clearTimeout(timeoutAviso);
+
+      // Cambiar título/subtítulo y ocultar spinner
+      const titulo    = document.getElementById('rq-envio-titulo');
+      const subtitulo = document.getElementById('rq-envio-subtitulo');
+      const spinner   = document.getElementById('rq-envio-spinner');
+      const aviso     = document.getElementById('rq-envio-timeout');
+      if (spinner)   spinner.style.display = 'none';
+      if (subtitulo) subtitulo.style.display = 'none';
+      if (aviso)     aviso.style.display = 'none';
+
       let html = '';
       if (result && result.ok) {
         const r = result.resultados;
         const huboError = r.fallidos > 0;
         const bgColor   = huboError ? '#F59E0B20' : '#10B98120';
         const titColor  = huboError ? '#F59E0B'   : '#10B981';
-        const titulo    = huboError ? '⚠️ Envío con errores' : '✅ Envío completado';
+        const tituloTxt = huboError ? '⚠️ Envío con errores' : '✅ Envío completado';
+
+        if (titulo) {
+          titulo.textContent = tituloTxt;
+          titulo.style.color = titColor;
+        }
 
         html =
           '<div style="background:' + bgColor + ';border-radius:8px;padding:14px;margin-top:8px;text-align:left;">' +
-            '<div style="font-weight:700;color:' + titColor + ';font-size:14px;margin-bottom:6px;">' + titulo + '</div>' +
             '<div style="font-size:12px;line-height:1.6;">' +
               '✓ Enviados: <strong>' + r.enviados + '</strong><br>' +
               (r.fallidos > 0 ? '✗ Fallidos: <strong style="color:#EF4444;">' + r.fallidos + '</strong><br>' : '') +
@@ -1453,23 +1467,23 @@ function _rqEnviarMasivo(esPrueba) {
           html += '</div>';
         }
       } else {
-        html = '<div style="color:#EF4444;margin-top:10px;">❌ ' + (result && result.message ? result.message : 'Error') + '</div>';
+        if (titulo) { titulo.textContent = '❌ Error'; titulo.style.color = '#EF4444'; }
+        html = '<div style="color:#EF4444;margin-top:10px;">' + (result && result.message ? result.message : 'Error desconocido') + '</div>';
       }
       html += '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
-      // Ocultar spinner y aviso de timeout
-      const spinner = document.querySelector('#rq-envio-modal .spinner');
-      if (spinner) spinner.style.display = 'none';
-      const aviso = document.getElementById('rq-envio-timeout');
-      if (aviso) aviso.style.display = 'none';
       document.getElementById('rq-envio-result').innerHTML = html;
     })
     .withFailureHandler(function(err) {
       clearTimeout(timeoutAviso);
-      const spinner = document.querySelector('#rq-envio-modal .spinner');
-      if (spinner) spinner.style.display = 'none';
+      const titulo    = document.getElementById('rq-envio-titulo');
+      const subtitulo = document.getElementById('rq-envio-subtitulo');
+      const spinner   = document.getElementById('rq-envio-spinner');
+      if (spinner)   spinner.style.display = 'none';
+      if (subtitulo) subtitulo.style.display = 'none';
+      if (titulo) { titulo.textContent = '❌ Error de comunicación'; titulo.style.color = '#EF4444'; }
+
       document.getElementById('rq-envio-result').innerHTML =
         '<div style="background:#EF444420;padding:12px;border-radius:8px;color:#FCA5A5;">' +
-          '<strong>❌ Error de comunicación:</strong><br>' +
           (err && err.message ? err.message : err) +
         '</div>' +
         '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
