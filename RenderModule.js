@@ -1203,9 +1203,7 @@ function renderReporteQuincenal() {
           '<div class="rq-banner__title">' +
             (s.quincena === 'Q1' ? '1ª Quincena' : '2ª Quincena') + ' · ' + s.mesTexto +
           '</div>' +
-          '<div class="rq-banner__sub">Del ' + s.rango.inicio + ' al ' + s.rango.fin +
-            (s.diaPago ? ' · Pago: ' + s.diaPago : '') +
-          '</div>' +
+          '<div class="rq-banner__sub">Del ' + s.rango.inicio + ' al ' + s.rango.fin + '</div>' +
         '</div>' +
         '<div>' +
           '<label class="rq-banner__label" style="display:block;margin-bottom:4px;">Cambiar periodo</label>' +
