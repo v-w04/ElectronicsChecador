@@ -2,7 +2,7 @@
 // Declaradas explícitamente en window con guard para evitar ReferenceError
 // cuando OTRO archivo intenta leerlas, o cuando una función entra a una
 // rama que LEE la variable antes de asignarla (típico en renderAlertas y
-// renderFaltas que checan `if (!currentData || !currentData.originalData)`).
+// renderFaltas que checan `if (!window.currentData || !window.currentData.originalData)`).
 //
 // - window.currentData: { headers, data, originalData } — payload de la
 //   vista actual, usado para filtrar/refrescar sin volver a llamar a GAS.
@@ -19,9 +19,9 @@ function renderFaltas(result) {
     document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;">ℹ️ No hay datos de faltas</div>';
     return;
   }
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
-  } else { currentData.headers = result.headers; currentData.data = result.data.slice(); }
+  } else { window.currentData.headers = result.headers; window.currentData.data = result.data.slice(); }
   currentRenderFunction = renderFaltas;
   const container = document.getElementById('popup-container');
   const headers = result.headers;
@@ -100,9 +100,9 @@ function renderRetardos(result) {
     document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;">ℹ️ No hay datos de retardos</div>';
     return;
   }
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
-  } else { currentData.headers = result.headers; currentData.data = result.data.slice(); }
+  } else { window.currentData.headers = result.headers; window.currentData.data = result.data.slice(); }
   currentRenderFunction = renderRetardos;
   const container = document.getElementById('popup-container');
   const headers = result.headers;
@@ -318,9 +318,9 @@ function _procesarExcesos(data, headers, configResult, container) {
 
 function renderVacaciones(result) {
   if (!result || !result.data || result.data.length === 0) { document.getElementById('popup-container').innerHTML = '<div style="text-align:center;padding:40px;">ℹ️ No hay datos de vacaciones</div>'; return; }
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
-  } else { currentData.headers = result.headers; currentData.data = result.data.slice(); }
+  } else { window.currentData.headers = result.headers; window.currentData.data = result.data.slice(); }
   currentRenderFunction = renderVacaciones;
   const container = document.getElementById('popup-container');
   const headers = result.headers;
@@ -454,10 +454,10 @@ function renderEnfermedades(result) {
 
 function renderAlertas(result) {
   // result viene de la hoja ALERTAS (Tipo, ID, Nombre, Mes, Cantidad, Mensaje, Severidad)
-  if (!currentData || !currentData.originalData || currentData.originalData.length === 0) {
+  if (!window.currentData || !window.currentData.originalData || window.currentData.originalData.length === 0) {
     if (result && result.data) currentData = { headers: result.headers, data: result.data.slice(), originalData: result.data.slice() };
   } else if (result && result.data) {
-    currentData.headers = result.headers; currentData.data = result.data.slice();
+    window.currentData.headers = result.headers; window.currentData.data = result.data.slice();
   }
   currentRenderFunction = renderAlertas;
   const container = document.getElementById('popup-container');
@@ -1072,7 +1072,7 @@ function renderReporteQuincenal() {
   const s = window._reporteQuincenal;
   if (!s) return;
 
-  // ── Generador del selector de mes/quincena ─────────────────────────────
+  // ── Selector de mes/quincena ────────────────────────────────────────────
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   let optMeses = '';
@@ -1087,136 +1087,235 @@ function renderReporteQuincenal() {
     }
   }
 
-  // ── Cards de empleados ─────────────────────────────────────────────────
+  // ── Cards de empleados ──────────────────────────────────────────────────
   let cards = '';
   s.empleados.forEach(function(e) {
     const r = e.resumen;
     const noEmail = !e.tieneEmail;
-    const colorBorde = noEmail ? '#64748B' : '#10B981';
 
-    // Mini-resumen tipo chip
+    // Chips de resumen (más compactos, sin fondo)
     const chips = [];
-    if (r.puntuales > 0)  chips.push('<span style="background:#10B98120;color:#10B981;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">✓ ' + r.puntuales + ' pt</span>');
-    if (r.tolerancia > 0) chips.push('<span style="background:#F59E0B20;color:#F59E0B;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">⏱ ' + r.tolerancia + ' tol</span>');
-    if (r.retardos + r.sinBono > 0) chips.push('<span style="background:#EF444420;color:#EF4444;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">⚠ ' + (r.retardos + r.sinBono) + ' ret</span>');
-    if (r.faltas > 0)     chips.push('<span style="background:#EF444420;color:#EF4444;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">✗ ' + r.faltas + ' fal</span>');
-    if (r.vacaciones > 0) chips.push('<span style="background:#3B82F620;color:#3B82F6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">🏖 ' + r.vacaciones + '</span>');
+    if (r.puntuales > 0)  chips.push('<span class="rq-chip rq-chip--ok"><i class="fas fa-check"></i> ' + r.puntuales + '</span>');
+    if (r.tolerancia > 0) chips.push('<span class="rq-chip rq-chip--warn"><i class="far fa-clock"></i> ' + r.tolerancia + '</span>');
+    if (r.retardos + r.sinBono > 0) chips.push('<span class="rq-chip rq-chip--bad"><i class="fas fa-exclamation"></i> ' + (r.retardos + r.sinBono) + '</span>');
+    if (r.faltas > 0)     chips.push('<span class="rq-chip rq-chip--bad"><i class="fas fa-times"></i> ' + r.faltas + '</span>');
+    if (r.vacaciones > 0) chips.push('<span class="rq-chip rq-chip--info"><i class="fas fa-umbrella-beach"></i> ' + r.vacaciones + '</span>');
 
     const emailHtml = noEmail
-      ? '<span style="color:#F59E0B;font-style:italic;font-size:11px;">⚠ Sin email registrado</span>'
-      : '<span style="color:#94A3B8;font-size:11px;">' + e.email + '</span>';
+      ? '<span class="rq-noemail"><i class="fas fa-exclamation-triangle"></i> Sin email registrado</span>'
+      : '<span class="rq-email"><i class="far fa-envelope"></i> ' + e.email + '</span>';
 
     const nombreEsc = e.nombre.replace(/'/g, "\\'");
 
     cards += (
-      '<div style="background:rgba(255,255,255,0.04);border:1px solid ' + colorBorde + '40;' +
-            'border-left:4px solid ' + colorBorde + ';border-radius:10px;padding:14px 16px;margin-bottom:10px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">' +
-          '<div style="flex:1;min-width:200px;">' +
-            '<div style="font-size:15px;font-weight:700;color:#E2E8F0;">' + e.nombre + '</div>' +
-            '<div style="font-size:12px;color:#94A3B8;margin-top:2px;">' + (e.depto || 'SIN DEPTO') + '</div>' +
-            '<div style="margin-top:4px;">' + emailHtml + '</div>' +
-            (chips.length ? '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + chips.join('') + '</div>' : '') +
-          '</div>' +
-          '<div style="display:flex;gap:6px;flex-shrink:0;">' +
-            '<button onclick="_rqPreview(\'' + nombreEsc + '\')" ' +
-                    'style="padding:8px 12px;background:#1E40AF;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;" ' +
-                    'title="Vista previa">👁️</button>' +
-            (noEmail
-              ? '<button disabled style="padding:8px 12px;background:#475569;color:#94A3B8;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:not-allowed;" title="Sin email">📤</button>'
-              : '<button onclick="_rqEnviarUno(\'' + nombreEsc + '\', false)" ' +
-                       'style="padding:8px 12px;background:#10B981;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;" ' +
-                       'title="Enviar al empleado">📤</button>') +
-            '<button onclick="_rqEnviarUno(\'' + nombreEsc + '\', true)" ' +
-                    'style="padding:8px 12px;background:#7C3AED;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;" ' +
-                    'title="Prueba: enviar al admin">🧪</button>' +
-          '</div>' +
+      '<div class="rq-card">' +
+        '<div class="rq-card__info">' +
+          '<div class="rq-card__name">' + e.nombre + '</div>' +
+          '<div class="rq-card__depto">' + (e.depto || 'SIN DEPTO') + '</div>' +
+          '<div class="rq-card__email">' + emailHtml + '</div>' +
+          (chips.length ? '<div class="rq-card__chips">' + chips.join('') + '</div>' : '') +
+        '</div>' +
+        '<div class="rq-card__actions">' +
+          '<button class="rq-btn rq-btn--ghost" onclick="_rqPreview(\'' + nombreEsc + '\')" title="Vista previa">' +
+            '<i class="far fa-eye"></i>' +
+          '</button>' +
+          (noEmail
+            ? '<button class="rq-btn rq-btn--disabled" disabled title="Sin email"><i class="far fa-paper-plane"></i></button>'
+            : '<button class="rq-btn rq-btn--primary" onclick="_rqEnviarUno(\'' + nombreEsc + '\', false)" title="Enviar al empleado">' +
+              '<i class="far fa-paper-plane"></i></button>') +
+          '<button class="rq-btn rq-btn--ghost-cyan" onclick="_rqEnviarUno(\'' + nombreEsc + '\', true)" title="Enviar prueba a mí">' +
+            '<i class="fas fa-flask"></i>' +
+          '</button>' +
         '</div>' +
       '</div>'
     );
   });
 
-  const html =
-    '<div style="padding:24px;max-width:1100px;margin:0 auto;">' +
+  // ── Estilos del módulo (inyectados, scoped por prefijo rq-) ─────────────
+  const estilos = (
+    '<style>' +
+      '.rq-wrap{padding:20px;max-width:1080px;margin:0 auto;color:var(--text-primary);}' +
+      '.rq-banner{background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(6,182,212,0.06));' +
+                 'border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:18px 22px;margin-bottom:18px;' +
+                 'display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;}' +
+      '.rq-banner__label{font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:1px;}' +
+      '.rq-banner__title{font-size:20px;color:var(--text-primary);font-weight:700;margin-top:2px;}' +
+      '.rq-banner__sub{font-size:12px;color:var(--text-secondary);margin-top:4px;}' +
+      '.rq-banner select{background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);' +
+                       'border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;}' +
+      '.rq-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}' +
+      '.rq-stat{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:14px;text-align:center;}' +
+      '.rq-stat__label{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:600;}' +
+      '.rq-stat__value{font-size:22px;font-weight:700;margin-top:2px;color:var(--text-primary);}' +
+      '.rq-stat--ok .rq-stat__label{color:var(--success);} .rq-stat--ok .rq-stat__value{color:var(--success);}' +
+      '.rq-stat--warn .rq-stat__label{color:var(--warning);} .rq-stat--warn .rq-stat__value{color:var(--warning);}' +
+      '.rq-actions{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:18px;}' +
+      '.rq-actions__label{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px;}' +
+      '.rq-actions__row{display:flex;gap:10px;flex-wrap:wrap;}' +
+      '.rq-actions__hint{font-size:11px;color:var(--text-secondary);margin-top:8px;font-style:italic;opacity:0.8;}' +
+      '.rq-bigbtn{padding:11px 16px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;' +
+                'display:inline-flex;align-items:center;gap:8px;transition:all 0.15s;}' +
+      '.rq-bigbtn i{font-size:12px;}' +
+      '.rq-bigbtn--ghost{background:transparent;color:var(--secondary);border:1px solid rgba(6,182,212,0.4);}' +
+      '.rq-bigbtn--ghost:hover{background:rgba(6,182,212,0.1);border-color:var(--secondary);}' +
+      '.rq-bigbtn--primary{background:var(--primary);color:#fff;}' +
+      '.rq-bigbtn--primary:hover{background:var(--primary-dark);}' +
+      '.rq-listlabel{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px;}' +
+      '.rq-card{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:14px 16px;margin-bottom:8px;' +
+              'display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;transition:border-color 0.15s;}' +
+      '.rq-card:hover{border-color:rgba(59,130,246,0.4);}' +
+      '.rq-card__info{flex:1;min-width:200px;}' +
+      '.rq-card__name{font-size:14px;font-weight:600;color:var(--text-primary);}' +
+      '.rq-card__depto{font-size:12px;color:var(--text-secondary);margin-top:1px;}' +
+      '.rq-card__email{margin-top:5px;font-size:11px;}' +
+      '.rq-email{color:var(--text-secondary);}' +
+      '.rq-email i{margin-right:4px;opacity:0.7;}' +
+      '.rq-noemail{color:var(--warning);font-style:italic;}' +
+      '.rq-noemail i{margin-right:4px;}' +
+      '.rq-card__chips{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;}' +
+      '.rq-chip{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}' +
+      '.rq-chip i{font-size:10px;}' +
+      '.rq-chip--ok{background:rgba(16,185,129,0.12);color:var(--success);}' +
+      '.rq-chip--warn{background:rgba(245,158,11,0.12);color:var(--warning);}' +
+      '.rq-chip--bad{background:rgba(239,68,68,0.12);color:var(--danger);}' +
+      '.rq-chip--info{background:rgba(59,130,246,0.12);color:var(--primary);}' +
+      '.rq-card__actions{display:flex;gap:6px;flex-shrink:0;}' +
+      '.rq-btn{width:36px;height:36px;border-radius:8px;border:1px solid transparent;cursor:pointer;font-size:13px;' +
+             'display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;background:transparent;}' +
+      '.rq-btn--ghost{color:var(--primary);border-color:rgba(59,130,246,0.3);}' +
+      '.rq-btn--ghost:hover{background:rgba(59,130,246,0.1);border-color:var(--primary);}' +
+      '.rq-btn--primary{background:var(--primary);color:#fff;border-color:var(--primary);}' +
+      '.rq-btn--primary:hover{background:var(--primary-dark);}' +
+      '.rq-btn--ghost-cyan{color:var(--secondary);border-color:rgba(6,182,212,0.3);}' +
+      '.rq-btn--ghost-cyan:hover{background:rgba(6,182,212,0.1);border-color:var(--secondary);}' +
+      '.rq-btn--disabled{color:var(--text-secondary);border-color:var(--border-color);cursor:not-allowed;opacity:0.5;}' +
+    '</style>'
+  );
 
-      // Banner del periodo
-      '<div style="background:linear-gradient(135deg,#1E40AF20,#3B82F620);border:1px solid #3B82F640;' +
-            'border-radius:14px;padding:18px 22px;margin-bottom:18px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">' +
-          '<div>' +
-            '<div style="font-size:12px;color:#93C5FD;font-weight:600;text-transform:uppercase;letter-spacing:1px;">' +
-              'Quincena a reportar' +
-            '</div>' +
-            '<div style="font-size:22px;color:#E2E8F0;font-weight:700;margin-top:2px;">' +
-              (s.quincena === 'Q1' ? '1ª Quincena' : '2ª Quincena') + ' · ' + s.mesTexto +
-            '</div>' +
-            '<div style="font-size:12px;color:#94A3B8;margin-top:4px;">' +
-              'Del ' + s.rango.inicio + ' al ' + s.rango.fin +
-            '</div>' +
+  // ── HTML completo ───────────────────────────────────────────────────────
+  const html =
+    estilos +
+    '<div class="rq-wrap">' +
+      // Banner del periodo + selector
+      '<div class="rq-banner">' +
+        '<div>' +
+          '<div class="rq-banner__label">Quincena a reportar</div>' +
+          '<div class="rq-banner__title">' +
+            (s.quincena === 'Q1' ? '1ª Quincena' : '2ª Quincena') + ' · ' + s.mesTexto +
           '</div>' +
-          '<div>' +
-            '<label style="display:block;font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px;">Cambiar periodo</label>' +
-            '<select id="rq-selector" onchange="_rqCambiarPeriodo(this.value)" ' +
-                    'style="background:#0F172A;color:#E2E8F0;border:1px solid #3B82F660;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">' +
-              optMeses +
-            '</select>' +
+          '<div class="rq-banner__sub">Del ' + s.rango.inicio + ' al ' + s.rango.fin +
+            (s.diaPago ? ' · Pago: ' + s.diaPago : '') +
           '</div>' +
+        '</div>' +
+        '<div>' +
+          '<label class="rq-banner__label" style="display:block;margin-bottom:4px;">Cambiar periodo</label>' +
+          '<select onchange="_rqCambiarPeriodo(this.value)">' + optMeses + '</select>' +
         '</div>' +
       '</div>' +
 
       // Stats
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">' +
-        '<div style="background:rgba(255,255,255,0.04);border:1px solid #64748B40;border-radius:10px;padding:14px;text-align:center;">' +
-          '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Total</div>' +
-          '<div style="font-size:24px;color:#E2E8F0;font-weight:700;margin-top:2px;">' + s.stats.total + '</div>' +
-        '</div>' +
-        '<div style="background:rgba(255,255,255,0.04);border:1px solid #10B98140;border-radius:10px;padding:14px;text-align:center;">' +
-          '<div style="font-size:11px;color:#10B981;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Con email</div>' +
-          '<div style="font-size:24px;color:#10B981;font-weight:700;margin-top:2px;">' + s.stats.conEmail + '</div>' +
-        '</div>' +
-        '<div style="background:rgba(255,255,255,0.04);border:1px solid #F59E0B40;border-radius:10px;padding:14px;text-align:center;">' +
-          '<div style="font-size:11px;color:#F59E0B;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Sin email</div>' +
-          '<div style="font-size:24px;color:#F59E0B;font-weight:700;margin-top:2px;">' + s.stats.sinEmail + '</div>' +
-        '</div>' +
+      '<div class="rq-stats">' +
+        '<div class="rq-stat"><div class="rq-stat__label">Total</div><div class="rq-stat__value">' + s.stats.total + '</div></div>' +
+        '<div class="rq-stat rq-stat--ok"><div class="rq-stat__label">Con email</div><div class="rq-stat__value">' + s.stats.conEmail + '</div></div>' +
+        '<div class="rq-stat rq-stat--warn"><div class="rq-stat__label">Sin email</div><div class="rq-stat__value">' + s.stats.sinEmail + '</div></div>' +
       '</div>' +
 
-      // Botones de acción masiva
-      '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:18px;">' +
-        '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px;">' +
-          'Envío masivo' +
-        '</div>' +
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-          '<button onclick="_rqEnviarMasivo(true)" ' +
-                  'style="padding:11px 18px;background:#7C3AED;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">' +
-            '🧪 Probar: enviar TODO a mí (' + s.emailAdminPrueba + ')' +
+      // Botones envío masivo
+      '<div class="rq-actions">' +
+        '<div class="rq-actions__label">Envío masivo</div>' +
+        '<div class="rq-actions__row">' +
+          '<button class="rq-bigbtn rq-bigbtn--ghost" onclick="_rqEnviarMasivo(true)">' +
+            '<i class="fas fa-flask"></i> Probar todos: enviar a mí (' + s.emailAdminPrueba + ')' +
           '</button>' +
-          '<button onclick="_rqEnviarMasivo(false)" ' +
-                  'style="padding:11px 18px;background:#10B981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">' +
-            '📤 Enviar a TODOS los empleados con email (' + s.stats.conEmail + ')' +
+          '<button class="rq-bigbtn rq-bigbtn--primary" onclick="_rqEnviarMasivo(false)">' +
+            '<i class="far fa-paper-plane"></i> Enviar a todos los empleados con email (' + s.stats.conEmail + ')' +
+          '</button>' +
+          '<button class="rq-bigbtn" onclick="_rqDiagnostico()" ' +
+                  'style="background:transparent;color:#F59E0B;border:1px solid rgba(245,158,11,0.4);">' +
+            '<i class="fas fa-stethoscope"></i> Diagnosticar permisos email' +
           '</button>' +
         '</div>' +
-        '<div style="font-size:11px;color:#64748B;margin-top:8px;font-style:italic;">' +
-          '🧪 = los ' + s.stats.total + ' reportes te llegan a TI para validar antes de enviar a los empleados.' +
+        '<div class="rq-actions__hint">' +
+          'En modo prueba los ' + s.stats.total + ' reportes te llegan a ti para validar antes de enviar a los empleados.' +
         '</div>' +
       '</div>' +
 
       // Lista de empleados
-      '<div style="margin-bottom:16px;">' +
-        '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px;">' +
-          'Empleados (' + s.empleados.length + ')' +
-        '</div>' +
-        cards +
-      '</div>' +
-
+      '<div class="rq-listlabel">Empleados (' + s.empleados.length + ')</div>' +
+      cards +
     '</div>';
 
   container.innerHTML = html;
 }
 
+
 function _rqCambiarPeriodo(valor) {
   // valor: "anio|mes|quincena"
   const partes = valor.split('|');
   loadReporteQuincenal(parseInt(partes[1], 10), parseInt(partes[0], 10), partes[2]);
+}
+
+// ── Diagnóstico: ¿el deployment del web app puede enviar emails? ──
+// Llama testEnvioDesdeWebApp() en el backend. Si el deployment NO tiene
+// el scope script.send_mail, la respuesta lo dice claramente con la solución.
+function _rqDiagnostico() {
+  if (!confirm('Se enviará un correo de DIAGNÓSTICO desde el web app a tu email de admin.\n\nEsto verifica si el deployment tiene permisos. ¿Continuar?')) return;
+
+  // Modal de loading
+  let modal = document.getElementById('rq-diag-modal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'rq-diag-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML =
+    '<div style="background:#0F172A;color:#E2E8F0;padding:30px 40px;border-radius:14px;max-width:600px;width:100%;">' +
+      '<div style="font-size:18px;font-weight:700;margin-bottom:10px;text-align:center;">🔧 Diagnosticando permisos...</div>' +
+      '<div style="font-size:13px;color:#94A3B8;margin-bottom:18px;text-align:center;">Verificando si el web app puede enviar emails</div>' +
+      '<div class="spinner" style="margin:0 auto;"></div>' +
+      '<div id="rq-diag-result" style="margin-top:20px;font-size:13px;"></div>' +
+    '</div>';
+  document.body.appendChild(modal);
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      let html;
+      if (result && result.ok) {
+        html =
+          '<div style="background:#10B98120;border:1px solid #10B98140;border-radius:8px;padding:16px;">' +
+            '<div style="font-weight:700;color:#10B981;font-size:15px;margin-bottom:8px;">✅ Permisos OK</div>' +
+            '<div style="font-size:13px;line-height:1.6;color:#E2E8F0;">' +
+              result.message + '<br>' +
+              'Quota restante hoy: <strong>' + result.quotaRestante + '</strong> correos<br>' +
+              'Te llegará un correo a: <strong>' + result.destinatario + '</strong>' +
+            '</div>' +
+          '</div>';
+      } else {
+        html =
+          '<div style="background:#EF444420;border:1px solid #EF444440;border-radius:8px;padding:16px;">' +
+            '<div style="font-weight:700;color:#EF4444;font-size:15px;margin-bottom:8px;">❌ Permisos faltantes</div>' +
+            '<div style="font-size:13px;line-height:1.6;color:#E2E8F0;">' +
+              (result ? result.message : 'Error desconocido') + '<br><br>' +
+              '<strong>Detalle del error:</strong><br>' +
+              '<code style="background:#000;padding:4px 8px;border-radius:4px;font-size:11px;display:inline-block;margin:4px 0;">' +
+                (result && result.errorDetalle ? result.errorDetalle : 'sin detalle') +
+              '</code><br><br>' +
+              '<strong style="color:#F59E0B;">Cómo arreglarlo:</strong><br>' +
+              (result && result.solucion ? result.solucion : '') +
+            '</div>' +
+          '</div>';
+      }
+      html += '<button onclick="document.getElementById(\'rq-diag-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
+      document.getElementById('rq-diag-result').innerHTML = html;
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('rq-diag-result').innerHTML =
+        '<div style="background:#EF444420;padding:16px;border-radius:8px;color:#FCA5A5;">' +
+          '<strong>❌ Error de comunicación:</strong><br>' +
+          (err && err.message ? err.message : err) +
+        '</div>' +
+        '<button onclick="document.getElementById(\'rq-diag-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
+    })
+    .testEnvioDesdeWebApp();
 }
 
 function _rqPreview(nombre) {
@@ -1277,7 +1376,9 @@ function _rqEnviarUno(nombre, esPrueba) {
         alert('❌ Error: ' + (result && result.message ? result.message : 'desconocido'));
       }
     })
-    .withFailureHandler(function(err) { alert('❌ Error: ' + err.message); })
+    .withFailureHandler(function(err) {
+      alert('❌ Error de comunicación con backend: ' + (err && err.message ? err.message : err));
+    })
     .enviarReporteQuincenalEmpleado(nombre, s.mes, s.anio, s.quincena, !!esPrueba);
 }
 
@@ -1307,15 +1408,33 @@ function _rqEnviarMasivo(esPrueba) {
       let html = '';
       if (result && result.ok) {
         const r = result.resultados;
+        const huboError = r.fallidos > 0;
+        const bgColor   = huboError ? '#F59E0B20' : '#10B98120';
+        const titColor  = huboError ? '#F59E0B'   : '#10B981';
+        const titulo    = huboError ? '⚠️ Envío con errores' : '✅ Envío completado';
+
         html =
-          '<div style="background:#10B98120;border-radius:8px;padding:14px;margin-top:8px;text-align:left;">' +
-            '<div style="font-weight:700;color:#10B981;font-size:14px;margin-bottom:6px;">✅ Envío completado</div>' +
+          '<div style="background:' + bgColor + ';border-radius:8px;padding:14px;margin-top:8px;text-align:left;">' +
+            '<div style="font-weight:700;color:' + titColor + ';font-size:14px;margin-bottom:6px;">' + titulo + '</div>' +
             '<div style="font-size:12px;line-height:1.6;">' +
               '✓ Enviados: <strong>' + r.enviados + '</strong><br>' +
               (r.fallidos > 0 ? '✗ Fallidos: <strong style="color:#EF4444;">' + r.fallidos + '</strong><br>' : '') +
               (r.sinEmail > 0 ? '⚠ Sin email: <strong style="color:#F59E0B;">' + r.sinEmail + '</strong><br>' : '') +
             '</div>' +
           '</div>';
+
+        // Detalles de fallos — listar cada uno con su error
+        const fallidos = (r.detalles || []).filter(function(d) { return d.status === 'error'; });
+        if (fallidos.length > 0) {
+          html += '<div style="background:#EF444415;border-radius:8px;padding:12px;margin-top:8px;text-align:left;max-height:200px;overflow-y:auto;">' +
+                    '<div style="font-weight:700;color:#EF4444;font-size:12px;margin-bottom:6px;">Errores específicos:</div>';
+          fallidos.forEach(function(d) {
+            html += '<div style="font-size:11px;color:#FCA5A5;margin-bottom:4px;padding:4px 0;border-bottom:1px solid rgba(239,68,68,0.15);">' +
+                      '<strong>' + d.nombre + ':</strong> ' + (d.error || 'sin detalle') +
+                    '</div>';
+          });
+          html += '</div>';
+        }
       } else {
         html = '<div style="color:#EF4444;margin-top:10px;">❌ ' + (result && result.message ? result.message : 'Error') + '</div>';
       }
@@ -1940,10 +2059,10 @@ function guardarUmbralGym() {
           const modal = document.getElementById('modal-umbral-gym');
           if (modal) modal.remove();
           // Re-render usando currentData en cache (sin volver a llamar GAS)
-          if (currentData && currentRenderFunction === renderGym) {
+          if (window.currentData && window.currentRenderFunction === renderGym) {
             _renderGymContenido({
-              headers: currentData.headers,
-              data: currentData.originalData
+              headers: window.currentData.headers,
+              data: window.currentData.originalData
             });
           }
         }, 800);
