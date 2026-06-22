@@ -1388,23 +1388,40 @@ function _rqEnviarMasivo(esPrueba) {
   const destinatarios = esPrueba ? s.stats.total + ' reportes a TI (' + s.emailAdminPrueba + ')' : s.stats.conEmail + ' empleados';
   if (!confirm('¿Enviar ' + destinatarios + '?\n\nEsto puede tardar varios segundos. Confirma para continuar.')) return;
 
-  // Modal de progreso
+  // Modal de progreso CON botón X desde el inicio (por si Apps Script se cuelga
+  // y nunca devuelve respuesta — bug conocido de google.script.run con
+  // operaciones largas).
   let modal = document.getElementById('rq-envio-modal');
   if (modal) modal.remove();
   modal = document.createElement('div');
   modal.id = 'rq-envio-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML =
-    '<div style="background:#0F172A;color:#E2E8F0;padding:30px 40px;border-radius:14px;max-width:500px;width:100%;text-align:center;">' +
-      '<div style="font-size:18px;font-weight:700;margin-bottom:10px;">' + (esPrueba ? '🧪 Enviando reportes de PRUEBA...' : '📤 Enviando reportes...') + '</div>' +
-      '<div style="font-size:13px;color:#94A3B8;margin-bottom:18px;">Por favor no cierres esta ventana</div>' +
-      '<div class="spinner" style="margin:0 auto;"></div>' +
-      '<div id="rq-envio-result" style="margin-top:16px;font-size:13px;"></div>' +
+    '<div style="background:#0F172A;color:#E2E8F0;padding:30px 40px;border-radius:14px;max-width:500px;width:100%;position:relative;">' +
+      '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" ' +
+              'style="position:absolute;top:12px;right:12px;background:transparent;border:none;color:#94A3B8;font-size:22px;cursor:pointer;line-height:1;" ' +
+              'title="Cerrar">×</button>' +
+      '<div style="text-align:center;">' +
+        '<div style="font-size:18px;font-weight:700;margin-bottom:10px;">' + (esPrueba ? '🧪 Enviando reportes de PRUEBA...' : '📤 Enviando reportes...') + '</div>' +
+        '<div style="font-size:13px;color:#94A3B8;margin-bottom:18px;">Por favor no cierres esta ventana</div>' +
+        '<div class="spinner" style="margin:0 auto;"></div>' +
+        '<div id="rq-envio-result" style="margin-top:16px;font-size:13px;text-align:left;"></div>' +
+        '<div id="rq-envio-timeout" style="margin-top:14px;font-size:12px;color:#F59E0B;display:none;">' +
+          '⚠️ Está tardando más de lo normal. Si ya recibiste correos, puedes cerrar.' +
+        '</div>' +
+      '</div>' +
     '</div>';
   document.body.appendChild(modal);
 
+  // Timeout de 60s: si Apps Script no respondió, mostrar aviso
+  const timeoutAviso = setTimeout(function() {
+    const aviso = document.getElementById('rq-envio-timeout');
+    if (aviso) aviso.style.display = 'block';
+  }, 60000);
+
   google.script.run
     .withSuccessHandler(function(result) {
+      clearTimeout(timeoutAviso);
       let html = '';
       if (result && result.ok) {
         const r = result.resultados;
@@ -1423,7 +1440,7 @@ function _rqEnviarMasivo(esPrueba) {
             '</div>' +
           '</div>';
 
-        // Detalles de fallos — listar cada uno con su error
+        // Detalles de fallos
         const fallidos = (r.detalles || []).filter(function(d) { return d.status === 'error'; });
         if (fallidos.length > 0) {
           html += '<div style="background:#EF444415;border-radius:8px;padding:12px;margin-top:8px;text-align:left;max-height:200px;overflow-y:auto;">' +
@@ -1438,13 +1455,24 @@ function _rqEnviarMasivo(esPrueba) {
       } else {
         html = '<div style="color:#EF4444;margin-top:10px;">❌ ' + (result && result.message ? result.message : 'Error') + '</div>';
       }
-      html += '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Cerrar</button>';
+      html += '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
+      // Ocultar spinner y aviso de timeout
+      const spinner = document.querySelector('#rq-envio-modal .spinner');
+      if (spinner) spinner.style.display = 'none';
+      const aviso = document.getElementById('rq-envio-timeout');
+      if (aviso) aviso.style.display = 'none';
       document.getElementById('rq-envio-result').innerHTML = html;
     })
     .withFailureHandler(function(err) {
+      clearTimeout(timeoutAviso);
+      const spinner = document.querySelector('#rq-envio-modal .spinner');
+      if (spinner) spinner.style.display = 'none';
       document.getElementById('rq-envio-result').innerHTML =
-        '<div style="color:#EF4444;margin-top:10px;">❌ Error: ' + err.message + '</div>' +
-        '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Cerrar</button>';
+        '<div style="background:#EF444420;padding:12px;border-radius:8px;color:#FCA5A5;">' +
+          '<strong>❌ Error de comunicación:</strong><br>' +
+          (err && err.message ? err.message : err) +
+        '</div>' +
+        '<button onclick="document.getElementById(\'rq-envio-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
     })
     .enviarReporteQuincenalATodos(s.mes, s.anio, s.quincena, !!esPrueba);
 }
