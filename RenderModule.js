@@ -1228,6 +1228,10 @@ function renderReporteQuincenal() {
           '<button class="rq-bigbtn rq-bigbtn--primary" onclick="_rqEnviarMasivo(false)">' +
             '<i class="far fa-paper-plane"></i> Enviar a todos los empleados con email (' + s.stats.conEmail + ')' +
           '</button>' +
+          '<button class="rq-bigbtn" onclick="_rqDiagnostico()" ' +
+                  'style="background:transparent;color:#F59E0B;border:1px solid rgba(245,158,11,0.4);">' +
+            '<i class="fas fa-stethoscope"></i> Diagnosticar permisos email' +
+          '</button>' +
         '</div>' +
         '<div class="rq-actions__hint">' +
           'En modo prueba los ' + s.stats.total + ' reportes te llegan a ti para validar antes de enviar a los empleados.' +
@@ -1247,6 +1251,69 @@ function _rqCambiarPeriodo(valor) {
   // valor: "anio|mes|quincena"
   const partes = valor.split('|');
   loadReporteQuincenal(parseInt(partes[1], 10), parseInt(partes[0], 10), partes[2]);
+}
+
+// ── Diagnóstico: ¿el deployment del web app puede enviar emails? ──
+// Llama testEnvioDesdeWebApp() en el backend. Si el deployment NO tiene
+// el scope script.send_mail, la respuesta lo dice claramente con la solución.
+function _rqDiagnostico() {
+  if (!confirm('Se enviará un correo de DIAGNÓSTICO desde el web app a tu email de admin.\n\nEsto verifica si el deployment tiene permisos. ¿Continuar?')) return;
+
+  // Modal de loading
+  let modal = document.getElementById('rq-diag-modal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'rq-diag-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML =
+    '<div style="background:#0F172A;color:#E2E8F0;padding:30px 40px;border-radius:14px;max-width:600px;width:100%;">' +
+      '<div style="font-size:18px;font-weight:700;margin-bottom:10px;text-align:center;">🔧 Diagnosticando permisos...</div>' +
+      '<div style="font-size:13px;color:#94A3B8;margin-bottom:18px;text-align:center;">Verificando si el web app puede enviar emails</div>' +
+      '<div class="spinner" style="margin:0 auto;"></div>' +
+      '<div id="rq-diag-result" style="margin-top:20px;font-size:13px;"></div>' +
+    '</div>';
+  document.body.appendChild(modal);
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      let html;
+      if (result && result.ok) {
+        html =
+          '<div style="background:#10B98120;border:1px solid #10B98140;border-radius:8px;padding:16px;">' +
+            '<div style="font-weight:700;color:#10B981;font-size:15px;margin-bottom:8px;">✅ Permisos OK</div>' +
+            '<div style="font-size:13px;line-height:1.6;color:#E2E8F0;">' +
+              result.message + '<br>' +
+              'Quota restante hoy: <strong>' + result.quotaRestante + '</strong> correos<br>' +
+              'Te llegará un correo a: <strong>' + result.destinatario + '</strong>' +
+            '</div>' +
+          '</div>';
+      } else {
+        html =
+          '<div style="background:#EF444420;border:1px solid #EF444440;border-radius:8px;padding:16px;">' +
+            '<div style="font-weight:700;color:#EF4444;font-size:15px;margin-bottom:8px;">❌ Permisos faltantes</div>' +
+            '<div style="font-size:13px;line-height:1.6;color:#E2E8F0;">' +
+              (result ? result.message : 'Error desconocido') + '<br><br>' +
+              '<strong>Detalle del error:</strong><br>' +
+              '<code style="background:#000;padding:4px 8px;border-radius:4px;font-size:11px;display:inline-block;margin:4px 0;">' +
+                (result && result.errorDetalle ? result.errorDetalle : 'sin detalle') +
+              '</code><br><br>' +
+              '<strong style="color:#F59E0B;">Cómo arreglarlo:</strong><br>' +
+              (result && result.solucion ? result.solucion : '') +
+            '</div>' +
+          '</div>';
+      }
+      html += '<button onclick="document.getElementById(\'rq-diag-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
+      document.getElementById('rq-diag-result').innerHTML = html;
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('rq-diag-result').innerHTML =
+        '<div style="background:#EF444420;padding:16px;border-radius:8px;color:#FCA5A5;">' +
+          '<strong>❌ Error de comunicación:</strong><br>' +
+          (err && err.message ? err.message : err) +
+        '</div>' +
+        '<button onclick="document.getElementById(\'rq-diag-modal\').remove()" style="margin-top:16px;padding:10px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;width:100%;">Cerrar</button>';
+    })
+    .testEnvioDesdeWebApp();
 }
 
 function _rqPreview(nombre) {
@@ -1307,7 +1374,9 @@ function _rqEnviarUno(nombre, esPrueba) {
         alert('❌ Error: ' + (result && result.message ? result.message : 'desconocido'));
       }
     })
-    .withFailureHandler(function(err) { alert('❌ Error: ' + err.message); })
+    .withFailureHandler(function(err) {
+      alert('❌ Error de comunicación con backend: ' + (err && err.message ? err.message : err));
+    })
     .enviarReporteQuincenalEmpleado(nombre, s.mes, s.anio, s.quincena, !!esPrueba);
 }
 
@@ -1337,15 +1406,33 @@ function _rqEnviarMasivo(esPrueba) {
       let html = '';
       if (result && result.ok) {
         const r = result.resultados;
+        const huboError = r.fallidos > 0;
+        const bgColor   = huboError ? '#F59E0B20' : '#10B98120';
+        const titColor  = huboError ? '#F59E0B'   : '#10B981';
+        const titulo    = huboError ? '⚠️ Envío con errores' : '✅ Envío completado';
+
         html =
-          '<div style="background:#10B98120;border-radius:8px;padding:14px;margin-top:8px;text-align:left;">' +
-            '<div style="font-weight:700;color:#10B981;font-size:14px;margin-bottom:6px;">✅ Envío completado</div>' +
+          '<div style="background:' + bgColor + ';border-radius:8px;padding:14px;margin-top:8px;text-align:left;">' +
+            '<div style="font-weight:700;color:' + titColor + ';font-size:14px;margin-bottom:6px;">' + titulo + '</div>' +
             '<div style="font-size:12px;line-height:1.6;">' +
               '✓ Enviados: <strong>' + r.enviados + '</strong><br>' +
               (r.fallidos > 0 ? '✗ Fallidos: <strong style="color:#EF4444;">' + r.fallidos + '</strong><br>' : '') +
               (r.sinEmail > 0 ? '⚠ Sin email: <strong style="color:#F59E0B;">' + r.sinEmail + '</strong><br>' : '') +
             '</div>' +
           '</div>';
+
+        // Detalles de fallos — listar cada uno con su error
+        const fallidos = (r.detalles || []).filter(function(d) { return d.status === 'error'; });
+        if (fallidos.length > 0) {
+          html += '<div style="background:#EF444415;border-radius:8px;padding:12px;margin-top:8px;text-align:left;max-height:200px;overflow-y:auto;">' +
+                    '<div style="font-weight:700;color:#EF4444;font-size:12px;margin-bottom:6px;">Errores específicos:</div>';
+          fallidos.forEach(function(d) {
+            html += '<div style="font-size:11px;color:#FCA5A5;margin-bottom:4px;padding:4px 0;border-bottom:1px solid rgba(239,68,68,0.15);">' +
+                      '<strong>' + d.nombre + ':</strong> ' + (d.error || 'sin detalle') +
+                    '</div>';
+          });
+          html += '</div>';
+        }
       } else {
         html = '<div style="color:#EF4444;margin-top:10px;">❌ ' + (result && result.message ? result.message : 'Error') + '</div>';
       }
