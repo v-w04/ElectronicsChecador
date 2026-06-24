@@ -556,15 +556,6 @@ function procesarAcceso() {
   // ── Validación LOCAL — usa cache en localStorage, sin llamar a GAS ──
   // Si el cache aún no se cargó (primera vez), se carga ahora y luego valida
   _cargarUsuariosCache(function(usuarios) {
-    // ⭐ VERIFICAR EDAD DEL CACHE (regla offline) ──
-    // <24h: confiar. 24h-7d: validar y mostrar aviso. >7d: bloquear.
-    var edad = _verificarEdadCacheUsuarios();
-    if (!edad.ok) {
-      mostrarErrorAcceso(edad.mensaje);
-      if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
-      return;
-    }
-
     var usuario = usuarios ? usuarios[pin] : null;
 
     if (!usuario) {
