@@ -98,16 +98,16 @@ function activarModoPerfil() {
   if (overlay) {
     overlay.style.transition = 'background 0.45s ease';
     overlay.style.background =
-      'radial-gradient(circle at 50% 38%, #312e81 0%, #1e1b4b 48%, #0c0821 100%)';
+      'radial-gradient(circle at 50% 38%, #6b1220 0%, #3f0a12 48%, #16050a 100%)';
   }
   if (box) {
     box.style.transition = 'filter 0.45s ease';
-    box.style.filter = 'hue-rotate(55deg) saturate(1.15)'; // anillo azul → violeta
+    box.style.filter = 'hue-rotate(140deg) saturate(1.25)'; // anillo azul → rojo
   }
   if (btn) {
     btn.innerHTML = '✕ Cancelar';
-    btn.style.color = '#C4B5FD';
-    btn.style.borderColor = 'rgba(167,139,250,0.45)';
+    btn.style.color = '#FCA5A5';
+    btn.style.borderColor = 'rgba(248,113,113,0.5)';
   }
 
   // Etiqueta "MODO PERFIL" arriba del anillo
@@ -118,8 +118,8 @@ function activarModoPerfil() {
     tag.innerHTML = '👤 MODO PERFIL — entra con tu PIN y contraseña';
     tag.style.cssText =
       'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;' +
-      'padding:9px 20px;border-radius:999px;background:rgba(76,29,149,0.4);color:#DDD6FE;' +
-      'border:1px solid rgba(167,139,250,0.4);font-size:13px;font-weight:700;letter-spacing:1px;' +
+      'padding:9px 20px;border-radius:999px;background:rgba(127,29,29,0.45);color:#FECACA;' +
+      'border:1px solid rgba(248,113,113,0.45);font-size:13px;font-weight:700;letter-spacing:1px;' +
       'backdrop-filter:blur(8px);white-space:nowrap;';
     overlay.appendChild(tag);
   }
@@ -130,13 +130,22 @@ function activarModoPerfil() {
     keep = document.createElement('label');
     keep.id = 'perfil-keep-wrap';
     keep.innerHTML =
-      '<input id="perfil-keep" type="checkbox" style="width:17px;height:17px;accent-color:#8B5CF6;vertical-align:middle;"> ' +
+      '<input id="perfil-keep" type="checkbox" style="width:17px;height:17px;accent-color:#EF4444;vertical-align:middle;"> ' +
       '<span style="vertical-align:middle;">Mantener mi sesión en este dispositivo</span>';
     keep.style.cssText =
       'position:fixed;bottom:66px;left:50%;transform:translateX(-50%);z-index:100000;' +
-      'color:#A5B4FC;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;' +
-      'background:rgba(15,23,42,0.55);padding:8px 16px;border-radius:999px;backdrop-filter:blur(6px);';
+      'color:#FCA5A5;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;' +
+      'background:rgba(22,5,10,0.6);padding:8px 16px;border-radius:999px;backdrop-filter:blur(6px);';
     overlay.appendChild(keep);
+  }
+
+  // ⭐ Focus INMEDIATO en el input del PIN — sin toques extra. Como esto corre
+  // dentro del gesto del usuario (click del botón), el teclado móvil se
+  // despliega de una vez.
+  var inputPin = document.getElementById('input-pin');
+  if (inputPin) {
+    inputPin.value = '';
+    inputPin.focus();
   }
 }
 

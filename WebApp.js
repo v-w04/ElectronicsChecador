@@ -444,6 +444,27 @@ function _enviarDirecto(datos) {
         if (window.OfflineQueue) {
           OfflineQueue.encolar(datos).catch(function() {});
         }
+        return;
+      }
+      // ⭐ AUTO-CORRECCIÓN: el servidor devuelve las checadas de HOY según el
+      // sheet. Sobrescribimos el registro local con eso — si el local estaba
+      // desincronizado (pruebas borradas, otro dispositivo), la SIGUIENTE
+      // checada ya detecta el tipo correcto.
+      if (result.checadasHoyServidor && window.OfflineQueue) {
+        OfflineQueue.contar().then(function(n) {
+          if (n > 0) return; // hay checadas pendientes de enviar — no tocar
+          try {
+            var data = _leerChecadasDia();
+            var key = (datos.idUsuario || '').toString();
+            data.porUsuario[key] = result.checadasHoyServidor.map(function(c) {
+              var ts = new Date(c.fecha + 'T' + c.hora).getTime();
+              return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
+            });
+            localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data));
+            console.log('🔄 Registro local del día sincronizado con servidor (' +
+                        data.porUsuario[key].length + ' checadas)');
+          } catch(e) {}
+        }).catch(function() {});
       }
     })
     .withFailureHandler(function(err) {
@@ -504,6 +525,10 @@ function mostrarPantallaPIN() {
     btnSync.disabled = true;
     _usuariosCache = null;
     try { localStorage.removeItem('em_usuarios_cache'); } catch(e) {}
+    // ⭐ También resetear el registro LOCAL de checadas del día. Si el admin
+    // borró filas de CHECADOR_CHOFERES (pruebas), este botón limpia el
+    // dispositivo y la detección de tipos reinicia desde ENTRADA.
+    try { localStorage.removeItem(_LS_KEY_CHECADAS_DIA); } catch(e) {}
     _sincronizarUsuarios(function() {
       btnSync.innerHTML = '✓';
       btnSync.style.color = '#10B981';
