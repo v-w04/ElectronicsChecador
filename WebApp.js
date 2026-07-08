@@ -211,7 +211,8 @@ var _ETIQUETAS_TIPO = {
   'SALIDA_COMIDA':    { emoji: '🍽️', label: 'Salida a comida' },
   'REGRESO_COMIDA':   { emoji: '🍽️', label: 'Regreso de comida' },
   'SALIDA':           { emoji: '🏠', label: 'Salida' },
-  'EXTRA':            { emoji: '➕', label: 'Registro extra' }
+  'EXTRA':            { emoji: '➕', label: 'Registro extra' },
+  'FUERA_HORARIO':    { emoji: '⛔', label: 'Fuera de horario' }
 };
 
 // ── Registro local de checadas del día (persiste offline) ──────────────────
@@ -270,7 +271,15 @@ function _detectarTipoChecada(idUsuario) {
   var c = _cfgTurnoDe(idUsuario) || {};
   var turno = _turnoDe(idUsuario);
   var finMin = turno ? (turno.fin.h * 60 + turno.fin.m) : (c.salidaMin != null ? c.salidaMin : null);
+  var inicioMin = turno ? (turno.inicio.h * 60 + turno.inicio.m) : (c.entradaMin != null ? c.entradaMin : null);
   function enVentana(a, b) { return a != null && b != null && minAhora >= a && minAhora <= b; }
+
+  // ⛔ Fuera de horario: entrada solo desde 2h antes; tras la salida, nada
+  var entradaDesde = (inicioMin != null) ? inicioMin - 120 : null;
+  if (!tiene('ENTRADA')) {
+    if (finMin != null && minAhora > finMin) return 'FUERA_HORARIO';
+    if (entradaDesde != null && minAhora < entradaDesde) return 'FUERA_HORARIO';
+  }
 
   if (!tiene('SALIDA_COMIDA') && enVentana(c.comMin, c.comMax)) return 'SALIDA_COMIDA';
   if (!tiene('ENTRADA') && (c.comMin == null || minAhora < c.comMin)) return 'ENTRADA';
@@ -422,6 +431,20 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
                detalle: 'Justo a las ' + _formatearHora(minFin) + '. Perfecto.' };
     }
 
+    case 'FUERA_HORARIO': {
+      var t = _turnoDe(idUsuario);
+      if (t) {
+        var finM = t.fin.h * 60 + t.fin.m;
+        var iniM = t.inicio.h * 60 + t.inicio.m;
+        if (minAhora > finM) {
+          return { texto: '⛔ Ya pasó tu hora de salida', color: '#ef4444',
+                   detalle: 'Tu horario terminó a las ' + _formatearHora(finM) + '. Ya vete a descansar — no hay nada que checar a esta hora.' };
+        }
+        return { texto: '🌙 Aún no es hora de checar', color: '#fbbf24',
+                 detalle: 'Tu turno empieza a las ' + _formatearHora(iniM) + '. Puedes registrar tu entrada desde las ' + _formatearHora(Math.max(0, iniM - 120)) + '.' };
+      }
+      return { texto: '⛔ Fuera de horario', color: '#fbbf24', detalle: 'Vuelve más cerca de tu horario.' };
+    }
     default:
       return { texto: '➕ Registro extra', color: '#3ddc84', detalle: 'Checada adicional del día' };
   }
@@ -1297,6 +1320,12 @@ function _flujoLocalChecada(nombre, idUsuario, datos) {
   var tipoChecada = _detectarTipoChecada(idUsuario);
   var veredicto = _calcularVeredicto(tipoChecada, idUsuario, ahora);
 
+  // ⛔ Fuera de horario: solo el mensaje — no se registra ni se encola
+  if (tipoChecada === 'FUERA_HORARIO') {
+    _pintarPantallaChecada(tipoChecada, veredicto, nombre, datos.hora, false);
+    return;
+  }
+
   _registrarChecadaLocal(idUsuario, tipoChecada, ahora.getTime());
   datos.tipo = tipoChecada;
   datos.autoDetect = false;
@@ -1606,7 +1635,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v588';
+var FRONTEND_VERSION = 'v589';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
