@@ -57,81 +57,91 @@ function _perfilDetenerTimers() {
 }
 
 // ── Punto de entrada: botón "Mi Perfil" ─────────────────────────────────────
+
+// ── MODO PERFIL — se activa sobre la MISMA pantalla del PIN ─────────────────
+// Al tocar "Mi Perfil": el fondo cambia a tono violeta, el anillo vira a
+// púrpura y aparece el checkbox "mantener sesión". El empleado usa LOS MISMOS
+// inputs grandes de PIN y contraseña; al validar, entra al perfil en lugar
+// de checar. Sin popups nuevos.
+
 function abrirLoginPerfil() {
-  // Si ya hay sesión guardada (celular personal), entrar directo
+  // Si ya hay sesión guardada en este dispositivo, entrar directo
   var sesion = _perfilLeerSesion();
   if (sesion && sesion.pin) {
     abrirPerfil(sesion);
     return;
   }
-  _perfilMostrarLogin();
+  if (window._modoPerfil) desactivarModoPerfil();
+  else activarModoPerfil();
 }
 
-function _perfilMostrarLogin() {
-  var viejo = document.getElementById('perfil-login-overlay');
-  if (viejo) viejo.remove();
+function activarModoPerfil() {
+  window._modoPerfil = true;
+  var overlay = document.getElementById('pin-overlay');
+  var box = document.getElementById('pin-box');
+  var btn = document.getElementById('btn-mi-perfil');
 
-  var overlay = document.createElement('div');
-  overlay.id = 'perfil-login-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(2,6,23,0.96);z-index:100002;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);';
-  overlay.innerHTML =
-    '<div style="background:#0F172A;border:1px solid rgba(59,130,246,0.25);border-radius:18px;padding:30px 28px;max-width:380px;width:100%;position:relative;">' +
-      '<button onclick="document.getElementById(\'perfil-login-overlay\').remove()" ' +
-              'style="position:absolute;top:10px;right:12px;background:transparent;border:none;color:#64748B;font-size:24px;cursor:pointer;line-height:1;">×</button>' +
-      '<div style="text-align:center;margin-bottom:20px;">' +
-        '<div style="font-size:40px;margin-bottom:6px;">👤</div>' +
-        '<div style="font-size:19px;font-weight:700;color:#E2E8F0;">Mi Perfil</div>' +
-        '<div style="font-size:12px;color:#94A3B8;margin-top:4px;">Entra con tu PIN y contraseña</div>' +
-      '</div>' +
-      '<input id="perfil-pin" type="tel" inputmode="numeric" placeholder="PIN" maxlength="6" autocomplete="off" ' +
-             'style="width:100%;box-sizing:border-box;padding:13px 16px;margin-bottom:10px;background:#1E293B;border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#E2E8F0;font-size:16px;text-align:center;letter-spacing:4px;">' +
-      '<input id="perfil-pass" type="password" placeholder="Contraseña" autocomplete="off" ' +
-             'style="width:100%;box-sizing:border-box;padding:13px 16px;margin-bottom:12px;background:#1E293B;border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#E2E8F0;font-size:16px;text-align:center;">' +
-      '<label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;font-size:13px;color:#94A3B8;">' +
-        '<input id="perfil-persistente" type="checkbox" style="width:17px;height:17px;accent-color:#3B82F6;">' +
-        'Mantener mi sesión en este dispositivo' +
-      '</label>' +
-      '<div id="perfil-login-error" style="display:none;color:#F87171;font-size:13px;text-align:center;margin-bottom:10px;"></div>' +
-      '<button id="perfil-btn-entrar" ' +
-              'style="width:100%;padding:14px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">' +
-        'Entrar a mi perfil' +
-      '</button>' +
-      '<div style="font-size:11px;color:#475569;text-align:center;margin-top:12px;line-height:1.5;">' +
-        'En la tablet compartida NO marques "mantener sesión".<br>El perfil se cierra solo tras 60 segundos sin actividad.' +
-      '</div>' +
-    '</div>';
-  document.body.appendChild(overlay);
-
-  var inputPin = document.getElementById('perfil-pin');
-  var inputPass = document.getElementById('perfil-pass');
-  setTimeout(function() { inputPin.focus(); }, 150);
-
-  function intentar() {
-    var pin = (inputPin.value || '').trim();
-    var pass = (inputPass.value || '').trim();
-    var errEl = document.getElementById('perfil-login-error');
-    if (!pin || !pass) {
-      errEl.textContent = 'Pon tu PIN y contraseña';
-      errEl.style.display = 'block';
-      return;
-    }
-    _cargarUsuariosCache(function(usuarios) {
-      var u = usuarios ? usuarios[pin] : null;
-      if (!u || (u.contrasena || '') !== pass) {
-        errEl.textContent = 'PIN o contraseña incorrectos';
-        errEl.style.display = 'block';
-        return;
-      }
-      var persistente = document.getElementById('perfil-persistente').checked;
-      _perfilGuardarSesion(u, persistente);
-      overlay.remove();
-      abrirPerfil(_perfilLeerSesion());
-    });
+  if (overlay) {
+    overlay.style.transition = 'background 0.45s ease';
+    overlay.style.background =
+      'radial-gradient(circle at 50% 38%, #312e81 0%, #1e1b4b 48%, #0c0821 100%)';
+  }
+  if (box) {
+    box.style.transition = 'filter 0.45s ease';
+    box.style.filter = 'hue-rotate(55deg) saturate(1.15)'; // anillo azul → violeta
+  }
+  if (btn) {
+    btn.innerHTML = '✕ Cancelar';
+    btn.style.color = '#C4B5FD';
+    btn.style.borderColor = 'rgba(167,139,250,0.45)';
   }
 
-  document.getElementById('perfil-btn-entrar').onclick = intentar;
-  inputPass.addEventListener('keydown', function(e) { if (e.key === 'Enter') intentar(); });
-  inputPin.addEventListener('keydown', function(e) { if (e.key === 'Enter') inputPass.focus(); });
+  // Etiqueta "MODO PERFIL" arriba del anillo
+  var tag = document.getElementById('perfil-mode-tag');
+  if (!tag && overlay) {
+    tag = document.createElement('div');
+    tag.id = 'perfil-mode-tag';
+    tag.innerHTML = '👤 MODO PERFIL — entra con tu PIN y contraseña';
+    tag.style.cssText =
+      'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;' +
+      'padding:9px 20px;border-radius:999px;background:rgba(76,29,149,0.4);color:#DDD6FE;' +
+      'border:1px solid rgba(167,139,250,0.4);font-size:13px;font-weight:700;letter-spacing:1px;' +
+      'backdrop-filter:blur(8px);white-space:nowrap;';
+    overlay.appendChild(tag);
+  }
+
+  // Checkbox "mantener sesión" abajo, centrado
+  var keep = document.getElementById('perfil-keep-wrap');
+  if (!keep && overlay) {
+    keep = document.createElement('label');
+    keep.id = 'perfil-keep-wrap';
+    keep.innerHTML =
+      '<input id="perfil-keep" type="checkbox" style="width:17px;height:17px;accent-color:#8B5CF6;vertical-align:middle;"> ' +
+      '<span style="vertical-align:middle;">Mantener mi sesión en este dispositivo</span>';
+    keep.style.cssText =
+      'position:fixed;bottom:66px;left:50%;transform:translateX(-50%);z-index:100000;' +
+      'color:#A5B4FC;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;' +
+      'background:rgba(15,23,42,0.55);padding:8px 16px;border-radius:999px;backdrop-filter:blur(6px);';
+    overlay.appendChild(keep);
+  }
+}
+
+function desactivarModoPerfil() {
+  window._modoPerfil = false;
+  var overlay = document.getElementById('pin-overlay');
+  var box = document.getElementById('pin-box');
+  var btn = document.getElementById('btn-mi-perfil');
+  if (overlay) overlay.style.background = '';
+  if (box) box.style.filter = '';
+  if (btn) {
+    btn.innerHTML = '👤 Mi Perfil';
+    btn.style.color = '#94A3B8';
+    btn.style.borderColor = 'rgba(255,255,255,0.1)';
+  }
+  var tag = document.getElementById('perfil-mode-tag');
+  if (tag) tag.remove();
+  var keep = document.getElementById('perfil-keep-wrap');
+  if (keep) keep.remove();
 }
 
 // ── Panel principal del perfil ──────────────────────────────────────────────
@@ -142,44 +152,57 @@ function abrirPerfil(sesion) {
 
   var overlay = document.createElement('div');
   overlay.id = 'perfil-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#0B1120;z-index:100001;overflow-y:auto;';
-  overlay.innerHTML =
-    '<div style="max-width:640px;margin:0 auto;padding:20px 16px 60px;">' +
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100001;overflow-y:auto;' +
+    'background:radial-gradient(circle at 50% -10%, #1e1b4b 0%, #0B1120 55%);' +
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
 
-      // Header
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">' +
-        '<div>' +
-          '<div style="font-size:20px;font-weight:800;color:#E2E8F0;">👤 ' + sesion.nombre + '</div>' +
-          '<div style="font-size:13px;color:#94A3B8;margin-top:2px;">' +
-            (sesion.turnoHorario ? '🕐 Turno: ' + sesion.turnoHorario : '') +
+  var inicial = (sesion.nombre || '?').trim().charAt(0).toUpperCase();
+
+  overlay.innerHTML =
+    '<div style="max-width:640px;margin:0 auto;padding:24px 18px 70px;">' +
+
+      // Header con avatar
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">' +
+        '<div style="display:flex;align-items:center;gap:14px;">' +
+          '<div style="width:54px;height:54px;border-radius:50%;flex-shrink:0;' +
+                 'background:linear-gradient(135deg,#7C3AED,#3B82F6);display:flex;align-items:center;justify-content:center;' +
+                 'font-size:24px;font-weight:800;color:#fff;box-shadow:0 4px 18px rgba(124,58,237,0.35);">' +
+            inicial +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:21px;font-weight:800;color:#F1F5F9;letter-spacing:-0.3px;line-height:1.2;">' + sesion.nombre + '</div>' +
+            '<div style="font-size:14px;color:#A5B4FC;margin-top:3px;font-weight:600;">' +
+              (sesion.turnoHorario ? '🕐 ' + sesion.turnoHorario : '') +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<button onclick="_perfilCerrarSesion()" ' +
-                'style="padding:9px 16px;background:transparent;color:#F87171;border:1px solid rgba(248,113,113,0.35);border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">' +
+                'style="padding:10px 18px;background:transparent;color:#F87171;border:1px solid rgba(248,113,113,0.35);' +
+                       'border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">' +
           'Cerrar sesión' +
         '</button>' +
       '</div>' +
 
       // Cronómetro activo (se llena dinámicamente)
-      '<div id="perfil-crono" style="display:none;margin-bottom:16px;"></div>' +
+      '<div id="perfil-crono" style="display:none;margin-bottom:18px;"></div>' +
 
       // Veredicto de la última checada desde el perfil
-      '<div id="perfil-veredicto" style="display:none;margin-bottom:16px;"></div>' +
+      '<div id="perfil-veredicto" style="display:none;margin-bottom:18px;"></div>' +
 
       // Botones de checada
-      '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">Registrar checada</div>' +
-      '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;"></div>' +
+      '<div style="font-size:12px;color:#A5B4FC;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Registrar checada</div>' +
+      '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;"></div>' +
 
       // Estado del día
-      '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">Hoy</div>' +
-      '<div id="perfil-hoy" style="margin-bottom:22px;">' +
-        '<div style="color:#475569;font-size:13px;font-style:italic;padding:8px 0;">Cargando...</div>' +
+      '<div style="font-size:12px;color:#A5B4FC;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Hoy</div>' +
+      '<div id="perfil-hoy" style="margin-bottom:28px;">' +
+        '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
       // Historial
-      '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">Últimos 7 días</div>' +
+      '<div style="font-size:12px;color:#A5B4FC;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Últimos 7 días</div>' +
       '<div id="perfil-historial">' +
-        '<div style="color:#475569;font-size:13px;font-style:italic;padding:8px 0;">Cargando...</div>' +
+        '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
     '</div>';
@@ -223,10 +246,11 @@ function _perfilPintarBotones(sesion) {
   cont.innerHTML = botones.map(function(b) {
     return (
       '<button onclick="_perfilChecar(\'' + b.tipo + '\')" ' +
-              'style="padding:18px 10px;background:rgba(255,255,255,0.035);border:1px solid ' + b.color + '50;' +
-                     'border-radius:14px;cursor:pointer;text-align:center;transition:all 0.15s;color:#E2E8F0;">' +
-        '<div style="font-size:26px;margin-bottom:6px;">' + b.emoji + '</div>' +
-        '<div style="font-size:13px;font-weight:700;">' + b.label + '</div>' +
+              'onpointerdown="this.style.transform=\'scale(0.96)\'" onpointerup="this.style.transform=\'\'" onpointerleave="this.style.transform=\'\'" ' +
+              'style="padding:22px 12px;background:rgba(255,255,255,0.045);border:1.5px solid ' + b.color + '55;' +
+                     'border-radius:16px;cursor:pointer;text-align:center;transition:all 0.12s;color:#F1F5F9;">' +
+        '<div style="font-size:32px;margin-bottom:8px;line-height:1;">' + b.emoji + '</div>' +
+        '<div style="font-size:15px;font-weight:800;letter-spacing:-0.2px;">' + b.label + '</div>' +
       '</button>'
     );
   }).join('');

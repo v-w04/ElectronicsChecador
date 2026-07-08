@@ -309,7 +309,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
 
     case 'SALIDA_DESAYUNO': {
       var limite = minAhora + _DURACION_DESAYUNO_MIN;
-      return { texto: '🥐 Salida a desayuno', color: '#3ddc84',
+      return { texto: '¡Provecho!', color: '#3ddc84',
                detalle: 'Tienes ' + _DURACION_DESAYUNO_MIN + ' min · Regresa antes de las ' + _formatearHora(limite) };
     }
 
@@ -328,7 +328,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
 
     case 'SALIDA_COMIDA': {
       var limiteC = minAhora + _DURACION_COMIDA_MIN;
-      return { texto: '🍽️ Salida a comida', color: '#3ddc84',
+      return { texto: '¡Provecho!', color: '#3ddc84',
                detalle: 'Tienes ' + _DURACION_COMIDA_MIN + ' min · Regresa antes de las ' + _formatearHora(limiteC) };
     }
 
@@ -881,6 +881,17 @@ function procesarAcceso() {
       return;
     }
 
+    // ⭐ MODO PERFIL activo → entrar al perfil en lugar de checar
+    if (window._modoPerfil && typeof abrirPerfil === 'function') {
+      var keepEl = document.getElementById('perfil-keep');
+      var persistente = !!(keepEl && keepEl.checked);
+      _perfilGuardarSesion(usuario, persistente);
+      desactivarModoPerfil();
+      _setRingState('success');
+      setTimeout(function() { abrirPerfil(_perfilLeerSesion()); }, 300);
+      return;
+    }
+
     // Validación OK — lanzar flujo de checada inmediatamente
     _setRingState('success');
     setTimeout(function() { _lanzarFlujoChecar(usuario.nombre, usuario.idUsuario); }, 250);
@@ -1037,20 +1048,19 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
           '</g>' +
         '</svg>' +
         '<div class="ring-panel ring-panel--flow">' +
-          '<div class="ring-flow__check">' + etiqueta.emoji + '</div>' +
-          '<div style="font-size:13px;color:#a7ffc4;text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:2px;">' +
+          '<div class="ring-flow__check" style="font-size:58px;line-height:1;">' + etiqueta.emoji + '</div>' +
+          '<div style="font-size:16px;color:#a7ffc4;text-transform:uppercase;letter-spacing:3px;font-weight:800;margin-top:8px;">' +
             etiqueta.label +
           '</div>' +
-          '<div class="ring-flow__title" style="color:' + veredicto.color + ';">' + veredicto.texto + '</div>' +
-          '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
+          '<div class="ring-flow__title" style="color:' + veredicto.color + ';font-size:36px;font-weight:800;line-height:1.15;margin-top:8px;">' +
+            veredicto.texto +
+          '</div>' +
           (veredicto.detalle
-            ? '<div style="margin-top:8px;font-size:13px;color:#cbd5e1;max-width:340px;margin-left:auto;margin-right:auto;">' + veredicto.detalle + '</div>'
+            ? '<div style="margin-top:12px;font-size:19px;font-weight:600;color:#F1F5F9;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.45;">' + veredicto.detalle + '</div>'
             : '') +
-          (zonaResult.zonaCercana
-            ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:12px;color:#a7ffc4;">📍 ' + zonaResult.zonaCercana + '</div>'
-            : '') +
+          '<div style="margin-top:12px;font-size:15px;color:#94A3B8;">' + nombre + ' · ' + hora + '</div>' +
           (navigator.onLine === false
-            ? '<div style="margin-top:6px;font-size:11px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
+            ? '<div style="margin-top:8px;font-size:13px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
             : '') +
         '</div>';
 
