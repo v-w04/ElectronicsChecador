@@ -48,14 +48,14 @@ var PushNotifications = (function() {
   function solicitarYRegistrar(pin) {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       console.log('🔕 Este navegador no soporta notificaciones push');
-      return Promise.resolve(false);
+      return Promise.resolve({ ok: false, error: 'Sin soporte de notificaciones' });
     }
-    if (navigator.onLine === false) return Promise.resolve(false);
+    if (navigator.onLine === false) return Promise.resolve({ ok: false, error: 'Sin internet' });
 
     return Notification.requestPermission().then(function(permiso) {
       if (permiso !== 'granted') {
         console.log('🔕 Permiso de notificaciones: ' + permiso);
-        return false;
+        return { ok: false, error: 'Permiso: ' + permiso };
       }
       return _asegurarSDK()
         .then(function() {
@@ -69,21 +69,27 @@ var PushNotifications = (function() {
           });
         })
         .then(function(token) {
-          if (!token) return false;
+          if (!token) return { ok: false, error: 'FCM no devolvió token' };
           try { localStorage.setItem(_LS_TOKEN, token); } catch(e) {}
           return new Promise(function(res) {
             google.script.run
               .withSuccessHandler(function(r) {
                 console.log('🔔 ' + (r && r.message ? r.message : 'Token registrado'));
-                res(true);
+                res({ ok: true });
               })
-              .withFailureHandler(function() { res(false); })
+              .withFailureHandler(function(e) {
+                res({ ok: false, error: 'El backend no aceptó el token: ' + (e && e.message ? e.message : e) });
+              })
               .registrarPushToken(pin, token);
           });
         })
         .catch(function(e) {
           console.warn('🔕 Push no disponible: ' + e.message);
-          return false;
+          var msg = e.message || '';
+          if (msg.indexOf('404') !== -1 || /script|register/i.test(msg)) {
+            msg = 'No se encontró firebase-messaging-sw.js en el sitio (¿está subido a GitHub?) · ' + msg;
+          }
+          return { ok: false, error: msg };
         });
     });
   }

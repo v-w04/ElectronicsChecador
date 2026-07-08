@@ -50,7 +50,10 @@ var _OPCIONES = {
     { v:'theCaesar',            l:'Estilo César' },
     { v:'theCaesarAndSidePart', l:'César con raya' },
     { v:'shavedSides',          l:'Rapado mohawk' },
-    { v:'frizzle',              l:'Rizos' }
+    { v:'frizzle',              l:'Rizos' },
+    { v:'bun',                  l:'Bun' },
+    { v:'dreads01',             l:'Rastas cortas' },
+    { v:'dreads02',             l:'Rastas largas' }
   ],
 
   topF: [

@@ -1597,7 +1597,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v584';
+var FRONTEND_VERSION = 'v585';
 
 function _mostrarDiagnostico() {
   var viejo = document.getElementById('diag-overlay');
@@ -1648,7 +1648,14 @@ function _mostrarDiagnostico() {
           ? '<div style="font-size:11px;color:#94A3B8;">' + d.ultimasHoy.join('<br>') + '</div>'
           : '') +
         '<div style="margin-top:10px;color:#64748B;font-size:11px;">Hora del servidor: ' + (d.horaServidor || '?') + '</div>' +
-        '<div style="font-size:11px;color:#64748B;word-break:break-all;">Deployment: ' + (d.deploymentUrl || '?') + '</div>';
+        '<div style="font-size:11px;color:#64748B;word-break:break-all;">Deployment: ' + (d.deploymentUrl || '?') + '</div>' +
+        '<button onclick="_diagLimpiarTodo()" ' +
+                'style="margin-top:18px;width:100%;padding:14px;background:transparent;color:#F87171;' +
+                       'border:1.5px solid rgba(248,113,113,0.5);border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">' +
+          '🧹 LIMPIAR TODO (checadas + registros)' +
+        '</button>' +
+        '<div style="font-size:11px;color:#64748B;margin-top:6px;">Borra TODAS las checadas del sheet y las marcas de alertas. Conserva dispositivos push y preferencias. También limpia este dispositivo.</div>' +
+        '<div id="diag-limpiar-status" style="font-size:12px;margin-top:6px;min-height:16px;"></div>';
     })
     .withFailureHandler(function(err) {
       var b = body();
@@ -1658,4 +1665,34 @@ function _mostrarDiagnostico() {
         '<span style="font-size:11px;">' + (err && err.message ? err.message : err) + '</span></div>';
     })
     .diagnosticoCompleto();
+}
+
+
+// Limpieza total desde el panel: backend (sheet) + este dispositivo (local)
+function _diagLimpiarTodo() {
+  if (!window.confirm('¿Borrar TODAS las checadas del sheet y los registros locales?\n\nSe conservan: dispositivos push y preferencias de alertas.')) return;
+  var st = document.getElementById('diag-limpiar-status');
+  if (st) { st.style.color = '#94A3B8'; st.textContent = 'Limpiando...'; }
+
+  // Local primero (esto siempre funciona)
+  try { localStorage.removeItem(_LS_KEY_CHECADAS_DIA); } catch(e) {}
+  try { localStorage.removeItem('em_usuarios_cache'); } catch(e) {}
+  _usuariosCache = null;
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      var s = document.getElementById('diag-limpiar-status');
+      if (s) {
+        s.style.color = (r && r.ok) ? '#10B981' : '#F87171';
+        s.textContent = (r && r.message) || 'Sin respuesta';
+      }
+    })
+    .withFailureHandler(function(err) {
+      var s = document.getElementById('diag-limpiar-status');
+      if (s) {
+        s.style.color = '#F87171';
+        s.textContent = '❌ ' + (err && err.message ? err.message : err) + ' (¿backend viejo sin limpiarTodoChecador?)';
+      }
+    })
+    .limpiarTodoChecador();
 }

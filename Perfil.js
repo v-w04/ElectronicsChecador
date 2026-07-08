@@ -793,8 +793,10 @@ function _perfilInicializarPush(sesion) {
     banner.innerHTML =
       '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(80,150,220,0.2);' +
              'border-radius:12px;padding:12px 16px;font-size:13px;color:#94A3B8;">🔔 Vinculando este dispositivo...</div>';
-    PushNotifications.solicitarYRegistrar(sesion.pin).then(function(ok) {
+    PushNotifications.solicitarYRegistrar(sesion.pin).then(function(r) {
       if (!banner) return;
+      var ok = r === true || (r && r.ok);
+      window._pushUltimoError = (r && r.error) || '';
       if (ok) {
         banner.innerHTML =
           '<div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);border-radius:12px;' +
@@ -805,8 +807,10 @@ function _perfilInicializarPush(sesion) {
           '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(245,158,11,0.4);' +
                  'border-radius:12px;padding:14px 16px;">' +
             '<div style="font-size:13px;color:#FCD34D;line-height:1.5;margin-bottom:10px;">' +
-              '⚠️ El permiso está concedido pero <strong>no se pudo vincular este dispositivo</strong>. ' +
-              'Revisa tu internet y reintenta.' +
+              '⚠️ El permiso está concedido pero <strong>no se pudo vincular este dispositivo</strong>.' +
+              (window._pushUltimoError
+                ? '<br><span style="font-size:11px;color:#F59E0B;">Motivo: ' + window._pushUltimoError + '</span>'
+                : '') +
             '</div>' +
             '<button onclick="_perfilInicializarPush(_perfilLeerSesion())" ' +
                     'style="width:100%;padding:11px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;border:none;' +
@@ -847,7 +851,9 @@ function _perfilInicializarPush(sesion) {
     btn.onclick = function() {
       btn.disabled = true;
       btn.textContent = 'Solicitando permiso...';
-      PushNotifications.solicitarYRegistrar(sesion.pin).then(function(ok) {
+      PushNotifications.solicitarYRegistrar(sesion.pin).then(function(r) {
+        var ok = r === true || (r && r.ok);
+        window._pushUltimoError = (r && r.error) || '';
         if (ok) {
           banner.innerHTML =
             '<div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);border-radius:12px;' +
