@@ -63,7 +63,43 @@ var PushNotifications = (function() {
           return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './fcm-push/' });
         })
         .then(function(reg) {
-          return firebase.messaging().getToken({
+          window._fcmReg = reg; // para mostrar notificaciones en primer plano
+          var messaging = firebase.messaging();
+
+          // ⭐ MENSAJES EN PRIMER PLANO: cuando la app está ABIERTA, el sistema
+          // NO muestra el push automáticamente — hay que mostrarlo a mano.
+          // (Por esto "enviada ✅" no sonaba si estabas dentro de la app.)
+          if (!window._fcmOnMessageListo) {
+            window._fcmOnMessageListo = true;
+            messaging.onMessage(function(payload) {
+              var t = (payload.notification && payload.notification.title) || 'Checador Electronics';
+              var b = (payload.notification && payload.notification.body) || '';
+              try {
+                if (window._fcmReg && window._fcmReg.showNotification) {
+                  window._fcmReg.showNotification(t, {
+                    body: b, icon: 'icon-192.png', vibrate: [200, 100, 200], tag: 'checador-fg'
+                  });
+                }
+              } catch(e) {}
+              // Banner in-app además (visible aunque el sistema silencie)
+              try {
+                var old = document.getElementById('push-inapp-banner');
+                if (old) old.remove();
+                var el = document.createElement('div');
+                el.id = 'push-inapp-banner';
+                el.style.cssText =
+                  'position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);' +
+                  'z-index:100020;max-width:92vw;background:#142340;border:1px solid rgba(127,223,255,0.5);' +
+                  'border-radius:14px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,0.6);color:#F1F5F9;';
+                el.innerHTML = '<div style="font-size:14px;font-weight:800;">' + t + '</div>' +
+                               '<div style="font-size:13px;color:#CBD5E1;margin-top:3px;">' + b + '</div>';
+                document.body.appendChild(el);
+                setTimeout(function() { if (el) el.remove(); }, 6000);
+              } catch(e) {}
+            });
+          }
+
+          return messaging.getToken({
             vapidKey: VAPID_KEY,
             serviceWorkerRegistration: reg
           });
