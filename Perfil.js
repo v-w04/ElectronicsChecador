@@ -20,20 +20,27 @@ var _perfilTimerInactividad = null;
 var _perfilTimerCrono = null;
 
 // ── Sesión ──────────────────────────────────────────────────────────────────
+// ⭐ Solo la sesión PERSISTENTE (checkbox marcado) se guarda en localStorage.
+// La sesión temporal (tablet) vive únicamente en memoria: se pierde al
+// recargar la página, al cerrar sesión o a los 60s de inactividad.
 function _perfilGuardarSesion(usuario, persistente) {
-  try {
-    localStorage.setItem(_PERFIL_LS_SESION, JSON.stringify({
-      pin: usuario.pin,
-      idUsuario: usuario.idUsuario,
-      nombre: usuario.nombre,
-      turnoHorario: usuario.turnoHorario || '',
-      persistente: !!persistente,
-      ts: Date.now()
-    }));
-  } catch(e) {}
+  var sesion = {
+    pin: usuario.pin,
+    idUsuario: usuario.idUsuario,
+    nombre: usuario.nombre,
+    turnoHorario: usuario.turnoHorario || '',
+    persistente: !!persistente,
+    ts: Date.now()
+  };
+  if (persistente) {
+    try { localStorage.setItem(_PERFIL_LS_SESION, JSON.stringify(sesion)); } catch(e) {}
+  } else {
+    window._perfilSesionTemp = sesion;
+  }
 }
 
 function _perfilLeerSesion() {
+  if (window._perfilSesionTemp) return window._perfilSesionTemp;
   try {
     var raw = localStorage.getItem(_PERFIL_LS_SESION);
     if (raw) return JSON.parse(raw);
@@ -42,6 +49,7 @@ function _perfilLeerSesion() {
 }
 
 function _perfilCerrarSesion() {
+  window._perfilSesionTemp = null;
   try { localStorage.removeItem(_PERFIL_LS_SESION); } catch(e) {}
   _perfilDetenerTimers();
   var overlay = document.getElementById('perfil-overlay');
@@ -65,11 +73,17 @@ function _perfilDetenerTimers() {
 // de checar. Sin popups nuevos.
 
 function abrirLoginPerfil() {
-  // Si ya hay sesión guardada en este dispositivo, entrar directo
+  // Entrar directo SOLO si la sesión fue marcada "mantener en este dispositivo".
+  // Las sesiones no persistentes (tablet) nunca reviven: siempre piden PIN.
   var sesion = _perfilLeerSesion();
-  if (sesion && sesion.pin) {
+  if (sesion && sesion.pin && sesion.persistente) {
     abrirPerfil(sesion);
     return;
+  }
+  if (sesion && !sesion.persistente) {
+    // Sesión huérfana de tablet (quedó guardada si cerraron la pestaña
+    // antes del auto-cierre) → limpiarla
+    try { localStorage.removeItem(_PERFIL_LS_SESION); } catch(e) {}
   }
   if (window._modoPerfil) desactivarModoPerfil();
   else activarModoPerfil();
@@ -152,32 +166,40 @@ function abrirPerfil(sesion) {
 
   var overlay = document.createElement('div');
   overlay.id = 'perfil-overlay';
+  // Usa el mismo fondo del login del sistema (--lr-bg-page)
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100001;overflow-y:auto;' +
-    'background:radial-gradient(circle at 50% -10%, #1e1b4b 0%, #0B1120 55%);' +
-    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+    'background:radial-gradient(circle at 50% 50%, #0e1d3a 0%, #050b18 100%);' +
+    'font-family:\'Inter\',-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;';
 
-  var inicial = (sesion.nombre || '?').trim().charAt(0).toUpperCase();
+  // ⭐ Avatar REAL del sistema (Avatares.js) — el mismo que usa el dashboard,
+  // respetando los overrides configurados. Fallback a inicial si no está.
+  var avatarHtml;
+  if (typeof crearAvatarElement === 'function') {
+    avatarHtml = crearAvatarElement(sesion.nombre, 56);
+  } else {
+    var inicial = (sesion.nombre || '?').trim().charAt(0).toUpperCase();
+    avatarHtml = '<div style="width:56px;height:56px;border-radius:50%;background:var(--primary,#3B82F6);' +
+                 'display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;">' +
+                 inicial + '</div>';
+  }
 
   overlay.innerHTML =
     '<div style="max-width:640px;margin:0 auto;padding:24px 18px 70px;">' +
 
-      // Header con avatar
+      // Header con avatar del sistema
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">' +
         '<div style="display:flex;align-items:center;gap:14px;">' +
-          '<div style="width:54px;height:54px;border-radius:50%;flex-shrink:0;' +
-                 'background:linear-gradient(135deg,#7C3AED,#3B82F6);display:flex;align-items:center;justify-content:center;' +
-                 'font-size:24px;font-weight:800;color:#fff;box-shadow:0 4px 18px rgba(124,58,237,0.35);">' +
-            inicial +
-          '</div>' +
+          '<div id="perfil-avatar-wrap" style="flex-shrink:0;border-radius:50%;border:2px solid rgba(80,150,220,0.25);' +
+                 'box-shadow:0 0 16px rgba(30,144,255,0.25);line-height:0;">' + avatarHtml + '</div>' +
           '<div>' +
-            '<div style="font-size:21px;font-weight:800;color:#F1F5F9;letter-spacing:-0.3px;line-height:1.2;">' + sesion.nombre + '</div>' +
-            '<div style="font-size:14px;color:#A5B4FC;margin-top:3px;font-weight:600;">' +
+            '<div style="font-size:21px;font-weight:800;color:var(--text-primary,#F1F5F9);letter-spacing:-0.3px;line-height:1.2;">' + sesion.nombre + '</div>' +
+            '<div style="font-size:14px;color:var(--text-secondary,#94A3B8);margin-top:3px;font-weight:600;">' +
               (sesion.turnoHorario ? '🕐 ' + sesion.turnoHorario : '') +
             '</div>' +
           '</div>' +
         '</div>' +
         '<button onclick="_perfilCerrarSesion()" ' +
-                'style="padding:10px 18px;background:transparent;color:#F87171;border:1px solid rgba(248,113,113,0.35);' +
+                'style="padding:10px 18px;background:transparent;color:var(--danger,#EF4444);border:1px solid rgba(239,68,68,0.35);' +
                        'border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">' +
           'Cerrar sesión' +
         '</button>' +
@@ -190,19 +212,29 @@ function abrirPerfil(sesion) {
       '<div id="perfil-veredicto" style="display:none;margin-bottom:18px;"></div>' +
 
       // Botones de checada
-      '<div style="font-size:12px;color:#A5B4FC;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Registrar checada</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Registrar checada</div>' +
       '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;"></div>' +
 
       // Estado del día
-      '<div style="font-size:12px;color:#A5B4FC;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Hoy</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Hoy</div>' +
       '<div id="perfil-hoy" style="margin-bottom:28px;">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
       // Historial
-      '<div style="font-size:12px;color:#A5B4FC;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Últimos 7 días</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Últimos 7 días</div>' +
       '<div id="perfil-historial">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
+      '</div>' +
+
+      // Limpieza local (pruebas): borra SOLO el registro del día en este
+      // dispositivo. No toca el sheet ni la cola offline.
+      '<div style="text-align:center;margin-top:32px;">' +
+        '<button onclick="_perfilLimpiarLocalHoy()" ' +
+                'style="padding:8px 16px;background:transparent;color:#475569;border:1px solid rgba(255,255,255,0.08);' +
+                       'border-radius:999px;font-size:12px;cursor:pointer;">' +
+          '🧹 Limpiar registros de hoy en este dispositivo' +
+        '</button>' +
       '</div>' +
 
     '</div>';
@@ -212,21 +244,42 @@ function abrirPerfil(sesion) {
   _perfilCargarDatos(sesion);
   _perfilIniciarCrono(sesion);
 
-  // Auto-cierre por inactividad SOLO si la sesión no es persistente
-  if (!sesion.persistente) {
-    _perfilResetInactividad();
-    overlay.addEventListener('click', _perfilResetInactividad);
-    overlay.addEventListener('touchstart', _perfilResetInactividad);
-    overlay.addEventListener('scroll', _perfilResetInactividad, true);
+  // ⭐ Cargar overrides de avatar si aún no están (el avatar se repinta al llegar)
+  if (navigator.onLine !== false && typeof cargarAvatarOverrides === 'function' &&
+      (!window._avatarOverrides || Object.keys(window._avatarOverrides).length === 0)) {
+    cargarAvatarOverrides(function() {
+      var wrap = document.getElementById('perfil-avatar-wrap');
+      if (wrap && typeof crearAvatarElement === 'function') {
+        wrap.innerHTML = crearAvatarElement(sesion.nombre, 56);
+      }
+    });
   }
-}
 
-function _perfilResetInactividad() {
-  if (_perfilTimerInactividad) clearTimeout(_perfilTimerInactividad);
-  _perfilTimerInactividad = setTimeout(function() {
-    console.log('⏲️ Perfil cerrado por inactividad');
-    _perfilCerrarSesion();
-  }, 60000);
+  // ── Auto-cierre por inactividad (solo sesiones NO persistentes) ──────────
+  // Sistema por timestamp: un vigilante revisa cada 5s cuánto tiempo pasó
+  // desde la última interacción REAL (click/touch/tecla). No usamos 'scroll'
+  // porque el re-render del cronómetro cada segundo puede disparar eventos
+  // scroll fantasma que mantendrían la sesión abierta para siempre.
+  if (!sesion.persistente) {
+    window._perfilUltimaActividad = Date.now();
+    var marcar = function() { window._perfilUltimaActividad = Date.now(); };
+    overlay.addEventListener('click', marcar);
+    overlay.addEventListener('touchstart', marcar);
+    overlay.addEventListener('keydown', marcar);
+
+    _perfilTimerInactividad = setInterval(function() {
+      // Si el overlay ya no existe, detener el vigilante
+      if (!document.getElementById('perfil-overlay')) {
+        clearInterval(_perfilTimerInactividad);
+        _perfilTimerInactividad = null;
+        return;
+      }
+      if (Date.now() - window._perfilUltimaActividad > 60000) {
+        console.log('⏲️ Perfil cerrado por inactividad (60s sin interacción)');
+        _perfilCerrarSesion();
+      }
+    }, 5000);
+  }
 }
 
 // ── Botones de checada manual ───────────────────────────────────────────────
@@ -247,7 +300,7 @@ function _perfilPintarBotones(sesion) {
     return (
       '<button onclick="_perfilChecar(\'' + b.tipo + '\')" ' +
               'onpointerdown="this.style.transform=\'scale(0.96)\'" onpointerup="this.style.transform=\'\'" onpointerleave="this.style.transform=\'\'" ' +
-              'style="padding:22px 12px;background:rgba(255,255,255,0.045);border:1.5px solid ' + b.color + '55;' +
+              'style="padding:22px 12px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1.5px solid ' + b.color + '55;' +
                      'border-radius:16px;cursor:pointer;text-align:center;transition:all 0.12s;color:#F1F5F9;">' +
         '<div style="font-size:32px;margin-bottom:8px;line-height:1;">' + b.emoji + '</div>' +
         '<div style="font-size:15px;font-weight:800;letter-spacing:-0.2px;">' + b.label + '</div>' +
@@ -324,24 +377,39 @@ function _perfilCargarDatos(sesion) {
     .withSuccessHandler(function(result) {
       if (!result || !result.ok) return;
 
-      // Sincronizar registro local con lo del backend (fuente de verdad):
-      // así los cronómetros funcionan aunque haya checado en otro dispositivo.
-      try {
-        var data = _leerChecadasDia();
-        var key = (sesion.idUsuario || '').toString();
-        var delBackend = (result.checadasHoy || []).map(function(c) {
-          var ts = new Date(c.fecha + 'T' + c.hora).getTime();
-          return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
-        });
-        if (delBackend.length >= (data.porUsuario[key] || []).length) {
-          data.porUsuario[key] = delBackend;
-          localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data));
-        }
-      } catch(e) {}
+      // ── Sincronizar registro local con el backend ──
+      // El BACKEND es la fuente de verdad SIEMPRE que no haya checadas
+      // offline pendientes de enviar. Así, si el admin borra filas de
+      // CHECADOR_CHOFERES, el dispositivo se limpia solo al abrir el perfil.
+      // (Si hay cola offline pendiente, se conserva lo local hasta que
+      // sincronice, para no perder la detección de tipo.)
+      function aplicarMerge(pendientes) {
+        try {
+          var data = _leerChecadasDia();
+          var key = (sesion.idUsuario || '').toString();
+          var delBackend = (result.checadasHoy || []).map(function(c) {
+            var ts = new Date(c.fecha + 'T' + c.hora).getTime();
+            return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
+          });
+          if (pendientes === 0) {
+            // Sin cola → backend manda (aunque tenga menos o cero checadas)
+            data.porUsuario[key] = delBackend;
+            localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data));
+          } else if (delBackend.length >= (data.porUsuario[key] || []).length) {
+            data.porUsuario[key] = delBackend;
+            localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data));
+          }
+        } catch(e) {}
+        _perfilPintarHoyLocal(sesion);
+        _perfilIniciarCrono(sesion);
+        _perfilPintarHistorial(result.historial || {});
+      }
 
-      _perfilPintarHoyLocal(sesion);
-      _perfilIniciarCrono(sesion);
-      _perfilPintarHistorial(result.historial || {});
+      if (window.OfflineQueue && OfflineQueue.contar) {
+        OfflineQueue.contar().then(aplicarMerge).catch(function() { aplicarMerge(1); });
+      } else {
+        aplicarMerge(0);
+      }
     })
     .withFailureHandler(function() {
       var hist = document.getElementById('perfil-historial');
@@ -365,7 +433,7 @@ function _perfilPintarHoyLocal(sesion) {
     var hora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     return (
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 15px;' +
-             'background:rgba(255,255,255,0.03);border-radius:10px;margin-bottom:6px;border:1px solid rgba(255,255,255,0.05);">' +
+             'background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:10px;margin-bottom:6px;border:1px solid rgba(80,150,220,0.12);">' +
         '<span style="font-size:14px;color:#E2E8F0;">' + et.emoji + ' ' + et.label + '</span>' +
         '<span style="font-size:14px;color:#94A3B8;font-weight:700;font-variant-numeric:tabular-nums;">' + hora + '</span>' +
       '</div>'
@@ -387,7 +455,7 @@ function _perfilPintarHistorial(historial) {
       return et.emoji + ' ' + (c.hora || '').substring(0, 5);
     }).join(' · ');
     html += (
-      '<div style="padding:10px 15px;background:rgba(255,255,255,0.02);border-radius:10px;margin-bottom:6px;border:1px solid rgba(255,255,255,0.04);">' +
+      '<div style="padding:10px 15px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:10px;margin-bottom:6px;border:1px solid rgba(80,150,220,0.08);">' +
         '<div style="font-size:12px;color:#94A3B8;font-weight:700;margin-bottom:3px;">' + f + '</div>' +
         '<div style="font-size:13px;color:#CBD5E1;">' + (items || '—') + '</div>' +
       '</div>'
@@ -433,7 +501,7 @@ function _perfilActualizarCrono(sesion) {
 
     box.style.display = 'block';
     box.innerHTML =
-      '<div style="background:rgba(255,255,255,0.04);border:1px solid ' + color + '55;border-radius:14px;padding:18px;text-align:center;">' +
+      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid ' + color + '55;border-radius:14px;padding:18px;text-align:center;">' +
         '<div style="font-size:12px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">' + titulo + '</div>' +
         '<div style="font-size:38px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + fmt(trans) + '</div>' +
         '<div style="font-size:13px;color:#CBD5E1;">' +
