@@ -49,6 +49,10 @@ function _perfilLeerSesion() {
 }
 
 function _perfilCerrarSesion() {
+  // ⭐ Desvincular este dispositivo de las notificaciones push
+  if (typeof PushNotifications !== 'undefined') {
+    PushNotifications.eliminar();
+  }
   window._perfilSesionTemp = null;
   try { localStorage.removeItem(_PERFIL_LS_SESION); } catch(e) {}
   _perfilDetenerTimers();
@@ -223,6 +227,9 @@ function abrirPerfil(sesion) {
         '</button>' +
       '</div>' +
 
+      // Banner de notificaciones (activar / estado)
+      '<div id="perfil-push-banner" style="margin-bottom:18px;"></div>' +
+
       // Cronómetro activo (se llena dinámicamente)
       '<div id="perfil-crono" style="display:none;margin-bottom:18px;"></div>' +
 
@@ -267,6 +274,11 @@ function abrirPerfil(sesion) {
   _perfilPintarBotones(sesion);
   _perfilCargarDatos(sesion);
   _perfilCargarAlertas(sesion);
+
+  // ⭐ Notificaciones push: pedir el permiso REQUIERE un gesto del usuario
+  // (Chrome silencia los prompts automáticos y iOS ni los muestra), así que
+  // según el estado se pinta un banner con botón o se registra directo.
+  _perfilInicializarPush(sesion);
   _perfilIniciarCrono(sesion);
 
   // ⭐ Cargar overrides de avatar si aún no están (el avatar se repinta al llegar)
@@ -676,4 +688,77 @@ function _perfilGuardarAlertas(sesion) {
       if (s) s.textContent = '✗ Sin conexión — reintenta';
     })
     .guardarPrefsAlertas(sesion.pin, window._perfilPrefs);
+}
+
+// ── Notificaciones push: banner según el estado del permiso ─────────────────
+function _perfilInicializarPush(sesion) {
+  var banner = document.getElementById('perfil-push-banner');
+  if (!banner || typeof PushNotifications === 'undefined') return;
+
+  // iPhone sin instalar (o navegador sin soporte): Notification no existe
+  if (!('Notification' in window)) {
+    var esIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    banner.innerHTML =
+      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(245,158,11,0.35);' +
+             'border-radius:12px;padding:14px 16px;font-size:13px;color:#FCD34D;line-height:1.5;">' +
+        (esIOS
+          ? '🔔 Para recibir alertas en iPhone: abre esto en <strong>Safari</strong> → botón <strong>Compartir</strong> → ' +
+            '<strong>"Agregar a pantalla de inicio"</strong> → abre la app desde el ícono nuevo y vuelve a entrar a tu perfil.'
+          : '🔕 Este navegador no soporta notificaciones push.') +
+      '</div>';
+    return;
+  }
+
+  var estado = Notification.permission;
+
+  if (estado === 'granted') {
+    // Ya autorizado → registrar el token en silencio, sin banner
+    banner.innerHTML = '';
+    PushNotifications.solicitarYRegistrar(sesion.pin);
+    return;
+  }
+
+  if (estado === 'denied') {
+    banner.innerHTML =
+      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(239,68,68,0.35);' +
+             'border-radius:12px;padding:14px 16px;font-size:13px;color:#FCA5A5;line-height:1.5;">' +
+        '🔕 Las notificaciones están <strong>bloqueadas</strong> para este sitio. ' +
+        'Actívalas en los ajustes del navegador (ícono 🔒 junto a la dirección → Notificaciones → Permitir) y recarga.' +
+      '</div>';
+    return;
+  }
+
+  // estado === 'default' → botón para pedir el permiso DENTRO de un gesto
+  banner.innerHTML =
+    '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(59,130,246,0.4);' +
+           'border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">' +
+      '<div style="font-size:14px;font-weight:700;color:var(--text-primary,#F1F5F9);">🔔 Activa tus alertas</div>' +
+      '<div style="font-size:13px;color:#94A3B8;line-height:1.5;">' +
+        'Recibe avisos de entrada, desayuno, comida y salida directo en este dispositivo, aunque la app esté cerrada.' +
+      '</div>' +
+      '<button id="perfil-btn-activar-push" ' +
+              'style="padding:13px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;border:none;' +
+                     'border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;">' +
+        'Activar notificaciones' +
+      '</button>' +
+    '</div>';
+
+  var btn = document.getElementById('perfil-btn-activar-push');
+  if (btn) {
+    btn.onclick = function() {
+      btn.disabled = true;
+      btn.textContent = 'Solicitando permiso...';
+      PushNotifications.solicitarYRegistrar(sesion.pin).then(function(ok) {
+        if (ok) {
+          banner.innerHTML =
+            '<div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);border-radius:12px;' +
+                   'padding:13px 16px;font-size:13px;color:#6EE7B7;font-weight:600;">✅ Notificaciones activadas en este dispositivo</div>';
+          setTimeout(function() { if (banner) banner.innerHTML = ''; }, 4000);
+        } else {
+          // Volver a evaluar el estado (pudo negar el permiso)
+          _perfilInicializarPush(sesion);
+        }
+      });
+    };
+  }
 }
