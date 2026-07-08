@@ -480,6 +480,80 @@ function _enviarDirecto(datos) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE ACCESO
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SITIO ELECTRONICS — abre electronicsmexico.site/checador dentro de la PWA
+// ─────────────────────────────────────────────────────────────────────────────
+// Flujo: el empleado abre el sitio, hace su checada con QR allá, y a los
+// 10 segundos la PWA lo regresa AUTOMÁTICAMENTE a la pantalla del PIN.
+// El botón muestra la cuenta regresiva; "+30s" da más tiempo si lo necesita;
+// "← Volver" regresa de inmediato.
+var _SITIO_AUTOREGRESO_SEG = 10;
+var _sitioTimerRegreso = null;
+
+function abrirSitioElectronics() {
+  var viejo = document.getElementById('sitio-electronics-overlay');
+  if (viejo) viejo.remove();
+  if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
+
+  var ov = document.createElement('div');
+  ov.id = 'sitio-electronics-overlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100005;background:#0F172A;';
+  ov.innerHTML =
+    '<iframe src="https://electronicsmexico.site/checador" ' +
+            'style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" ' +
+            'allow="fullscreen; camera"></iframe>' +
+    // Botón flotante de regreso con cuenta regresiva
+    '<button id="sitio-btn-volver" onclick="cerrarSitioElectronics()" ' +
+            'style="position:fixed;top:14px;left:14px;z-index:100006;padding:11px 20px;' +
+                   'border-radius:999px;background:rgba(15,23,42,0.92);color:#7fdfff;' +
+                   'border:1px solid rgba(127,223,255,0.4);font-size:14px;font-weight:700;' +
+                   'cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.5);">' +
+      '← Volver (' + _SITIO_AUTOREGRESO_SEG + 's)' +
+    '</button>' +
+    // Más tiempo
+    '<button onclick="_sitioMasTiempo()" ' +
+            'style="position:fixed;top:14px;right:14px;z-index:100006;padding:11px 16px;' +
+                   'border-radius:999px;background:rgba(15,23,42,0.85);color:#94A3B8;' +
+                   'border:1px solid rgba(255,255,255,0.15);font-size:13px;font-weight:600;' +
+                   'cursor:pointer;backdrop-filter:blur(8px);">' +
+      '+30s' +
+    '</button>' +
+    // Fallback por si el sitio no carga en iframe
+    '<a href="https://electronicsmexico.site/checador" target="_blank" rel="noopener" ' +
+       'style="position:fixed;bottom:14px;right:14px;z-index:100006;padding:8px 14px;' +
+              'border-radius:999px;background:rgba(15,23,42,0.85);color:#64748B;' +
+              'border:1px solid rgba(255,255,255,0.1);font-size:12px;text-decoration:none;backdrop-filter:blur(6px);">' +
+      '¿No carga? Abrir en pestaña nueva ↗' +
+    '</a>';
+  document.body.appendChild(ov);
+
+  // Cuenta regresiva de auto-regreso
+  window._sitioSegundosRestantes = _SITIO_AUTOREGRESO_SEG;
+  _sitioTimerRegreso = setInterval(function() {
+    window._sitioSegundosRestantes--;
+    var btn = document.getElementById('sitio-btn-volver');
+    if (!btn) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; return; }
+    if (window._sitioSegundosRestantes <= 0) {
+      cerrarSitioElectronics();
+    } else {
+      btn.innerHTML = '← Volver (' + window._sitioSegundosRestantes + 's)';
+    }
+  }, 1000);
+}
+
+function _sitioMasTiempo() {
+  window._sitioSegundosRestantes = (window._sitioSegundosRestantes || 0) + 30;
+  var btn = document.getElementById('sitio-btn-volver');
+  if (btn) btn.innerHTML = '← Volver (' + window._sitioSegundosRestantes + 's)';
+}
+
+function cerrarSitioElectronics() {
+  if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
+  var ov = document.getElementById('sitio-electronics-overlay');
+  if (ov) ov.remove();
+  // La pantalla del PIN sigue intacta debajo — no hay que reconstruir nada
+}
+
 function mostrarPantallaPIN() {
   // ⭐ En celulares personales con sesión persistente, la primera carga de la
   // app abre directo el perfil del empleado (una sola vez por carga; después
@@ -541,19 +615,35 @@ function mostrarPantallaPIN() {
   };
   overlay.appendChild(btnSync);
 
-  // ⭐ Botón "Mi Perfil" (esquina inferior izquierda). Abre el panel personal
-  // del empleado: botones de checada manual, cronómetros, historial.
+  // ⭐ Botonera inferior CENTRADA: "Mi Perfil" + "Electronics" lado a lado
+  var botonera = document.createElement('div');
+  botonera.id = 'botonera-inferior';
+  botonera.style.cssText =
+    'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100000;' +
+    'display:flex;gap:12px;align-items:center;';
+
+  var estiloBtn =
+    'padding:11px 20px;border-radius:999px;background:rgba(30,41,59,0.75);color:#94A3B8;' +
+    'border:1px solid rgba(255,255,255,0.1);font-size:13px;font-weight:600;cursor:pointer;' +
+    'backdrop-filter:blur(6px);transition:all 0.2s;white-space:nowrap;';
+
   var btnPerfil = document.createElement('button');
   btnPerfil.id = 'btn-mi-perfil';
   btnPerfil.innerHTML = '👤 Mi Perfil';
-  btnPerfil.style.cssText =
-    'position:fixed;bottom:16px;left:16px;z-index:100000;padding:10px 18px;' +
-    'border-radius:999px;background:rgba(30,41,59,0.75);color:#94A3B8;border:1px solid rgba(255,255,255,0.1);' +
-    'font-size:13px;font-weight:600;cursor:pointer;backdrop-filter:blur(6px);transition:all 0.2s;';
+  btnPerfil.style.cssText = estiloBtn;
   btnPerfil.onclick = function() {
     if (typeof abrirLoginPerfil === 'function') abrirLoginPerfil();
   };
-  overlay.appendChild(btnPerfil);
+  botonera.appendChild(btnPerfil);
+
+  var btnSitio = document.createElement('button');
+  btnSitio.id = 'btn-sitio-electronics';
+  btnSitio.innerHTML = '🌐 Electronics';
+  btnSitio.style.cssText = estiloBtn;
+  btnSitio.onclick = function() { abrirSitioElectronics(); };
+  botonera.appendChild(btnSitio);
+
+  overlay.appendChild(botonera);
 
   // Toda la estructura usa los mismos IDs que procesarAcceso espera:
   //   #input-pin, #input-contrasena, #input-contrasena2,
