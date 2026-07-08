@@ -693,8 +693,40 @@ function _perfilPintarAlertas(sesion) {
       '</div>';
   });
 
+  html += '<button onclick="_perfilTestPush()" ' +
+          'style="width:100%;margin-top:8px;padding:13px;background:transparent;color:#7fdfff;' +
+                 'border:1px solid rgba(127,223,255,0.4);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">' +
+    '🔔 Enviar notificación de PRUEBA ahora' +
+  '</button>';
   html += '<div id="perfil-alertas-status" style="font-size:12px;color:#64748B;text-align:right;padding:4px 4px 0;min-height:16px;"></div>';
   cont.innerHTML = html;
+}
+
+// ── Test inmediato: valida todo el circuito de push y reporta el eslabón roto ──
+function _perfilTestPush() {
+  var sesion = _perfilLeerSesion();
+  if (!sesion) return;
+  var s = document.getElementById('perfil-alertas-status');
+  if (s) { s.textContent = 'Enviando prueba...'; s.style.color = '#64748B'; }
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      var st = document.getElementById('perfil-alertas-status');
+      if (!st) return;
+      st.style.color = (r && r.ok) ? '#10B981' : '#F87171';
+      st.style.textAlign = 'left';
+      st.textContent = (r && r.message) ? r.message : 'Sin respuesta';
+    })
+    .withFailureHandler(function(err) {
+      var st = document.getElementById('perfil-alertas-status');
+      if (st) {
+        st.style.color = '#F87171';
+        st.style.textAlign = 'left';
+        st.textContent = '❌ Error de comunicación: ' + (err && err.message ? err.message : err) +
+          ' — probablemente el backend desplegado no tiene testPushEmpleado (versión vieja).';
+      }
+    })
+    .testPushEmpleado(sesion.pin);
 }
 
 function _perfilToggleAlerta(key) {
