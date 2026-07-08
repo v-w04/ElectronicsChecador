@@ -223,10 +223,33 @@ function _checadasHoyDe(idUsuario) {
   return data.porUsuario[(idUsuario || '').toString()] || [];
 }
 
-// ── Detección automática del tipo por orden ────────────────────────────────
+// ── Detección automática del tipo por ESTADO del día ───────────────────────
+// Antes se detectaba por conteo (1ª checada=ENTRADA, 2ª=DESAYUNO...), pero al
+// mezclar checadas manuales del perfil (que pueden ir en cualquier orden) con
+// el flujo del PIN, el conteo se desalineaba. Ahora se deduce por el estado
+// real del día — tolera cualquier combinación de PIN + botones manuales:
+//   1. ¿La última checada fue salida a desayuno/comida? → toca el REGRESO
+//   2. ¿No hay entrada aún? → ENTRADA
+//   3. ¿Falta el desayuno? → SALIDA_DESAYUNO; ¿falta comida? → SALIDA_COMIDA
+//   4. ¿Falta la salida? → SALIDA; todo hecho → EXTRA
 function _detectarTipoChecada(idUsuario) {
-  var n = _checadasHoyDe(idUsuario).length;
-  return (n < _ORDEN_TIPOS.length) ? _ORDEN_TIPOS[n] : 'EXTRA';
+  var checadas = _checadasHoyDe(idUsuario).filter(function(c) {
+    return c && c.tipo; // ignorar registros sin tipo (checadas legacy)
+  });
+  function tiene(t) {
+    return checadas.some(function(c) { return c.tipo === t; });
+  }
+  var ultima = checadas.length ? checadas[checadas.length - 1] : null;
+
+  // Regresos pendientes tienen prioridad absoluta
+  if (ultima && ultima.tipo === 'SALIDA_DESAYUNO') return 'REGRESO_DESAYUNO';
+  if (ultima && ultima.tipo === 'SALIDA_COMIDA')   return 'REGRESO_COMIDA';
+
+  if (!tiene('ENTRADA'))          return 'ENTRADA';
+  if (!tiene('SALIDA_DESAYUNO'))  return 'SALIDA_DESAYUNO';
+  if (!tiene('SALIDA_COMIDA'))    return 'SALIDA_COMIDA';
+  if (!tiene('SALIDA'))           return 'SALIDA';
+  return 'EXTRA';
 }
 
 // ── Turno del empleado desde el cache de usuarios ──────────────────────────
