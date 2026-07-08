@@ -31,12 +31,37 @@ function _cargarUsuariosCache(callback) {
     var guardado = localStorage.getItem('em_usuarios_cache');
     if (guardado) {
       _usuariosCache = JSON.parse(guardado);
+
+      // ⭐ AUTO-MIGRACIÓN: si el cache es de una versión vieja que no incluye
+      // turnoHorario (necesario para los veredictos), resincronizar solo.
+      // Así ningún dispositivo necesita pasos manuales tras actualizar.
+      if (navigator.onLine !== false && !_cacheTieneTurnos(_usuariosCache)) {
+        console.log('🔄 Cache sin turnos detectado — auto-resincronizando...');
+        _usuariosCache = null;
+        try { localStorage.removeItem('em_usuarios_cache'); } catch(e) {}
+        _sincronizarUsuarios(callback);
+        return;
+      }
+
       if (callback) callback(_usuariosCache);
       _chequearVersionEnBackground();
       return;
     }
   } catch(e) {}
   _sincronizarUsuarios(callback);
+}
+
+// ¿El cache incluye turnoHorario en al menos un usuario CHOFER?
+function _cacheTieneTurnos(cache) {
+  try {
+    for (var pin in cache) {
+      var u = cache[pin];
+      if (u && u.tipo === 'CHOFER') {
+        return typeof u.turnoHorario !== 'undefined';
+      }
+    }
+  } catch(e) {}
+  return true; // sin choferes en cache → no hay nada que migrar
 }
 
 // Chequea en background si el servidor tiene una versión más nueva del cache.
@@ -259,9 +284,27 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
         return { texto: '✅ Entrada puntual', color: '#3ddc84',
                  detalle: 'Tu turno: ' + _formatearHora(minInicio) + ' — llegaste a tiempo' };
       }
+      // ── Escalones de gravedad (reglas de Electronics) ──
+      //   1-15 min  → tarde dentro del margen, aviso fuerte
+      //   16-30 min → perdiste el bono
+      //   31-59 min → RETARDO formal: a la 3ª descuentan medio día
+      //   60+ min   → descuento de medio día directo
       var retardo = minAhora - minInicio;
-      return { texto: '⚠️ Retardo de ' + retardo + ' min', color: '#ef4444',
-               detalle: 'Tu entrada era a las ' + _formatearHora(minInicio) };
+      var eraA = 'Tu entrada era a las ' + _formatearHora(minInicio) + '. ';
+      if (retardo <= 15) {
+        return { texto: '⚠️ Llegaste ' + retardo + ' min tarde', color: '#fbbf24',
+                 detalle: eraA + 'Estás muy mal: esto se descuenta y ya perdiste tu bono.' };
+      }
+      if (retardo <= 30) {
+        return { texto: '❌ ' + retardo + ' min tarde — PERDISTE EL BONO', color: '#ef4444',
+                 detalle: eraA + 'Esto va directo a descuento. Aquí no perdonan ni una.' };
+      }
+      if (retardo <= 59) {
+        return { texto: '❌ RETARDO — ' + retardo + ' min tarde', color: '#ef4444',
+                 detalle: eraA + '⚡ AGUAS: a la tercera te descuentan MEDIO DÍA. Bono perdido.' };
+      }
+      return { texto: '❌ ' + retardo + ' min tarde', color: '#ef4444',
+               detalle: eraA + '⚡ Te van a descontar MEDIO DÍA. Bono perdido.' };
     }
 
     case 'SALIDA_DESAYUNO': {
@@ -279,8 +322,8 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
                  detalle: 'Desayuno de ' + durD + ' min (límite ' + _DURACION_DESAYUNO_MIN + ')' };
       }
       var excD = durD - _DURACION_DESAYUNO_MIN;
-      return { texto: '⚠️ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
-               detalle: 'Tomaste ' + durD + ' min de ' + _DURACION_DESAYUNO_MIN + ' permitidos' };
+      return { texto: '❌ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
+               detalle: 'Tomaste ' + durD + ' min de ' + _DURACION_DESAYUNO_MIN + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
     }
 
     case 'SALIDA_COMIDA': {
@@ -298,8 +341,8 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
                  detalle: 'Comida de ' + durC + ' min (límite ' + _DURACION_COMIDA_MIN + ')' };
       }
       var excC = durC - _DURACION_COMIDA_MIN;
-      return { texto: '⚠️ Exceso de ' + excC + ' min en comida', color: '#ef4444',
-               detalle: 'Tomaste ' + durC + ' min de ' + _DURACION_COMIDA_MIN + ' permitidos' };
+      return { texto: '❌ Exceso de ' + excC + ' min en comida', color: '#ef4444',
+               detalle: 'Tomaste ' + durC + ' min de ' + _DURACION_COMIDA_MIN + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
     }
 
     case 'SALIDA': {
@@ -307,8 +350,9 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       var minFin = turno.fin.h * 60 + turno.fin.m;
       if (minAhora > minFin) {
         var extra = minAhora - minFin;
-        return { texto: '⏱️ Te quedaste ' + extra + ' min extra', color: '#fbbf24',
-                 detalle: 'Tu salida era a las ' + _formatearHora(minFin) + '. Ese tiempo nadie te lo paga.' };
+        return { texto: '⏱️ ' + extra + ' minutos regalados', color: '#fbbf24',
+                 detalle: 'Trabajaste ' + extra + ' minutos de más que nadie te va a pagar. ' +
+                          'Tu salida era a las ' + _formatearHora(minFin) + '. Mañana sal a tu hora.' };
       }
       if (minAhora < minFin) {
         var antes = minFin - minAhora;
@@ -416,6 +460,19 @@ function _enviarDirecto(datos) {
 // PANTALLA DE ACCESO
 // ─────────────────────────────────────────────────────────────────────────────
 function mostrarPantallaPIN() {
+  // ⭐ En celulares personales con sesión persistente, la primera carga de la
+  // app abre directo el perfil del empleado (una sola vez por carga; después
+  // de cerrar sesión o checar, el PIN se muestra normal).
+  if (!window._perfilAutoAbierto) {
+    window._perfilAutoAbierto = true;
+    try {
+      var ses = (typeof _perfilLeerSesion === 'function') ? _perfilLeerSesion() : null;
+      if (ses && ses.persistente && typeof abrirPerfil === 'function') {
+        setTimeout(function() { abrirPerfil(ses); }, 100);
+      }
+    } catch(e) {}
+  }
+
   var viejo = document.getElementById('pin-overlay');
   if (viejo) viejo.remove();
 
@@ -425,6 +482,53 @@ function mostrarPantallaPIN() {
   var overlay = document.createElement('div');
   overlay.id = 'pin-overlay';
   overlay.className = 'pin-overlay';
+
+  // ⭐ Botón discreto de SINCRONIZAR (esquina inferior derecha del overlay).
+  // Accesible desde cualquier dispositivo sin ser admin — fuerza la descarga
+  // fresca de usuarios/turnos del backend. Útil tras actualizaciones.
+  var btnSync = document.createElement('button');
+  btnSync.id = 'btn-sync-usuarios';
+  btnSync.title = 'Sincronizar usuarios y turnos';
+  btnSync.innerHTML = '↻';
+  btnSync.style.cssText =
+    'position:fixed;bottom:16px;right:16px;z-index:100000;width:40px;height:40px;' +
+    'border-radius:50%;background:rgba(30,41,59,0.75);color:#64748B;border:1px solid rgba(255,255,255,0.08);' +
+    'font-size:18px;cursor:pointer;backdrop-filter:blur(6px);transition:all 0.2s;line-height:1;';
+  btnSync.onclick = function() {
+    if (navigator.onLine === false) {
+      btnSync.innerHTML = '📡';
+      setTimeout(function() { btnSync.innerHTML = '↻'; }, 1500);
+      return;
+    }
+    btnSync.innerHTML = '⏳';
+    btnSync.disabled = true;
+    _usuariosCache = null;
+    try { localStorage.removeItem('em_usuarios_cache'); } catch(e) {}
+    _sincronizarUsuarios(function() {
+      btnSync.innerHTML = '✓';
+      btnSync.style.color = '#10B981';
+      setTimeout(function() {
+        btnSync.innerHTML = '↻';
+        btnSync.style.color = '#64748B';
+        btnSync.disabled = false;
+      }, 2000);
+    });
+  };
+  overlay.appendChild(btnSync);
+
+  // ⭐ Botón "Mi Perfil" (esquina inferior izquierda). Abre el panel personal
+  // del empleado: botones de checada manual, cronómetros, historial.
+  var btnPerfil = document.createElement('button');
+  btnPerfil.id = 'btn-mi-perfil';
+  btnPerfil.innerHTML = '👤 Mi Perfil';
+  btnPerfil.style.cssText =
+    'position:fixed;bottom:16px;left:16px;z-index:100000;padding:10px 18px;' +
+    'border-radius:999px;background:rgba(30,41,59,0.75);color:#94A3B8;border:1px solid rgba(255,255,255,0.1);' +
+    'font-size:13px;font-weight:600;cursor:pointer;backdrop-filter:blur(6px);transition:all 0.2s;';
+  btnPerfil.onclick = function() {
+    if (typeof abrirLoginPerfil === 'function') abrirLoginPerfil();
+  };
+  overlay.appendChild(btnPerfil);
 
   // Toda la estructura usa los mismos IDs que procesarAcceso espera:
   //   #input-pin, #input-contrasena, #input-contrasena2,
