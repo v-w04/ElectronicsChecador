@@ -553,7 +553,20 @@ function abrirSitioElectronics() {
       var num = document.getElementById('sitio-contador-num');
       if (num) num.textContent = window._sitioSegundosRestantes;
       if (window._sitioSegundosRestantes <= 0) cerrarSitioElectronics();
+
+      // ⭐ Si el empleado cerró la pestaña él mismo → limpiar de inmediato
+      try { if (_sitioVentana && _sitioVentana.closed) cerrarSitioElectronics(); } catch(e) {}
     }, 1000);
+
+    // ⭐ Si el empleado REGRESA a la PWA por su cuenta (cambia de pestaña/app),
+    // el contador ya no tiene sentido: cerrar la pestaña externa y limpiar YA.
+    window._sitioOnVisible = function() {
+      if (document.visibilityState === 'visible' &&
+          document.getElementById('sitio-electronics-overlay')) {
+        cerrarSitioElectronics();
+      }
+    };
+    document.addEventListener('visibilitychange', window._sitioOnVisible);
   }
 }
 
@@ -565,6 +578,10 @@ function _sitioMasTiempo() {
 
 function cerrarSitioElectronics() {
   if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
+  if (window._sitioOnVisible) {
+    document.removeEventListener('visibilitychange', window._sitioOnVisible);
+    window._sitioOnVisible = null;
+  }
   // ⭐ Cerrar la pestaña del sitio externo (permitido porque la abrió este script)
   try { if (_sitioVentana && !_sitioVentana.closed) _sitioVentana.close(); } catch(e) {}
   _sitioVentana = null;
