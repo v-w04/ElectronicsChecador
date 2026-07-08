@@ -406,7 +406,7 @@ function _perfilChecar(tipo) {
           // Sincronizar local con el servidor
           try {
             var data = _leerChecadasDia();
-            var key = (sesion.idUsuario || '').toString();
+            var key = _normId(sesion.idUsuario);
             data.porUsuario[key] = (result.checadasHoyServidor || []).map(function(c) {
               var ts = new Date(c.fecha + 'T' + c.hora).getTime();
               return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
@@ -466,7 +466,7 @@ function _perfilCargarDatos(sesion) {
       function aplicarMerge(pendientes) {
         try {
           var data = _leerChecadasDia();
-          var key = (sesion.idUsuario || '').toString();
+          var key = _normId(sesion.idUsuario);
           var delBackend = (result.checadasHoy || []).map(function(c) {
             var ts = new Date(c.fecha + 'T' + c.hora).getTime();
             return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
@@ -822,11 +822,16 @@ function _perfilInicializarPush(sesion) {
   }
 
   if (estado === 'denied') {
+    var esIOSd = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     banner.innerHTML =
       '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(239,68,68,0.35);' +
-             'border-radius:12px;padding:14px 16px;font-size:13px;color:#FCA5A5;line-height:1.5;">' +
-        '🔕 Las notificaciones están <strong>bloqueadas</strong> para este sitio. ' +
-        'Actívalas en los ajustes del navegador (ícono 🔒 junto a la dirección → Notificaciones → Permitir) y recarga.' +
+             'border-radius:12px;padding:14px 16px;font-size:13px;color:#FCA5A5;line-height:1.6;">' +
+        '🔕 Las notificaciones quedaron <strong>bloqueadas</strong> en este dispositivo (iOS/Android lo graba aunque haya sido sin querer).<br>' +
+        (esIOSd
+          ? '<strong>iPhone:</strong> Ajustes → Notificaciones → busca esta app en la lista → Permitir. ' +
+            'Si no aparece: borra el ícono, luego Ajustes → Safari → Avanzado → Datos de sitios web → elimina este sitio, ' +
+            'reinstala el ícono desde Safari y acepta el permiso.'
+          : '<strong>Android:</strong> toca el 🔒 junto a la dirección (o ⋮ → Información del sitio) → Notificaciones → Permitir → recarga.') +
       '</div>';
     return;
   }

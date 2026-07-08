@@ -185,7 +185,7 @@ function _cfgTurnoDe(idUsuario) {
     if (!_usuariosCache) return null;
     for (var pin in _usuariosCache) {
       var u = _usuariosCache[pin];
-      if (u && (u.idUsuario || '').toString() === (idUsuario || '').toString()) {
+      if (u && _normId(u.idUsuario) === _normId(idUsuario)) {
         return u.cfgTurno || null;
       }
     }
@@ -236,7 +236,7 @@ function _fechaHoyLocal() {
 
 function _registrarChecadaLocal(idUsuario, tipo, ts) {
   var data = _leerChecadasDia();
-  var key = (idUsuario || '').toString();
+  var key = _normId(idUsuario);
   if (!data.porUsuario[key]) data.porUsuario[key] = [];
   data.porUsuario[key].push({ tipo: tipo, ts: ts });
   try { localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data)); } catch(e) {}
@@ -244,7 +244,7 @@ function _registrarChecadaLocal(idUsuario, tipo, ts) {
 
 function _checadasHoyDe(idUsuario) {
   var data = _leerChecadasDia();
-  return data.porUsuario[(idUsuario || '').toString()] || [];
+  return data.porUsuario[_normId(idUsuario)] || [];
 }
 
 // ── Detección automática del tipo por ESTADO del día ───────────────────────
@@ -514,7 +514,7 @@ function _enviarDirecto(datos) {
           if (n > 0) return; // hay checadas pendientes de enviar — no tocar
           try {
             var data = _leerChecadasDia();
-            var key = (datos.idUsuario || '').toString();
+            var key = _normId(datos.idUsuario);
             data.porUsuario[key] = result.checadasHoyServidor.map(function(c) {
               var ts = new Date(c.fecha + 'T' + c.hora).getTime();
               return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
@@ -739,6 +739,15 @@ function mostrarPantallaPIN() {
   botonera.appendChild(btnSitio);
 
   overlay.appendChild(botonera);
+
+  // ⭐ Versión del frontend SIEMPRE visible (abajo izquierda, discreta)
+  var verTag = document.createElement('div');
+  verTag.id = 'frontend-version-tag';
+  verTag.textContent = FRONTEND_VERSION;
+  verTag.style.cssText =
+    'position:fixed;bottom:calc(18px + env(safe-area-inset-bottom, 0px));left:14px;z-index:100000;' +
+    'font-size:11px;color:rgba(148,163,184,0.55);font-family:monospace;letter-spacing:0.5px;pointer-events:none;';
+  overlay.appendChild(verTag);
 
   // Toda la estructura usa los mismos IDs que procesarAcceso espera:
   //   #input-pin, #input-contrasena, #input-contrasena2,
@@ -1255,7 +1264,7 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
           // Sincronizar el registro local con la verdad del servidor
           try {
             var data = _leerChecadasDia();
-            var key = (idUsuario || '').toString();
+            var key = _normId(idUsuario);
             data.porUsuario[key] = (result.checadasHoyServidor || []).map(function(c) {
               var ts = new Date(c.fecha + 'T' + c.hora).getTime();
               return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
@@ -1597,7 +1606,14 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v585';
+var FRONTEND_VERSION = 'v587';
+
+// ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
+function _normId(v) {
+  v = (v === null || v === undefined) ? '' : v.toString().trim();
+  var n = parseInt(v, 10);
+  return (isNaN(n) || !/^\d+$/.test(v)) ? v : String(n);
+}
 
 function _mostrarDiagnostico() {
   var viejo = document.getElementById('diag-overlay');
