@@ -487,7 +487,7 @@ function _enviarDirecto(datos) {
 // 10 segundos la PWA lo regresa AUTOMÁTICAMENTE a la pantalla del PIN.
 // El botón muestra la cuenta regresiva; "+30s" da más tiempo si lo necesita;
 // "← Volver" regresa de inmediato.
-var _SITIO_AUTOREGRESO_SEG = 10;
+var _SITIO_AUTOREGRESO_SEG = 15;
 var _sitioTimerRegreso = null;
 
 function abrirSitioElectronics() {
@@ -524,7 +524,18 @@ function abrirSitioElectronics() {
               'border-radius:999px;background:rgba(15,23,42,0.85);color:#64748B;' +
               'border:1px solid rgba(255,255,255,0.1);font-size:12px;text-decoration:none;backdrop-filter:blur(6px);">' +
       '¿No carga? Abrir en pestaña nueva ↗' +
-    '</a>';
+    '</a>' +
+    // ⭐ CONTADOR REGRESIVO GRANDE — círculo flotante abajo al centro
+    '<div id="sitio-contador" ' +
+         'style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100006;' +
+                'width:74px;height:74px;border-radius:50%;background:rgba(15,23,42,0.92);' +
+                'border:3px solid #7fdfff;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+                'backdrop-filter:blur(8px);box-shadow:0 0 24px rgba(127,223,255,0.35);">' +
+      '<div id="sitio-contador-num" style="font-size:28px;font-weight:800;color:#7fdfff;line-height:1;font-variant-numeric:tabular-nums;">' +
+        _SITIO_AUTOREGRESO_SEG +
+      '</div>' +
+      '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">regreso</div>' +
+    '</div>';
   document.body.appendChild(ov);
 
   // Cuenta regresiva de auto-regreso
@@ -532,11 +543,23 @@ function abrirSitioElectronics() {
   _sitioTimerRegreso = setInterval(function() {
     window._sitioSegundosRestantes--;
     var btn = document.getElementById('sitio-btn-volver');
+    var num = document.getElementById('sitio-contador-num');
     if (!btn) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; return; }
     if (window._sitioSegundosRestantes <= 0) {
       cerrarSitioElectronics();
     } else {
       btn.innerHTML = '← Volver (' + window._sitioSegundosRestantes + 's)';
+      if (num) {
+        num.textContent = window._sitioSegundosRestantes;
+        // Últimos 5 segundos: el contador se pone rojo y pulsa
+        var cont = document.getElementById('sitio-contador');
+        if (window._sitioSegundosRestantes <= 5 && cont) {
+          num.style.color = '#EF4444';
+          cont.style.borderColor = '#EF4444';
+          cont.style.boxShadow = '0 0 24px rgba(239,68,68,0.5)';
+          cont.style.transform = 'translateX(-50%) scale(' + (window._sitioSegundosRestantes % 2 === 0 ? '1.08' : '1') + ')';
+        }
+      }
     }
   }, 1000);
 }
@@ -545,6 +568,14 @@ function _sitioMasTiempo() {
   window._sitioSegundosRestantes = (window._sitioSegundosRestantes || 0) + 30;
   var btn = document.getElementById('sitio-btn-volver');
   if (btn) btn.innerHTML = '← Volver (' + window._sitioSegundosRestantes + 's)';
+  var num = document.getElementById('sitio-contador-num');
+  var cont = document.getElementById('sitio-contador');
+  if (num) { num.textContent = window._sitioSegundosRestantes; num.style.color = '#7fdfff'; }
+  if (cont) {
+    cont.style.borderColor = '#7fdfff';
+    cont.style.boxShadow = '0 0 24px rgba(127,223,255,0.35)';
+    cont.style.transform = 'translateX(-50%)';
+  }
 }
 
 function cerrarSitioElectronics() {
