@@ -133,8 +133,197 @@ window.sincronizarUsuariosManual = function() {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VALIDACIÓN DE EDAD DEL CACHE OFFLINE
+// REGISTRO EN VIVO — Tipos de checada + veredictos (Fase 1)
 // ─────────────────────────────────────────────────────────────────────────────
+// El día de cada empleado tiene 6 eventos en orden fijo:
+//   1. ENTRADA → 2. SALIDA_DESAYUNO → 3. REGRESO_DESAYUNO →
+//   4. SALIDA_COMIDA → 5. REGRESO_COMIDA → 6. SALIDA  (7+ = EXTRA)
+// El flujo rápido de PIN detecta el tipo automáticamente contando cuántas
+// checadas lleva HOY (registro local en localStorage, funciona offline).
+// El perfil (Fase 2) permitirá elegir el tipo manualmente.
+//
+// Reglas de veredicto (SIN tolerancia, orden de Electronics):
+//   ENTRADA: vs hora inicio del turno → puntual o retardo de X min
+//   DESAYUNO: 20 min máx → al regresar se calcula si hubo exceso
+//   COMIDA:   60 min máx → igual
+//   SALIDA:   vs hora fin del turno → a tiempo, antes, o X min extra
+
+var _LS_KEY_CHECADAS_DIA = 'em_checadas_dia';
+var _DURACION_DESAYUNO_MIN = 20;
+var _DURACION_COMIDA_MIN   = 60;
+
+var _ORDEN_TIPOS = ['ENTRADA', 'SALIDA_DESAYUNO', 'REGRESO_DESAYUNO',
+                    'SALIDA_COMIDA', 'REGRESO_COMIDA', 'SALIDA'];
+
+var _ETIQUETAS_TIPO = {
+  'ENTRADA':          { emoji: '🏢', label: 'Entrada' },
+  'SALIDA_DESAYUNO':  { emoji: '🥐', label: 'Salida a desayuno' },
+  'REGRESO_DESAYUNO': { emoji: '🥐', label: 'Regreso de desayuno' },
+  'SALIDA_COMIDA':    { emoji: '🍽️', label: 'Salida a comida' },
+  'REGRESO_COMIDA':   { emoji: '🍽️', label: 'Regreso de comida' },
+  'SALIDA':           { emoji: '🏠', label: 'Salida' },
+  'EXTRA':            { emoji: '➕', label: 'Registro extra' }
+};
+
+// ── Registro local de checadas del día (persiste offline) ──────────────────
+function _leerChecadasDia() {
+  var hoy = _fechaHoyLocal();
+  try {
+    var raw = localStorage.getItem(_LS_KEY_CHECADAS_DIA);
+    if (raw) {
+      var data = JSON.parse(raw);
+      if (data && data.fecha === hoy && data.porUsuario) return data;
+    }
+  } catch(e) {}
+  return { fecha: hoy, porUsuario: {} };
+}
+
+function _fechaHoyLocal() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+         String(d.getMonth() + 1).padStart(2, '0') + '-' +
+         String(d.getDate()).padStart(2, '0');
+}
+
+function _registrarChecadaLocal(idUsuario, tipo, ts) {
+  var data = _leerChecadasDia();
+  var key = (idUsuario || '').toString();
+  if (!data.porUsuario[key]) data.porUsuario[key] = [];
+  data.porUsuario[key].push({ tipo: tipo, ts: ts });
+  try { localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data)); } catch(e) {}
+}
+
+function _checadasHoyDe(idUsuario) {
+  var data = _leerChecadasDia();
+  return data.porUsuario[(idUsuario || '').toString()] || [];
+}
+
+// ── Detección automática del tipo por orden ────────────────────────────────
+function _detectarTipoChecada(idUsuario) {
+  var n = _checadasHoyDe(idUsuario).length;
+  return (n < _ORDEN_TIPOS.length) ? _ORDEN_TIPOS[n] : 'EXTRA';
+}
+
+// ── Turno del empleado desde el cache de usuarios ──────────────────────────
+// turnoHorario viene del backend con formato "10:00 - 19:00".
+// Devuelve { inicio: {h, m}, fin: {h, m} } o null si no está disponible.
+function _turnoDe(idUsuario) {
+  try {
+    if (!_usuariosCache) return null;
+    for (var pin in _usuariosCache) {
+      var u = _usuariosCache[pin];
+      if (u && (u.idUsuario || '').toString() === (idUsuario || '').toString() && u.turnoHorario) {
+        var m = u.turnoHorario.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+        if (m) {
+          return {
+            inicio: { h: parseInt(m[1], 10), m: parseInt(m[2], 10) },
+            fin:    { h: parseInt(m[3], 10), m: parseInt(m[4], 10) }
+          };
+        }
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+function _minutosDesdeMedianoche(d) {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function _formatearHora(totalMin) {
+  var h = Math.floor(totalMin / 60) % 24;
+  var m = totalMin % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+// ── Cálculo del VEREDICTO de una checada ───────────────────────────────────
+// Devuelve { texto, color, detalle } listo para pintar en la pantalla verde.
+//   color: '#3ddc84' ok · '#fbbf24' aviso · '#ef4444' malo
+function _calcularVeredicto(tipo, idUsuario, ahora) {
+  var minAhora = _minutosDesdeMedianoche(ahora);
+  var turno = _turnoDe(idUsuario);
+  var checadas = _checadasHoyDe(idUsuario);
+
+  function ultima(tipoBuscado) {
+    for (var i = checadas.length - 1; i >= 0; i--) {
+      if (checadas[i].tipo === tipoBuscado) return checadas[i];
+    }
+    return null;
+  }
+
+  switch (tipo) {
+    case 'ENTRADA': {
+      if (!turno) return { texto: 'Entrada registrada', color: '#3ddc84', detalle: '' };
+      var minInicio = turno.inicio.h * 60 + turno.inicio.m;
+      if (minAhora <= minInicio) {
+        return { texto: '✅ Entrada puntual', color: '#3ddc84',
+                 detalle: 'Tu turno: ' + _formatearHora(minInicio) + ' — llegaste a tiempo' };
+      }
+      var retardo = minAhora - minInicio;
+      return { texto: '⚠️ Retardo de ' + retardo + ' min', color: '#ef4444',
+               detalle: 'Tu entrada era a las ' + _formatearHora(minInicio) };
+    }
+
+    case 'SALIDA_DESAYUNO': {
+      var limite = minAhora + _DURACION_DESAYUNO_MIN;
+      return { texto: '🥐 Salida a desayuno', color: '#3ddc84',
+               detalle: 'Tienes ' + _DURACION_DESAYUNO_MIN + ' min · Regresa antes de las ' + _formatearHora(limite) };
+    }
+
+    case 'REGRESO_DESAYUNO': {
+      var salidaD = ultima('SALIDA_DESAYUNO');
+      if (!salidaD) return { texto: '🥐 Regreso de desayuno', color: '#3ddc84', detalle: '' };
+      var durD = Math.round((ahora.getTime() - salidaD.ts) / 60000);
+      if (durD <= _DURACION_DESAYUNO_MIN) {
+        return { texto: '✅ Regreso a tiempo', color: '#3ddc84',
+                 detalle: 'Desayuno de ' + durD + ' min (límite ' + _DURACION_DESAYUNO_MIN + ')' };
+      }
+      var excD = durD - _DURACION_DESAYUNO_MIN;
+      return { texto: '⚠️ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
+               detalle: 'Tomaste ' + durD + ' min de ' + _DURACION_DESAYUNO_MIN + ' permitidos' };
+    }
+
+    case 'SALIDA_COMIDA': {
+      var limiteC = minAhora + _DURACION_COMIDA_MIN;
+      return { texto: '🍽️ Salida a comida', color: '#3ddc84',
+               detalle: 'Tienes ' + _DURACION_COMIDA_MIN + ' min · Regresa antes de las ' + _formatearHora(limiteC) };
+    }
+
+    case 'REGRESO_COMIDA': {
+      var salidaC = ultima('SALIDA_COMIDA');
+      if (!salidaC) return { texto: '🍽️ Regreso de comida', color: '#3ddc84', detalle: '' };
+      var durC = Math.round((ahora.getTime() - salidaC.ts) / 60000);
+      if (durC <= _DURACION_COMIDA_MIN) {
+        return { texto: '✅ Regreso a tiempo', color: '#3ddc84',
+                 detalle: 'Comida de ' + durC + ' min (límite ' + _DURACION_COMIDA_MIN + ')' };
+      }
+      var excC = durC - _DURACION_COMIDA_MIN;
+      return { texto: '⚠️ Exceso de ' + excC + ' min en comida', color: '#ef4444',
+               detalle: 'Tomaste ' + durC + ' min de ' + _DURACION_COMIDA_MIN + ' permitidos' };
+    }
+
+    case 'SALIDA': {
+      if (!turno) return { texto: '🏠 Salida registrada', color: '#3ddc84', detalle: '' };
+      var minFin = turno.fin.h * 60 + turno.fin.m;
+      if (minAhora > minFin) {
+        var extra = minAhora - minFin;
+        return { texto: '⏱️ Te quedaste ' + extra + ' min extra', color: '#fbbf24',
+                 detalle: 'Tu salida era a las ' + _formatearHora(minFin) + '. Ese tiempo nadie te lo paga.' };
+      }
+      if (minAhora < minFin) {
+        var antes = minFin - minAhora;
+        return { texto: '🏃 Saliste ' + antes + ' min antes', color: '#fbbf24',
+                 detalle: 'Tu salida es a las ' + _formatearHora(minFin) };
+      }
+      return { texto: '✅ Salida a tiempo', color: '#3ddc84',
+               detalle: 'Justo a las ' + _formatearHora(minFin) + '. Perfecto.' };
+    }
+
+    default:
+      return { texto: '➕ Registro extra', color: '#3ddc84', detalle: 'Checada adicional del día' };
+  }
+}
+
 // Regla solicitada por Electronics:
 //   < 24h    → confiar 100%, sin aviso
 //   24h–7d   → permitir checar pero avisar al usuario
@@ -647,18 +836,16 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
     if (el) { el.textContent = msg; if (color) el.style.color = color; }
   }
 
-  // ⭐ VALIDACIÓN DE ZONA — pedir GPS, validar contra CONFIG_CHOFERES.
-  // Si está fuera de zona, igual se registra (con estado 'FUERA DE ZONA')
-  // pero no se procesa como asistencia hasta que se valide manualmente.
-  // Si el navegador no da GPS (denegado/timeout), se registra como 'SIN_GPS'.
-  setStatus('Obteniendo ubicación...');
-  solicitarUbicacion(8000).then(function(gpsData) {
-    _registrarChecada(nombre, idUsuario, gpsData, setStatus);
-  });
+  // ⭐ CHECADA INMEDIATA — ya no hay validación de zona (decisión de
+  // Electronics). El GPS se captura en background sin bloquear: si el
+  // navegador tiene una ubicación cacheada (_gpsData) se registra como dato
+  // informativo, pero la checada NO espera al GPS ni valida nada.
+  solicitarUbicacion(3000); // fire-and-forget: refresca _gpsData para la próxima
+  _registrarChecada(nombre, idUsuario, _gpsData, setStatus);
 }
 
 function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
-  // gpsData = { lat, lng, accuracy } si el navegador dio ubicación, o null.
+  // gpsData = última ubicación conocida (informativa) o null. Ya no se valida.
   var ahora = new Date();
   // Forzar timezone de Ciudad de México — no depender del dispositivo
   // (algunos tablets tienen zona mal configurada y la hora salía +1h adelantada).
@@ -670,16 +857,10 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
   });
   var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
 
-  // ── Validación de zona ───────────────────────────────────────────────
-  // Si no hay GPS → 'SIN_GPS'. Si hay GPS, verificarZonaChofer dirá si
-  // está 'VÁLIDA' o 'FUERA DE ZONA'. El backend revalida igualmente.
-  var zonaResult;
-  if (gpsData && typeof gpsData.lat === 'number' && typeof gpsData.lng === 'number') {
-    zonaResult = verificarZonaChofer(gpsData.lat, gpsData.lng);
-  } else {
-    zonaResult = { estadoZona: 'SIN_GPS', zonaCercana: '', distancia: 0 };
-  }
-  var esValida = (zonaResult.estadoZona === 'VÁLIDA');
+  // ── Sin validación de zona: toda checada es VÁLIDA ───────────────────
+  // Se conservan lat/lng si están disponibles (solo informativo).
+  var zonaResult = { estadoZona: 'VÁLIDA', zonaCercana: '', distancia: 0 };
+  var esValida = true;
 
   // ⭐ UUID local y timestamp del cliente — necesarios para offline
   // - uuid permite al backend deduplicar si la misma checada se manda 2 veces
@@ -693,6 +874,13 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     : (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
   var clienteTimestamp = ahora.toISOString();
 
+  // ⭐ REGISTRO EN VIVO: detectar tipo de checada por orden del día y
+  // calcular el veredicto (puntual/retardo/exceso) contra el turno del
+  // empleado. Todo local — funciona igual offline.
+  var tipoChecada = _detectarTipoChecada(idUsuario);
+  var veredicto = _calcularVeredicto(tipoChecada, idUsuario, ahora);
+  var etiqueta = _ETIQUETAS_TIPO[tipoChecada] || _ETIQUETAS_TIPO['EXTRA'];
+
   var datos = {
     uuid: uuid,
     idUsuario: idUsuario,
@@ -701,6 +889,7 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     hora: hora,
     timestampCompleto: timestamp,
     clienteTimestamp: clienteTimestamp,
+    tipo: tipoChecada,
     lat: gpsData ? gpsData.lat : '',
     lng: gpsData ? gpsData.lng : '',
     accuracy: gpsData ? gpsData.accuracy : '',
@@ -715,7 +904,10 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     box.removeAttribute('data-state');
 
     if (esValida) {
-      // ✅ VERDE — checada válida
+      // ✅ VERDE — checada válida. Registrar localmente ANTES de pintar para
+      // que la próxima checada del día detecte bien su tipo.
+      _registrarChecadaLocal(idUsuario, tipoChecada, ahora.getTime());
+
       box.innerHTML =
         '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
           '<defs>' +
@@ -741,11 +933,17 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
           '</g>' +
         '</svg>' +
         '<div class="ring-panel ring-panel--flow">' +
-          '<div class="ring-flow__check">✓</div>' +
-          '<div class="ring-flow__title">¡Checada Registrada!</div>' +
+          '<div class="ring-flow__check">' + etiqueta.emoji + '</div>' +
+          '<div style="font-size:13px;color:#a7ffc4;text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:2px;">' +
+            etiqueta.label +
+          '</div>' +
+          '<div class="ring-flow__title" style="color:' + veredicto.color + ';">' + veredicto.texto + '</div>' +
           '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
+          (veredicto.detalle
+            ? '<div style="margin-top:8px;font-size:13px;color:#cbd5e1;max-width:340px;margin-left:auto;margin-right:auto;">' + veredicto.detalle + '</div>'
+            : '') +
           (zonaResult.zonaCercana
-            ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:13px;color:#a7ffc4;">📍 ' + zonaResult.zonaCercana + '</div>'
+            ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:12px;color:#a7ffc4;">📍 ' + zonaResult.zonaCercana + '</div>'
             : '') +
           (navigator.onLine === false
             ? '<div style="margin-top:6px;font-size:11px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
@@ -810,8 +1008,8 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
       box.setAttribute('data-state', 'error');
     }
 
-    // Ambos estados: regresar a PIN después de 2.2s (un poco más para que lean el mensaje)
-    setTimeout(function() { mostrarPantallaPIN(); }, esValida ? 1500 : 2500);
+    // Regresar a PIN: 5s si fue válida (tiempo para leer el veredicto), 2.5s si error
+    setTimeout(function() { mostrarPantallaPIN(); }, esValida ? 5000 : 2500);
   }
 
   // ── Enviar a GAS o encolar offline ──────────────────────────────────────
