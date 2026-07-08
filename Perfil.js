@@ -572,7 +572,7 @@ function _perfilActualizarCrono(sesion) {
   // 1) ¿En desayuno o comida sin regresar?
   if (ultima && (ultima.tipo === 'SALIDA_DESAYUNO' || ultima.tipo === 'SALIDA_COMIDA')) {
     var esDes = ultima.tipo === 'SALIDA_DESAYUNO';
-    var limMin = esDes ? _DURACION_DESAYUNO_MIN : _DURACION_COMIDA_MIN;
+    var limMin = esDes ? _durDesayunoDe(sesion.idUsuario) : _durComidaDe(sesion.idUsuario);
     var trans = Math.floor((ahora.getTime() - ultima.ts) / 1000);
     var limSeg = limMin * 60;
     var excedido = trans > limSeg;
@@ -787,9 +787,33 @@ function _perfilInicializarPush(sesion) {
   var estado = Notification.permission;
 
   if (estado === 'granted') {
-    // Ya autorizado → registrar el token en silencio, sin banner
-    banner.innerHTML = '';
-    PushNotifications.solicitarYRegistrar(sesion.pin);
+    // Ya autorizado → registrar el token MOSTRANDO el resultado. Antes era
+    // silencioso y si getToken fallaba nadie se enteraba (dispositivos con
+    // permiso concedido pero sin fila en PUSH_TOKENS).
+    banner.innerHTML =
+      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(80,150,220,0.2);' +
+             'border-radius:12px;padding:12px 16px;font-size:13px;color:#94A3B8;">🔔 Vinculando este dispositivo...</div>';
+    PushNotifications.solicitarYRegistrar(sesion.pin).then(function(ok) {
+      if (!banner) return;
+      if (ok) {
+        banner.innerHTML =
+          '<div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);border-radius:12px;' +
+                 'padding:12px 16px;font-size:13px;color:#6EE7B7;font-weight:600;">✅ Este dispositivo está vinculado a tus alertas</div>';
+        setTimeout(function() { if (banner) banner.innerHTML = ''; }, 3500);
+      } else {
+        banner.innerHTML =
+          '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(245,158,11,0.4);' +
+                 'border-radius:12px;padding:14px 16px;">' +
+            '<div style="font-size:13px;color:#FCD34D;line-height:1.5;margin-bottom:10px;">' +
+              '⚠️ El permiso está concedido pero <strong>no se pudo vincular este dispositivo</strong>. ' +
+              'Revisa tu internet y reintenta.' +
+            '</div>' +
+            '<button onclick="_perfilInicializarPush(_perfilLeerSesion())" ' +
+                    'style="width:100%;padding:11px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;border:none;' +
+                           'border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;">Reintentar vinculación</button>' +
+          '</div>';
+      }
+    });
     return;
   }
 

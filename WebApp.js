@@ -57,7 +57,7 @@ function _cacheTieneTurnos(cache) {
     for (var pin in cache) {
       var u = cache[pin];
       if (u && u.tipo === 'CHOFER') {
-        return typeof u.turnoHorario !== 'undefined';
+        return typeof u.turnoHorario !== 'undefined' && typeof u.cfgTurno !== 'undefined';
       }
     }
   } catch(e) {}
@@ -174,8 +174,32 @@ window.sincronizarUsuariosManual = function() {
 //   SALIDA:   vs hora fin del turno → a tiempo, antes, o X min extra
 
 var _LS_KEY_CHECADAS_DIA = 'em_checadas_dia';
+// Fallbacks — los valores reales vienen POR TURNO de CONFIG_TURNOS vía el
+// cache de usuarios (cfgTurno). Usa _durDesayunoDe/_durComidaDe.
 var _DURACION_DESAYUNO_MIN = 20;
 var _DURACION_COMIDA_MIN   = 60;
+
+// Config del turno del empleado desde el cache de usuarios (CONFIG_TURNOS)
+function _cfgTurnoDe(idUsuario) {
+  try {
+    if (!_usuariosCache) return null;
+    for (var pin in _usuariosCache) {
+      var u = _usuariosCache[pin];
+      if (u && (u.idUsuario || '').toString() === (idUsuario || '').toString()) {
+        return u.cfgTurno || null;
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+function _durDesayunoDe(idUsuario) {
+  var c = _cfgTurnoDe(idUsuario);
+  return (c && c.desDur) ? c.desDur : _DURACION_DESAYUNO_MIN;
+}
+function _durComidaDe(idUsuario) {
+  var c = _cfgTurnoDe(idUsuario);
+  return (c && c.comDur) ? c.comDur : _DURACION_COMIDA_MIN;
+}
 
 var _ORDEN_TIPOS = ['ENTRADA', 'SALIDA_DESAYUNO', 'REGRESO_DESAYUNO',
                     'SALIDA_COMIDA', 'REGRESO_COMIDA', 'SALIDA'];
@@ -233,21 +257,29 @@ function _checadasHoyDe(idUsuario) {
 //   3. ¿Falta el desayuno? → SALIDA_DESAYUNO; ¿falta comida? → SALIDA_COMIDA
 //   4. ¿Falta la salida? → SALIDA; todo hecho → EXTRA
 function _detectarTipoChecada(idUsuario) {
-  var checadas = _checadasHoyDe(idUsuario).filter(function(c) {
-    return c && c.tipo; // ignorar registros sin tipo (checadas legacy)
-  });
-  function tiene(t) {
-    return checadas.some(function(c) { return c.tipo === t; });
-  }
-  var ultima = checadas.length ? checadas[checadas.length - 1] : null;
+  // Espejo de la lógica del backend: POR HORA contra las ventanas de
+  // CONFIG_TURNOS (solo se usa OFFLINE — online el sheet decide).
+  var checadas = _checadasHoyDe(idUsuario).filter(function(c) { return c && c.tipo; });
+  function tiene(t) { return checadas.some(function(c) { return c.tipo === t; }); }
+  var ult = checadas.length ? checadas[checadas.length - 1] : null;
+  if (ult && ult.tipo === 'SALIDA_DESAYUNO') return 'REGRESO_DESAYUNO';
+  if (ult && ult.tipo === 'SALIDA_COMIDA')   return 'REGRESO_COMIDA';
 
-  // Regresos pendientes tienen prioridad absoluta
-  if (ultima && ultima.tipo === 'SALIDA_DESAYUNO') return 'REGRESO_DESAYUNO';
-  if (ultima && ultima.tipo === 'SALIDA_COMIDA')   return 'REGRESO_COMIDA';
+  var ahora = new Date();
+  var minAhora = ahora.getHours() * 60 + ahora.getMinutes();
+  var c = _cfgTurnoDe(idUsuario) || {};
+  var turno = _turnoDe(idUsuario);
+  var finMin = turno ? (turno.fin.h * 60 + turno.fin.m) : (c.salidaMin != null ? c.salidaMin : null);
+  function enVentana(a, b) { return a != null && b != null && minAhora >= a && minAhora <= b; }
+
+  if (!tiene('SALIDA_COMIDA') && enVentana(c.comMin, c.comMax)) return 'SALIDA_COMIDA';
+  if (!tiene('ENTRADA') && (c.comMin == null || minAhora < c.comMin)) return 'ENTRADA';
+  if (!tiene('SALIDA_DESAYUNO') && enVentana(c.desMin, c.desMax)) return 'SALIDA_DESAYUNO';
+  if (!tiene('SALIDA') && finMin != null && minAhora >= finMin - 90) return 'SALIDA';
 
   if (!tiene('ENTRADA'))          return 'ENTRADA';
-  if (!tiene('SALIDA_DESAYUNO'))  return 'SALIDA_DESAYUNO';
-  if (!tiene('SALIDA_COMIDA'))    return 'SALIDA_COMIDA';
+  if (!tiene('SALIDA_DESAYUNO') && (c.desMax == null || minAhora <= c.desMax)) return 'SALIDA_DESAYUNO';
+  if (!tiene('SALIDA_COMIDA')   && (c.comMax == null || minAhora <= c.comMax)) return 'SALIDA_COMIDA';
   if (!tiene('SALIDA'))           return 'SALIDA';
   return 'EXTRA';
 }
@@ -331,41 +363,45 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
     }
 
     case 'SALIDA_DESAYUNO': {
-      var limite = minAhora + _DURACION_DESAYUNO_MIN;
+      var _dd1 = _durDesayunoDe(idUsuario);
+      var limite = minAhora + _dd1;
       return { texto: '¡Provecho!', color: '#3ddc84',
-               detalle: 'Tienes ' + _DURACION_DESAYUNO_MIN + ' min · Regresa antes de las ' + _formatearHora(limite) };
+               detalle: 'Tienes ' + _dd1 + ' min · Regresa antes de las ' + _formatearHora(limite) };
     }
 
     case 'REGRESO_DESAYUNO': {
       var salidaD = ultima('SALIDA_DESAYUNO');
       if (!salidaD) return { texto: '🥐 Regreso de desayuno', color: '#3ddc84', detalle: '' };
       var durD = Math.round((ahora.getTime() - salidaD.ts) / 60000);
-      if (durD <= _DURACION_DESAYUNO_MIN) {
+      var _dd2 = _durDesayunoDe(idUsuario);
+      if (durD <= _dd2) {
         return { texto: '✅ Regreso a tiempo', color: '#3ddc84',
-                 detalle: 'Desayuno de ' + durD + ' min (límite ' + _DURACION_DESAYUNO_MIN + ')' };
+                 detalle: 'Desayuno de ' + durD + ' min (límite ' + _dd2 + ')' };
       }
-      var excD = durD - _DURACION_DESAYUNO_MIN;
+      var excD = durD - _dd2;
       return { texto: '❌ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
-               detalle: 'Tomaste ' + durD + ' min de ' + _DURACION_DESAYUNO_MIN + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
+               detalle: 'Tomaste ' + durD + ' min de ' + _dd2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
     }
 
     case 'SALIDA_COMIDA': {
-      var limiteC = minAhora + _DURACION_COMIDA_MIN;
+      var _dc1 = _durComidaDe(idUsuario);
+      var limiteC = minAhora + _dc1;
       return { texto: '¡Provecho!', color: '#3ddc84',
-               detalle: 'Tienes ' + _DURACION_COMIDA_MIN + ' min · Regresa antes de las ' + _formatearHora(limiteC) };
+               detalle: 'Tienes ' + _dc1 + ' min · Regresa antes de las ' + _formatearHora(limiteC) };
     }
 
     case 'REGRESO_COMIDA': {
       var salidaC = ultima('SALIDA_COMIDA');
       if (!salidaC) return { texto: '🍽️ Regreso de comida', color: '#3ddc84', detalle: '' };
       var durC = Math.round((ahora.getTime() - salidaC.ts) / 60000);
-      if (durC <= _DURACION_COMIDA_MIN) {
+      var _dc2 = _durComidaDe(idUsuario);
+      if (durC <= _dc2) {
         return { texto: '✅ Regreso a tiempo', color: '#3ddc84',
-                 detalle: 'Comida de ' + durC + ' min (límite ' + _DURACION_COMIDA_MIN + ')' };
+                 detalle: 'Comida de ' + durC + ' min (límite ' + _dc2 + ')' };
       }
-      var excC = durC - _DURACION_COMIDA_MIN;
+      var excC = durC - _dc2;
       return { texto: '❌ Exceso de ' + excC + ' min en comida', color: '#ef4444',
-               detalle: 'Tomaste ' + durC + ' min de ' + _DURACION_COMIDA_MIN + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
+               detalle: 'Tomaste ' + durC + ' min de ' + _dc2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
     }
 
     case 'SALIDA': {
