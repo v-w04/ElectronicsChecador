@@ -752,7 +752,7 @@ function mostrarPantallaPIN() {
       // Campo Contraseña (mitad inferior) — OCULTO por default.
       // El flujo rápido de checada usa SOLO PIN; la contraseña únicamente
       // aparece en MODO PERFIL (activarModoPerfil la muestra).
-      '<div id="campo-contrasena-wrap" class="ring-field ring-field--bottom" style="display:none;">' +
+      '<div id="campo-contrasena-wrap" class="ring-field ring-field--bottom" style="visibility:hidden;">' +
         '<label id="contrasena-label" class="ring-label" for="input-contrasena">Contraseña</label>' +
         '<input id="input-contrasena" class="ring-input ring-input--masked" type="text" ' +
                'inputmode="numeric" pattern="[0-9]*" maxlength="4" ' +

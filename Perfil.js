@@ -139,9 +139,9 @@ function activarModoPerfil() {
     overlay.appendChild(keep);
   }
 
-  // ⭐ Mostrar el campo de contraseña (oculto en el flujo rápido de solo PIN)
+  // ⭐ Mostrar el campo de contraseña (invisible en el flujo rápido de solo PIN)
   var campoPass = document.getElementById('campo-contrasena-wrap');
-  if (campoPass) campoPass.style.display = '';
+  if (campoPass) campoPass.style.visibility = 'visible';
 
   // ⭐ Focus INMEDIATO en el input del PIN — sin toques extra. Como esto corre
   // dentro del gesto del usuario (click del botón), el teclado móvil se
@@ -167,7 +167,7 @@ function desactivarModoPerfil() {
   }
   // ⭐ Ocultar y limpiar el campo de contraseña (el flujo rápido es solo PIN)
   var campoPass = document.getElementById('campo-contrasena-wrap');
-  if (campoPass) campoPass.style.display = 'none';
+  if (campoPass) campoPass.style.visibility = 'hidden';
   var inputPass = document.getElementById('input-contrasena');
   if (inputPass) inputPass.value = '';
   var tag = document.getElementById('perfil-mode-tag');
