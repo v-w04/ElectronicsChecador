@@ -1156,10 +1156,12 @@ function _lanzarFlujoChecar(nombre, idUsuario) {
 }
 
 function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
-  // gpsData = última ubicación conocida (informativa) o null. Ya no se valida.
+  // ══════════════════════════════════════════════════════════════════════
+  // ⭐ EL SHEET ES LA LEY: con internet, el TIPO y el VEREDICTO los decide
+  // el BACKEND leyendo CHECADOR_CHOFERES en ese instante. El registro local
+  // del dispositivo solo se usa como fallback cuando no hay conexión.
+  // ══════════════════════════════════════════════════════════════════════
   var ahora = new Date();
-  // Forzar timezone de Ciudad de México — no depender del dispositivo
-  // (algunos tablets tienen zona mal configurada y la hora salía +1h adelantada).
   var TZ_MEX = 'America/Mexico_City';
   var fecha = ahora.toLocaleDateString('en-CA', { timeZone: TZ_MEX });
   var hora  = ahora.toLocaleTimeString('es-MX', {
@@ -1168,29 +1170,9 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
   });
   var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
 
-  // ── Sin validación de zona: toda checada es VÁLIDA ───────────────────
-  // Se conservan lat/lng si están disponibles (solo informativo).
-  var zonaResult = { estadoZona: 'VÁLIDA', zonaCercana: '', distancia: 0 };
-  var esValida = true;
-
-  // ⭐ UUID local y timestamp del cliente — necesarios para offline
-  // - uuid permite al backend deduplicar si la misma checada se manda 2 veces
-  //   (caso típico: red intermitente, PWA crash a mitad del envío)
-  // - clienteTimestamp es la hora del DISPOSITIVO al momento de checar.
-  //   Cuando hay internet se ignora (GAS usa su propia hora), pero offline
-  //   es lo único que tenemos. Confiamos en el reloj del celular (decisión
-  //   del cliente — opción 1a confirmada).
   var uuid = (window.OfflineQueue && OfflineQueue.generarUuid)
     ? OfflineQueue.generarUuid()
     : (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
-  var clienteTimestamp = ahora.toISOString();
-
-  // ⭐ REGISTRO EN VIVO: detectar tipo de checada por orden del día y
-  // calcular el veredicto (puntual/retardo/exceso) contra el turno del
-  // empleado. Todo local — funciona igual offline.
-  var tipoChecada = _detectarTipoChecada(idUsuario);
-  var veredicto = _calcularVeredicto(tipoChecada, idUsuario, ahora);
-  var etiqueta = _ETIQUETAS_TIPO[tipoChecada] || _ETIQUETAS_TIPO['EXTRA'];
 
   var datos = {
     uuid: uuid,
@@ -1199,139 +1181,134 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
     fecha: fecha,
     hora: hora,
     timestampCompleto: timestamp,
-    clienteTimestamp: clienteTimestamp,
-    tipo: tipoChecada,
+    clienteTimestamp: ahora.toISOString(),
+    tipo: '',
+    autoDetect: true, // el backend deduce el tipo con el SHEET
     lat: gpsData ? gpsData.lat : '',
     lng: gpsData ? gpsData.lng : '',
     accuracy: gpsData ? gpsData.accuracy : '',
-    estadoZona: zonaResult.estadoZona,
-    zonaCercana: zonaResult.zonaCercana,
-    distancia: zonaResult.distancia
+    estadoZona: 'VÁLIDA', zonaCercana: '', distancia: 0
   };
 
-  // ── Pantalla de resultado: VERDE si VÁLIDA, ROJA si FUERA DE ZONA ──
-  var box = document.getElementById('pin-box');
-  if (box) {
-    box.removeAttribute('data-state');
+  var online = navigator.onLine !== false;
 
-    if (esValida) {
-      // ✅ VERDE — checada válida. Registrar localmente ANTES de pintar para
-      // que la próxima checada del día detecte bien su tipo.
-      _registrarChecadaLocal(idUsuario, tipoChecada, ahora.getTime());
+  if (online && window.google && google.script && google.script.run) {
+    // ── ONLINE: el backend decide con el sheet ──
+    setStatus('Registrando...');
+    var respondio = false;
 
-      box.innerHTML =
-        '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
-          '<defs>' +
-            '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
-              '<stop offset="0%"  stop-color="#14633e"/>' +
-              '<stop offset="100%" stop-color="#3ddc84"/>' +
-            '</linearGradient>' +
-            '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
-              '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
-              '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
-              '<feMerge>' +
-                '<feMergeNode in="blur2"/>' +
-                '<feMergeNode in="blur1"/>' +
-                '<feMergeNode in="SourceGraphic"/>' +
-              '</feMerge>' +
-            '</filter>' +
-          '</defs>' +
-          '<circle class="ring__track" cx="300" cy="300" r="295" />' +
-          '<g class="ring__rotor">' +
-            '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                    'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
-                    'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
-          '</g>' +
-        '</svg>' +
-        '<div class="ring-panel ring-panel--flow" style="max-width:88%;overflow-wrap:break-word;">' +
-          '<div class="ring-flow__check" style="font-size:clamp(42px,11vw,58px);line-height:1;">' + etiqueta.emoji + '</div>' +
-          '<div style="font-size:clamp(12px,3.4vw,16px);color:#a7ffc4;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-top:8px;">' +
-            etiqueta.label +
-          '</div>' +
-          '<div class="ring-flow__title" style="color:' + veredicto.color + ';font-size:clamp(24px,6.5vw,36px);font-weight:800;line-height:1.15;margin-top:8px;overflow-wrap:break-word;">' +
-            veredicto.texto +
-          '</div>' +
-          (veredicto.detalle
-            ? '<div style="margin-top:10px;font-size:clamp(14px,4vw,19px);font-weight:600;color:#F1F5F9;max-width:min(400px,92%);margin-left:auto;margin-right:auto;line-height:1.45;overflow-wrap:break-word;">' + veredicto.detalle + '</div>'
-            : '') +
-          '<div style="margin-top:10px;font-size:clamp(12px,3.5vw,15px);color:#94A3B8;max-width:92%;margin-left:auto;margin-right:auto;overflow-wrap:break-word;">' + nombre + ' · ' + hora + '</div>' +
-          (navigator.onLine === false
-            ? '<div style="margin-top:8px;font-size:13px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
-            : '') +
-        '</div>';
+    // Red de seguridad: si GAS no responde en 12s, caer al flujo local
+    var timeoutLocal = setTimeout(function() {
+      if (respondio) return;
+      respondio = true;
+      _flujoLocalChecada(nombre, idUsuario, datos);
+    }, 12000);
 
-      void box.offsetWidth;
-      box.setAttribute('data-state', 'success');
-
-    } else {
-      // ❌ ROJO — fuera de zona / sin GPS / sin zonas
-      var mensajePrincipal = (zonaResult.estadoZona === 'SIN_GPS')
-        ? 'Ubicación no disponible'
-        : (zonaResult.estadoZona === 'SIN_ZONAS')
-          ? 'Sin zonas configuradas'
-          : 'Fuera de zona';
-
-      var detalle = '';
-      if (zonaResult.estadoZona === 'FUERA DE ZONA' && zonaResult.zonaCercana) {
-        detalle = 'Zona más cercana: ' + zonaResult.zonaCercana +
-                  ' (' + zonaResult.distancia + ' m)';
-      } else if (zonaResult.estadoZona === 'SIN_GPS') {
-        detalle = 'No se pudo obtener ubicación del dispositivo';
-      } else if (zonaResult.estadoZona === 'SIN_ZONAS') {
-        detalle = 'Avisa al administrador';
-      }
-
-      box.innerHTML =
-        '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
-          '<defs>' +
-            '<linearGradient id="ringErrorFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
-              '<stop offset="0%"  stop-color="#7f1d1d"/>' +
-              '<stop offset="100%" stop-color="#ef4444"/>' +
-            '</linearGradient>' +
-            '<filter id="ringGlowError" x="-50%" y="-50%" width="200%" height="200%">' +
-              '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
-              '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
-              '<feMerge>' +
-                '<feMergeNode in="blur2"/>' +
-                '<feMergeNode in="blur1"/>' +
-                '<feMergeNode in="SourceGraphic"/>' +
-              '</feMerge>' +
-            '</filter>' +
-          '</defs>' +
-          '<circle class="ring__track" cx="300" cy="300" r="295" />' +
-          '<g class="ring__rotor">' +
-            '<circle class="ring__active" cx="300" cy="300" r="295" ' +
-                    'stroke="url(#ringErrorFlow)" filter="url(#ringGlowError)" stroke-dasharray="1853.54" ' +
-                    'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
-          '</g>' +
-        '</svg>' +
-        '<div class="ring-panel ring-panel--flow">' +
-          '<div class="ring-flow__cross" style="color:#ef4444;font-size:80px;font-weight:700;">✗</div>' +
-          '<div class="ring-flow__title" style="color:#ef4444;">' + mensajePrincipal + '</div>' +
-          '<div class="ring-flow__name">' + nombre + ' · ' + hora + '</div>' +
-          (detalle
-            ? '<div class="ring-flow__zone" style="margin-top:8px;font-size:13px;color:#fca5a5;">📍 ' + detalle + '</div>'
-            : '') +
-        '</div>';
-
-      void box.offsetWidth;
-      box.setAttribute('data-state', 'error');
-    }
-
-    // Regresar a PIN: 5s si fue válida (tiempo para leer el veredicto), 2.5s si error
-    setTimeout(function() { mostrarPantallaPIN(); }, esValida ? 5000 : 2500);
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (respondio) return;
+        respondio = true;
+        clearTimeout(timeoutLocal);
+        if (result && result.ok && result.tipo && result.veredicto) {
+          // Sincronizar el registro local con la verdad del servidor
+          try {
+            var data = _leerChecadasDia();
+            var key = (idUsuario || '').toString();
+            data.porUsuario[key] = (result.checadasHoyServidor || []).map(function(c) {
+              var ts = new Date(c.fecha + 'T' + c.hora).getTime();
+              return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
+            });
+            localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data));
+          } catch(e) {}
+          var horaMostrar = (result.horaServidor || hora).substring(0, 8);
+          _pintarPantallaChecada(result.tipo, result.veredicto, nombre, horaMostrar, false);
+        } else {
+          _flujoLocalChecada(nombre, idUsuario, datos);
+        }
+      })
+      .withFailureHandler(function() {
+        if (respondio) return;
+        respondio = true;
+        clearTimeout(timeoutLocal);
+        _flujoLocalChecada(nombre, idUsuario, datos);
+      })
+      .guardarChecadaChofer(datos);
+  } else {
+    // ── OFFLINE: único caso donde el registro local manda ──
+    _flujoLocalChecada(nombre, idUsuario, datos);
   }
-
-  // ── Enviar a GAS o encolar offline ──────────────────────────────────────
-  // Si hay internet → mandar directo. Si no → IndexedDB cola, se manda
-  // automáticamente cuando vuelva internet (listener 'online').
-  // El backend deduplica por uuid, así que es seguro reintentar.
-  _enviarOEncolarChecada(datos);
 }
 
-// ============================================================================
-// MENSAJE DE ERROR — actualiza el anillo a rojo + shake, vuelve a filling
-// ============================================================================
+// ── Fallback local (offline o backend caído): detecta y evalúa con el
+//    registro del dispositivo, y encola la checada para sincronizar después ──
+function _flujoLocalChecada(nombre, idUsuario, datos) {
+  var ahora = new Date();
+  var tipoChecada = _detectarTipoChecada(idUsuario);
+  var veredicto = _calcularVeredicto(tipoChecada, idUsuario, ahora);
+
+  _registrarChecadaLocal(idUsuario, tipoChecada, ahora.getTime());
+  datos.tipo = tipoChecada;
+  datos.autoDetect = false;
+  _enviarOEncolarChecada(datos);
+
+  _pintarPantallaChecada(tipoChecada, veredicto, nombre, datos.hora, true);
+}
+
+// ── Pantalla verde con tipo + veredicto (del servidor o del fallback) ──────
+function _pintarPantallaChecada(tipoChecada, veredicto, nombre, hora, esOfflineFallback) {
+  var box = document.getElementById('pin-box');
+  if (!box) return;
+
+  var etiqueta = _ETIQUETAS_TIPO[tipoChecada] || _ETIQUETAS_TIPO['EXTRA'];
+
+  box.innerHTML =
+    '<svg class="ring" viewBox="0 0 600 600" aria-hidden="true">' +
+      '<defs>' +
+        '<linearGradient id="ringSuccessFlow" x1="0%" y1="100%" x2="100%" y2="0%">' +
+          '<stop offset="0%"  stop-color="#14633e"/>' +
+          '<stop offset="100%" stop-color="#3ddc84"/>' +
+        '</linearGradient>' +
+        '<filter id="ringGlowSuccess" x="-50%" y="-50%" width="200%" height="200%">' +
+          '<feGaussianBlur stdDeviation="7" result="blur1"/>' +
+          '<feGaussianBlur stdDeviation="18" result="blur2"/>' +
+          '<feMerge>' +
+            '<feMergeNode in="blur2"/>' +
+            '<feMergeNode in="blur1"/>' +
+            '<feMergeNode in="SourceGraphic"/>' +
+          '</feMerge>' +
+        '</filter>' +
+      '</defs>' +
+      '<circle class="ring__track" cx="300" cy="300" r="295" />' +
+      '<g class="ring__rotor">' +
+        '<circle class="ring__active" cx="300" cy="300" r="295" ' +
+                'stroke="url(#ringSuccessFlow)" filter="url(#ringGlowSuccess)" stroke-dasharray="1853.54" ' +
+                'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
+      '</g>' +
+    '</svg>' +
+    '<div class="ring-panel ring-panel--flow" style="max-width:88%;overflow-wrap:break-word;">' +
+      '<div class="ring-flow__check" style="font-size:clamp(42px,11vw,58px);line-height:1;">' + etiqueta.emoji + '</div>' +
+      '<div style="font-size:clamp(12px,3.4vw,16px);color:#a7ffc4;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-top:8px;">' +
+        etiqueta.label +
+      '</div>' +
+      '<div class="ring-flow__title" style="color:' + veredicto.color + ';font-size:clamp(24px,6.5vw,36px);font-weight:800;line-height:1.15;margin-top:8px;overflow-wrap:break-word;">' +
+        veredicto.texto +
+      '</div>' +
+      (veredicto.detalle
+        ? '<div style="margin-top:10px;font-size:clamp(14px,4vw,19px);font-weight:600;color:#F1F5F9;max-width:min(400px,92%);margin-left:auto;margin-right:auto;line-height:1.45;overflow-wrap:break-word;">' + veredicto.detalle + '</div>'
+        : '') +
+      '<div style="margin-top:10px;font-size:clamp(12px,3.5vw,15px);color:#94A3B8;max-width:92%;margin-left:auto;margin-right:auto;overflow-wrap:break-word;">' + nombre + ' · ' + hora + '</div>' +
+      (esOfflineFallback && navigator.onLine === false
+        ? '<div style="margin-top:8px;font-size:13px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
+        : '') +
+    '</div>';
+
+  void box.offsetWidth;
+  box.setAttribute('data-state', 'success');
+
+  // 5 segundos para leer el veredicto y regreso al PIN
+  setTimeout(function() { mostrarPantallaPIN(); }, 5000);
+}
+
 function mostrarErrorAcceso(msg) {
   const errEl = document.getElementById('acceso-error');
   if (errEl) {

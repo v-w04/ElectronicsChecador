@@ -357,17 +357,11 @@ function _perfilChecar(tipo) {
   var hora  = ahora.toLocaleTimeString('es-MX', { timeZone: TZ_MEX, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   var timestamp = ahora.toLocaleString('es-MX', { timeZone: TZ_MEX });
 
-  // Veredicto ANTES de registrar local (usa las checadas previas para calcular duraciones)
-  var veredicto = _calcularVeredicto(tipo, sesion.idUsuario, ahora);
-  var etiqueta  = _ETIQUETAS_TIPO[tipo] || _ETIQUETAS_TIPO['EXTRA'];
-
-  _registrarChecadaLocal(sesion.idUsuario, tipo, ahora.getTime());
-
   var uuid = (window.OfflineQueue && OfflineQueue.generarUuid)
     ? OfflineQueue.generarUuid()
     : (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
 
-  _enviarOEncolarChecada({
+  var datos = {
     uuid: uuid,
     idUsuario: sesion.idUsuario,
     nombre: sesion.nombre,
@@ -375,28 +369,77 @@ function _perfilChecar(tipo) {
     hora: hora,
     timestampCompleto: timestamp,
     clienteTimestamp: ahora.toISOString(),
-    tipo: tipo,
+    tipo: tipo, // el empleado lo eligió — se respeta
     lat: '', lng: '', accuracy: '',
     estadoZona: 'VÁLIDA', zonaCercana: '', distancia: 0
-  });
+  };
 
-  // Mostrar veredicto en banner dentro del perfil
+  var etiqueta = _ETIQUETAS_TIPO[tipo] || _ETIQUETAS_TIPO['EXTRA'];
   var box = document.getElementById('perfil-veredicto');
-  if (box) {
+
+  function pintarBanner(veredicto, horaMostrar) {
+    if (!box) return;
     box.style.display = 'block';
     box.innerHTML =
       '<div style="background:rgba(255,255,255,0.04);border:1px solid ' + veredicto.color + '55;border-left:5px solid ' + veredicto.color + ';' +
              'border-radius:12px;padding:16px 18px;">' +
         '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;font-weight:700;">' +
-          etiqueta.emoji + ' ' + etiqueta.label + ' · ' + hora.substring(0, 5) +
+          etiqueta.emoji + ' ' + etiqueta.label + ' · ' + horaMostrar.substring(0, 5) +
         '</div>' +
         '<div style="font-size:17px;font-weight:800;color:' + veredicto.color + ';margin-top:4px;">' + veredicto.texto + '</div>' +
         (veredicto.detalle ? '<div style="font-size:13px;color:#CBD5E1;margin-top:4px;">' + veredicto.detalle + '</div>' : '') +
       '</div>';
   }
 
-  _perfilPintarHoyLocal(sesion);
-  _perfilIniciarCrono(sesion);
+  var online = navigator.onLine !== false;
+
+  if (online && window.google && google.script && google.script.run) {
+    // ⭐ EL SHEET ES LA LEY: el veredicto lo calcula el backend con las
+    // checadas reales de CHECADOR_CHOFERES.
+    if (box) {
+      box.style.display = 'block';
+      box.innerHTML = '<div style="padding:14px;color:#64748B;font-size:13px;font-style:italic;">Registrando ' + etiqueta.label.toLowerCase() + '...</div>';
+    }
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result && result.ok && result.veredicto) {
+          // Sincronizar local con el servidor
+          try {
+            var data = _leerChecadasDia();
+            var key = (sesion.idUsuario || '').toString();
+            data.porUsuario[key] = (result.checadasHoyServidor || []).map(function(c) {
+              var ts = new Date(c.fecha + 'T' + c.hora).getTime();
+              return { tipo: c.tipo, ts: isNaN(ts) ? Date.now() : ts };
+            });
+            localStorage.setItem(_LS_KEY_CHECADAS_DIA, JSON.stringify(data));
+          } catch(e) {}
+          pintarBanner(result.veredicto, result.horaServidor || hora);
+        } else {
+          pintarBanner({ texto: '⚠️ No se pudo registrar', color: '#ef4444',
+                         detalle: (result && result.message) || 'Intenta de nuevo' }, hora);
+        }
+        _perfilPintarHoyLocal(sesion);
+        _perfilIniciarCrono(sesion);
+      })
+      .withFailureHandler(function() {
+        // Backend caído → fallback local + encolar
+        var veredicto = _calcularVeredicto(tipo, sesion.idUsuario, ahora);
+        _registrarChecadaLocal(sesion.idUsuario, tipo, ahora.getTime());
+        if (window.OfflineQueue) OfflineQueue.encolar(datos).catch(function() {});
+        pintarBanner(veredicto, hora);
+        _perfilPintarHoyLocal(sesion);
+        _perfilIniciarCrono(sesion);
+      })
+      .guardarChecadaChofer(datos);
+  } else {
+    // OFFLINE: cálculo local + cola
+    var veredicto = _calcularVeredicto(tipo, sesion.idUsuario, ahora);
+    _registrarChecadaLocal(sesion.idUsuario, tipo, ahora.getTime());
+    _enviarOEncolarChecada(datos);
+    pintarBanner(veredicto, hora);
+    _perfilPintarHoyLocal(sesion);
+    _perfilIniciarCrono(sesion);
+  }
 }
 
 // ── Cargar datos del backend (checadas de hoy + historial) ──────────────────
