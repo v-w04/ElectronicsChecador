@@ -1071,6 +1071,12 @@ function procesarAcceso() {
   contrasena = contrasena.trim();
 
   if (pin.length < 4) { mostrarErrorAcceso('Ingresa tu PIN de 4 dígitos'); return; }
+
+  // ⭐ PIN 9999 = PANEL DE DIAGNÓSTICO (si no pertenece a un usuario real)
+  if (pin === '9999' && !(_usuariosCache && _usuariosCache['9999'])) {
+    _mostrarDiagnostico();
+    return;
+  }
   // ⭐ La contraseña solo se exige en MODO PERFIL; la checada rápida es solo PIN
   if (window._modoPerfil && !contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
 
@@ -1582,4 +1588,74 @@ function forzarDosColumnasMovil() {
       card.style.overflow = 'hidden';
     });
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PANEL DE DIAGNÓSTICO — PIN 9999
+// ─────────────────────────────────────────────────────────────────────────────
+// Verifica de un jalón: versión del frontend cargado, versión del backend
+// desplegado, spreadsheet real al que pega, service account, trigger, y los
+// datos de HOY que el backend está viendo. Si frontend y backend no son la
+// misma versión, aquí se ve inmediatamente.
+var FRONTEND_VERSION = 'v584';
+
+function _mostrarDiagnostico() {
+  var viejo = document.getElementById('diag-overlay');
+  if (viejo) viejo.remove();
+
+  var ov = document.createElement('div');
+  ov.id = 'diag-overlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100010;overflow-y:auto;' +
+    'background:#0B1120;font-family:monospace;padding:calc(20px + env(safe-area-inset-top,0px)) 16px 40px;';
+  ov.innerHTML =
+    '<div style="max-width:560px;margin:0 auto;color:#E2E8F0;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<div style="font-size:17px;font-weight:800;">🩺 Diagnóstico</div>' +
+        '<button onclick="document.getElementById(\'diag-overlay\').remove()" ' +
+                'style="padding:8px 16px;background:transparent;color:#94A3B8;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;">Cerrar</button>' +
+      '</div>' +
+      '<div id="diag-body" style="font-size:13px;line-height:1.9;">' +
+        '<div>Frontend cargado: <strong style="color:#7fdfff;">' + FRONTEND_VERSION + '</strong></div>' +
+        '<div>Consultando backend...</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+
+  var body = function() { return document.getElementById('diag-body'); };
+
+  if (navigator.onLine === false) {
+    if (body()) body().innerHTML += '<div style="color:#F87171;">❌ Sin internet — no puedo consultar el backend</div>';
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(d) {
+      var b = body();
+      if (!b || !d) return;
+      var match = (d.backendVersion === FRONTEND_VERSION);
+      b.innerHTML =
+        '<div>Frontend cargado: <strong style="color:#7fdfff;">' + FRONTEND_VERSION + '</strong></div>' +
+        '<div>Backend desplegado: <strong style="color:' + (match ? '#10B981' : '#F87171') + ';">' + (d.backendVersion || '?') + '</strong>' +
+          (match ? ' ✅ coinciden' : ' ❌ NO COINCIDEN — pega el último Code-Simple.gs y RE-DESPLIEGA') + '</div>' +
+        '<div style="margin-top:10px;">📊 Spreadsheet: <strong>' + (d.spreadsheetNombre || '?') + '</strong></div>' +
+        '<div style="font-size:11px;color:#64748B;">ID: ' + (d.spreadsheetId || '?') + '</div>' +
+        '<div style="margin-top:10px;">🔥 Firebase: ' + (d.firebase || '?') + '</div>' +
+        '<div>⏰ Trigger alertas: ' + (d.trigger || '?') + '</div>' +
+        '<div>🔔 Dispositivos push: <strong>' + d.dispositivosPush + '</strong></div>' +
+        '<div>⏱️ Duraciones T2 vigentes: ' + (d.duracionesT2 || '?') + '</div>' +
+        '<div style="margin-top:10px;">📋 Checadas HOY según el backend: <strong>' + d.checadasHoy + '</strong></div>' +
+        ((d.ultimasHoy && d.ultimasHoy.length)
+          ? '<div style="font-size:11px;color:#94A3B8;">' + d.ultimasHoy.join('<br>') + '</div>'
+          : '') +
+        '<div style="margin-top:10px;color:#64748B;font-size:11px;">Hora del servidor: ' + (d.horaServidor || '?') + '</div>' +
+        '<div style="font-size:11px;color:#64748B;word-break:break-all;">Deployment: ' + (d.deploymentUrl || '?') + '</div>';
+    })
+    .withFailureHandler(function(err) {
+      var b = body();
+      if (b) b.innerHTML +=
+        '<div style="color:#F87171;margin-top:8px;">❌ El backend NO tiene diagnosticoCompleto → ' +
+        '<strong>estás corriendo un Code-Simple.gs VIEJO</strong>. Pega el último y RE-DESPLIEGA (Versión nueva).<br>' +
+        '<span style="font-size:11px;">' + (err && err.message ? err.message : err) + '</span></div>';
+    })
+    .diagnosticoCompleto();
 }
