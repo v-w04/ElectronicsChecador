@@ -139,6 +139,10 @@ function activarModoPerfil() {
     overlay.appendChild(keep);
   }
 
+  // ⭐ Mostrar el campo de contraseña (oculto en el flujo rápido de solo PIN)
+  var campoPass = document.getElementById('campo-contrasena-wrap');
+  if (campoPass) campoPass.style.display = '';
+
   // ⭐ Focus INMEDIATO en el input del PIN — sin toques extra. Como esto corre
   // dentro del gesto del usuario (click del botón), el teclado móvil se
   // despliega de una vez.
@@ -161,6 +165,11 @@ function desactivarModoPerfil() {
     btn.style.color = '#94A3B8';
     btn.style.borderColor = 'rgba(255,255,255,0.1)';
   }
+  // ⭐ Ocultar y limpiar el campo de contraseña (el flujo rápido es solo PIN)
+  var campoPass = document.getElementById('campo-contrasena-wrap');
+  if (campoPass) campoPass.style.display = 'none';
+  var inputPass = document.getElementById('input-contrasena');
+  if (inputPass) inputPass.value = '';
   var tag = document.getElementById('perfil-mode-tag');
   if (tag) tag.remove();
   var keep = document.getElementById('perfil-keep-wrap');
@@ -232,7 +241,13 @@ function abrirPerfil(sesion) {
 
       // Historial
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Últimos 7 días</div>' +
-      '<div id="perfil-historial">' +
+      '<div id="perfil-historial" style="margin-bottom:28px;">' +
+        '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
+      '</div>' +
+
+      // ⭐ Mis alertas — preferencias por empleado
+      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">🔔 Mis alertas</div>' +
+      '<div id="perfil-alertas">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
@@ -251,6 +266,7 @@ function abrirPerfil(sesion) {
 
   _perfilPintarBotones(sesion);
   _perfilCargarDatos(sesion);
+  _perfilCargarAlertas(sesion);
   _perfilIniciarCrono(sesion);
 
   // ⭐ Cargar overrides de avatar si aún no están (el avatar se repinta al llegar)
@@ -547,3 +563,117 @@ function _perfilActualizarCrono(sesion) {
 }
 
 console.log('✅ Perfil módulo cargado');
+
+// ── MIS ALERTAS — preferencias por empleado ─────────────────────────────────
+// Toggles para activar/desactivar cada categoría de alertas push.
+// Se guardan en la hoja PREFS_ALERTAS; el motor las respeta al minuto.
+var _PERFIL_CATS_ALERTAS = [
+  { key: 'entrada',  emoji: '🏢', label: 'Entrada',  desc: 'Aviso 15 min antes y al momento de tu hora (bono)' },
+  { key: 'desayuno', emoji: '🥐', label: 'Desayuno', desc: 'Aviso antes del exceso y recordatorios' },
+  { key: 'comida',   emoji: '🍽️', label: 'Comida',   desc: 'Aviso antes del exceso y recordatorios' },
+  { key: 'salida',   emoji: '🏠', label: 'Salida',   desc: 'Aviso antes de tu hora y tiempo regalado' }
+];
+
+function _perfilCargarAlertas(sesion) {
+  var cont = document.getElementById('perfil-alertas');
+  if (!cont) return;
+
+  if (navigator.onLine === false) {
+    cont.innerHTML = '<div style="color:#64748B;font-size:13px;font-style:italic;">📡 Sin internet — configura tus alertas cuando haya conexión</div>';
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || !result.ok) {
+        cont.innerHTML = '<div style="color:#64748B;font-size:13px;font-style:italic;">No se pudieron cargar tus alertas</div>';
+        return;
+      }
+      window._perfilPrefs = result.prefs;
+      _perfilPintarAlertas(sesion);
+    })
+    .withFailureHandler(function() {
+      cont.innerHTML = '<div style="color:#64748B;font-size:13px;font-style:italic;">No se pudieron cargar tus alertas</div>';
+    })
+    .getPrefsAlertas(sesion.pin);
+}
+
+function _perfilPintarAlertas(sesion) {
+  var cont = document.getElementById('perfil-alertas');
+  if (!cont) return;
+  var prefs = window._perfilPrefs || { entrada: 'SI', desayuno: 'SI', comida: 'SI', salida: 'SI' };
+  var todasActivas = _PERFIL_CATS_ALERTAS.every(function(c) { return prefs[c.key] !== 'NO'; });
+
+  function toggleHtml(activo, onclickJs) {
+    return '<div onclick="' + onclickJs + '" ' +
+           'style="width:48px;height:27px;border-radius:999px;cursor:pointer;flex-shrink:0;position:relative;transition:background 0.2s;' +
+                  'background:' + (activo ? 'var(--primary,#3B82F6)' : 'rgba(255,255,255,0.12)') + ';">' +
+             '<div style="position:absolute;top:3px;' + (activo ? 'right:3px;' : 'left:3px;') +
+                    'width:21px;height:21px;border-radius:50%;background:#fff;transition:all 0.2s;"></div>' +
+           '</div>';
+  }
+
+  var html =
+    // Master
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;margin-bottom:8px;' +
+           'background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:12px;border:1px solid rgba(80,150,220,0.18);">' +
+      '<div>' +
+        '<div style="font-size:15px;font-weight:800;color:var(--text-primary,#F1F5F9);">Todas las alertas</div>' +
+        '<div style="font-size:12px;color:#64748B;margin-top:2px;">Activa o apaga todo de un golpe</div>' +
+      '</div>' +
+      toggleHtml(todasActivas, '_perfilToggleTodas()') +
+    '</div>';
+
+  _PERFIL_CATS_ALERTAS.forEach(function(c) {
+    var activo = prefs[c.key] !== 'NO';
+    html +=
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;margin-bottom:6px;' +
+             'background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:12px;border:1px solid rgba(80,150,220,0.1);' +
+             (activo ? '' : 'opacity:0.55;') + '">' +
+        '<div style="min-width:0;">' +
+          '<div style="font-size:14px;font-weight:700;color:var(--text-primary,#F1F5F9);">' + c.emoji + ' ' + c.label + '</div>' +
+          '<div style="font-size:12px;color:#64748B;margin-top:2px;">' + c.desc + '</div>' +
+        '</div>' +
+        toggleHtml(activo, '_perfilToggleAlerta(\'' + c.key + '\')') +
+      '</div>';
+  });
+
+  html += '<div id="perfil-alertas-status" style="font-size:12px;color:#64748B;text-align:right;padding:4px 4px 0;min-height:16px;"></div>';
+  cont.innerHTML = html;
+}
+
+function _perfilToggleAlerta(key) {
+  var prefs = window._perfilPrefs;
+  if (!prefs) return;
+  prefs[key] = (prefs[key] === 'NO') ? 'SI' : 'NO';
+  var sesion = _perfilLeerSesion();
+  if (sesion) { _perfilPintarAlertas(sesion); _perfilGuardarAlertas(sesion); }
+}
+
+function _perfilToggleTodas() {
+  var prefs = window._perfilPrefs;
+  if (!prefs) return;
+  var todasActivas = _PERFIL_CATS_ALERTAS.every(function(c) { return prefs[c.key] !== 'NO'; });
+  var nuevo = todasActivas ? 'NO' : 'SI';
+  _PERFIL_CATS_ALERTAS.forEach(function(c) { prefs[c.key] = nuevo; });
+  var sesion = _perfilLeerSesion();
+  if (sesion) { _perfilPintarAlertas(sesion); _perfilGuardarAlertas(sesion); }
+}
+
+function _perfilGuardarAlertas(sesion) {
+  var status = document.getElementById('perfil-alertas-status');
+  if (status) status.textContent = 'Guardando...';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      var s = document.getElementById('perfil-alertas-status');
+      if (s) {
+        s.textContent = (r && r.ok) ? '✓ Guardado' : '✗ No se pudo guardar';
+        setTimeout(function() { if (s) s.textContent = ''; }, 2500);
+      }
+    })
+    .withFailureHandler(function() {
+      var s = document.getElementById('perfil-alertas-status');
+      if (s) s.textContent = '✗ Sin conexión — reintenta';
+    })
+    .guardarPrefsAlertas(sesion.pin, window._perfilPrefs);
+}

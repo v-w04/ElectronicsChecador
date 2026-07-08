@@ -489,7 +489,7 @@ function _enviarDirecto(datos) {
 // referencia y a los 15 segundos CIERRA esa pestaña automáticamente → el
 // empleado cae de vuelta al checador. Mientras tanto, la PWA muestra una
 // pantalla de espera con el contador grande.
-var _SITIO_AUTOREGRESO_SEG = 15;
+var _SITIO_AUTOREGRESO_SEG = 7;
 var _sitioTimerRegreso = null;
 var _sitioVentana = null;
 
@@ -749,8 +749,10 @@ function mostrarPantallaPIN() {
         '<img class="ring-btn__logo" src="logo-electronics.png" alt="Entrar" draggable="false" />' +
       '</button>' +
 
-      // Campo Contraseña (mitad inferior)
-      '<div class="ring-field ring-field--bottom">' +
+      // Campo Contraseña (mitad inferior) — OCULTO por default.
+      // El flujo rápido de checada usa SOLO PIN; la contraseña únicamente
+      // aparece en MODO PERFIL (activarModoPerfil la muestra).
+      '<div id="campo-contrasena-wrap" class="ring-field ring-field--bottom" style="display:none;">' +
         '<label id="contrasena-label" class="ring-label" for="input-contrasena">Contraseña</label>' +
         '<input id="input-contrasena" class="ring-input ring-input--masked" type="text" ' +
                'inputmode="numeric" pattern="[0-9]*" maxlength="4" ' +
@@ -810,9 +812,18 @@ function mostrarPantallaPIN() {
     ip.addEventListener('input', function() {
       _onlyDigits(ip);
       _updateRingFromInputs();
-      if (ip.value.length >= 4 && ic) {
-        // Pequeño delay para que el último dígito se vea antes del salto
-        setTimeout(function() { ic.focus(); }, 80);
+      if (ip.value.length >= 4) {
+        if (window._modoPerfil && ic) {
+          // Modo perfil: saltar al campo de contraseña
+          setTimeout(function() { ic.focus(); }, 80);
+        } else {
+          // ⭐ Flujo rápido: SOLO PIN → checar directo (sin contraseña)
+          ip.blur();
+          if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+          }
+          setTimeout(function() { procesarAcceso(); }, 100);
+        }
       }
     });
     // Bloquear caracteres no numéricos antes de que entren (desktop)
@@ -991,7 +1002,8 @@ function procesarAcceso() {
   contrasena = contrasena.trim();
 
   if (pin.length < 4) { mostrarErrorAcceso('Ingresa tu PIN de 4 dígitos'); return; }
-  if (!contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
+  // ⭐ La contraseña solo se exige en MODO PERFIL; la checada rápida es solo PIN
+  if (window._modoPerfil && !contrasena) { mostrarErrorAcceso('Ingresa tu contraseña'); return; }
 
   var btn = document.getElementById('btn-acceso');
   if (btn) { btn.disabled = true; _setBtnLabel(btn, 'Verificando'); }
@@ -1023,8 +1035,8 @@ function procesarAcceso() {
       return;
     }
 
-    // CHOFER: validar contraseña local
-    if (contrasena !== (usuario.contrasena || '').toString().trim()) {
+    // CHOFER: la contraseña SOLO se valida en modo perfil
+    if (window._modoPerfil && contrasena !== (usuario.contrasena || '').toString().trim()) {
       mostrarErrorAcceso('Contraseña incorrecta');
       if (btn) { btn.disabled = false; _setBtnLabel(btn, 'Entrar'); }
       var ic2 = document.getElementById('input-contrasena');
