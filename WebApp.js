@@ -480,109 +480,97 @@ function _enviarDirecto(datos) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE ACCESO
 // ─────────────────────────────────────────────────────────────────────────────
+
 // ─────────────────────────────────────────────────────────────────────────────
-// SITIO ELECTRONICS — abre electronicsmexico.site/checador dentro de la PWA
+// SITIO ELECTRONICS — abre electronicsmexico.site/checador en pestaña real
 // ─────────────────────────────────────────────────────────────────────────────
-// Flujo: el empleado abre el sitio, hace su checada con QR allá, y a los
-// 10 segundos la PWA lo regresa AUTOMÁTICAMENTE a la pantalla del PIN.
-// El botón muestra la cuenta regresiva; "+30s" da más tiempo si lo necesita;
-// "← Volver" regresa de inmediato.
+// El sitio NO permite iframes (bloqueado por su hosting), así que se abre en
+// una pestaña/Custom Tab de Chrome con window.open(). La PWA conserva la
+// referencia y a los 15 segundos CIERRA esa pestaña automáticamente → el
+// empleado cae de vuelta al checador. Mientras tanto, la PWA muestra una
+// pantalla de espera con el contador grande.
 var _SITIO_AUTOREGRESO_SEG = 15;
 var _sitioTimerRegreso = null;
+var _sitioVentana = null;
 
 function abrirSitioElectronics() {
   var viejo = document.getElementById('sitio-electronics-overlay');
   if (viejo) viejo.remove();
   if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
 
+  // Abrir la pestaña DENTRO del gesto del usuario (para que Chrome no la bloquee)
+  _sitioVentana = window.open('https://electronicsmexico.site/checador', '_blank');
+
+  // Pantalla de espera en la PWA con contador grande
   var ov = document.createElement('div');
   ov.id = 'sitio-electronics-overlay';
-  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100005;background:#0F172A;';
-  ov.innerHTML =
-    '<iframe src="https://electronicsmexico.site/checador" ' +
-            'style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" ' +
-            'allow="fullscreen; camera"></iframe>' +
-    // Botón flotante de regreso con cuenta regresiva
-    '<button id="sitio-btn-volver" onclick="cerrarSitioElectronics()" ' +
-            'style="position:fixed;top:14px;left:14px;z-index:100006;padding:11px 20px;' +
-                   'border-radius:999px;background:rgba(15,23,42,0.92);color:#7fdfff;' +
-                   'border:1px solid rgba(127,223,255,0.4);font-size:14px;font-weight:700;' +
-                   'cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.5);">' +
-      '← Volver (' + _SITIO_AUTOREGRESO_SEG + 's)' +
-    '</button>' +
-    // Más tiempo
-    '<button onclick="_sitioMasTiempo()" ' +
-            'style="position:fixed;top:14px;right:14px;z-index:100006;padding:11px 16px;' +
-                   'border-radius:999px;background:rgba(15,23,42,0.85);color:#94A3B8;' +
-                   'border:1px solid rgba(255,255,255,0.15);font-size:13px;font-weight:600;' +
-                   'cursor:pointer;backdrop-filter:blur(8px);">' +
-      '+30s' +
-    '</button>' +
-    // Fallback por si el sitio no carga en iframe
-    '<a href="https://electronicsmexico.site/checador" target="_blank" rel="noopener" ' +
-       'style="position:fixed;bottom:14px;right:14px;z-index:100006;padding:8px 14px;' +
-              'border-radius:999px;background:rgba(15,23,42,0.85);color:#64748B;' +
-              'border:1px solid rgba(255,255,255,0.1);font-size:12px;text-decoration:none;backdrop-filter:blur(6px);">' +
-      '¿No carga? Abrir en pestaña nueva ↗' +
-    '</a>' +
-    // ⭐ CONTADOR REGRESIVO GRANDE — círculo flotante abajo al centro
-    '<div id="sitio-contador" ' +
-         'style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100006;' +
-                'width:74px;height:74px;border-radius:50%;background:rgba(15,23,42,0.92);' +
-                'border:3px solid #7fdfff;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-                'backdrop-filter:blur(8px);box-shadow:0 0 24px rgba(127,223,255,0.35);">' +
-      '<div id="sitio-contador-num" style="font-size:28px;font-weight:800;color:#7fdfff;line-height:1;font-variant-numeric:tabular-nums;">' +
-        _SITIO_AUTOREGRESO_SEG +
+  ov.style.cssText =
+    'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100005;' +
+    'background:radial-gradient(circle at 50% 50%, #0e1d3a 0%, #050b18 100%);' +
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;';
+
+  if (_sitioVentana) {
+    ov.innerHTML =
+      '<div style="font-size:17px;color:#94A3B8;font-weight:600;text-align:center;">🌐 Sitio Electronics abierto</div>' +
+      '<div style="font-size:15px;color:#64748B;text-align:center;max-width:340px;line-height:1.5;">' +
+        'Haz tu registro con el QR. La pestaña se cerrará sola y regresarás aquí.' +
       '</div>' +
-      '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">regreso</div>' +
-    '</div>';
+      '<div style="width:130px;height:130px;border-radius:50%;background:rgba(15,23,42,0.9);' +
+             'border:4px solid #7fdfff;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+             'box-shadow:0 0 34px rgba(127,223,255,0.4);">' +
+        '<div id="sitio-contador-num" style="font-size:52px;font-weight:800;color:#7fdfff;line-height:1;font-variant-numeric:tabular-nums;">' +
+          _SITIO_AUTOREGRESO_SEG +
+        '</div>' +
+        '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:2px;margin-top:4px;">regreso</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:12px;">' +
+        '<button onclick="_sitioMasTiempo()" ' +
+                'style="padding:12px 22px;border-radius:999px;background:rgba(30,41,59,0.8);color:#94A3B8;' +
+                       'border:1px solid rgba(255,255,255,0.15);font-size:14px;font-weight:700;cursor:pointer;">+30s</button>' +
+        '<button onclick="cerrarSitioElectronics()" ' +
+                'style="padding:12px 22px;border-radius:999px;background:rgba(15,23,42,0.9);color:#7fdfff;' +
+                       'border:1px solid rgba(127,223,255,0.4);font-size:14px;font-weight:700;cursor:pointer;">← Volver ya</button>' +
+      '</div>';
+  } else {
+    // Popup bloqueado por el navegador → botón manual (el click directo siempre pasa)
+    ov.innerHTML =
+      '<div style="font-size:16px;color:#F59E0B;font-weight:700;text-align:center;">El navegador bloqueó la apertura automática</div>' +
+      '<a href="https://electronicsmexico.site/checador" target="_blank" rel="noopener" ' +
+         'onclick="setTimeout(function(){ cerrarSitioElectronics(); }, ' + (_SITIO_AUTOREGRESO_SEG * 1000) + ');" ' +
+         'style="padding:16px 30px;border-radius:14px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;' +
+                'font-size:17px;font-weight:800;text-decoration:none;">🌐 Abrir sitio Electronics</a>' +
+      '<button onclick="cerrarSitioElectronics()" ' +
+              'style="padding:10px 20px;border-radius:999px;background:transparent;color:#64748B;' +
+                     'border:1px solid rgba(255,255,255,0.12);font-size:13px;cursor:pointer;">← Volver al checador</button>';
+  }
   document.body.appendChild(ov);
 
-  // Cuenta regresiva de auto-regreso
-  window._sitioSegundosRestantes = _SITIO_AUTOREGRESO_SEG;
-  _sitioTimerRegreso = setInterval(function() {
-    window._sitioSegundosRestantes--;
-    var btn = document.getElementById('sitio-btn-volver');
-    var num = document.getElementById('sitio-contador-num');
-    if (!btn) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; return; }
-    if (window._sitioSegundosRestantes <= 0) {
-      cerrarSitioElectronics();
-    } else {
-      btn.innerHTML = '← Volver (' + window._sitioSegundosRestantes + 's)';
-      if (num) {
-        num.textContent = window._sitioSegundosRestantes;
-        // Últimos 5 segundos: el contador se pone rojo y pulsa
-        var cont = document.getElementById('sitio-contador');
-        if (window._sitioSegundosRestantes <= 5 && cont) {
-          num.style.color = '#EF4444';
-          cont.style.borderColor = '#EF4444';
-          cont.style.boxShadow = '0 0 24px rgba(239,68,68,0.5)';
-          cont.style.transform = 'translateX(-50%) scale(' + (window._sitioSegundosRestantes % 2 === 0 ? '1.08' : '1') + ')';
-        }
-      }
-    }
-  }, 1000);
+  // Cuenta regresiva → al llegar a 0 cierra la pestaña del sitio y limpia
+  if (_sitioVentana) {
+    window._sitioSegundosRestantes = _SITIO_AUTOREGRESO_SEG;
+    _sitioTimerRegreso = setInterval(function() {
+      window._sitioSegundosRestantes--;
+      var num = document.getElementById('sitio-contador-num');
+      if (num) num.textContent = window._sitioSegundosRestantes;
+      if (window._sitioSegundosRestantes <= 0) cerrarSitioElectronics();
+    }, 1000);
+  }
 }
 
 function _sitioMasTiempo() {
   window._sitioSegundosRestantes = (window._sitioSegundosRestantes || 0) + 30;
-  var btn = document.getElementById('sitio-btn-volver');
-  if (btn) btn.innerHTML = '← Volver (' + window._sitioSegundosRestantes + 's)';
   var num = document.getElementById('sitio-contador-num');
-  var cont = document.getElementById('sitio-contador');
-  if (num) { num.textContent = window._sitioSegundosRestantes; num.style.color = '#7fdfff'; }
-  if (cont) {
-    cont.style.borderColor = '#7fdfff';
-    cont.style.boxShadow = '0 0 24px rgba(127,223,255,0.35)';
-    cont.style.transform = 'translateX(-50%)';
-  }
+  if (num) num.textContent = window._sitioSegundosRestantes;
 }
 
 function cerrarSitioElectronics() {
   if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
+  // ⭐ Cerrar la pestaña del sitio externo (permitido porque la abrió este script)
+  try { if (_sitioVentana && !_sitioVentana.closed) _sitioVentana.close(); } catch(e) {}
+  _sitioVentana = null;
   var ov = document.getElementById('sitio-electronics-overlay');
   if (ov) ov.remove();
-  // La pantalla del PIN sigue intacta debajo — no hay que reconstruir nada
+  // La pantalla del PIN sigue intacta debajo
 }
 
 function mostrarPantallaPIN() {
