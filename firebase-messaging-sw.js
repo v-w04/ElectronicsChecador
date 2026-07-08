@@ -1,0 +1,46 @@
+// ============================================================================
+// FIREBASE MESSAGING SERVICE WORKER — Checador Electronics México
+// ============================================================================
+// Recibe las notificaciones push cuando la PWA está CERRADA o en background.
+// Convive con service-worker.js (el del cache) — cada uno hace lo suyo.
+// Este archivo DEBE llamarse firebase-messaging-sw.js y vivir en la raíz.
+
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
+  authDomain: "checador-electronics.firebaseapp.com",
+  projectId: "checador-electronics",
+  storageBucket: "checador-electronics.firebasestorage.app",
+  messagingSenderId: "888222391494",
+  appId: "1:888222391494:web:3b310692d7aab6e76d8bc7"
+});
+
+const messaging = firebase.messaging();
+
+// Notificaciones en background (app cerrada o minimizada)
+messaging.onBackgroundMessage(function(payload) {
+  const titulo = (payload.notification && payload.notification.title) || 'Checador Electronics';
+  const cuerpo = (payload.notification && payload.notification.body) || '';
+  self.registration.showNotification(titulo, {
+    body: cuerpo,
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    vibrate: [200, 100, 200],
+    tag: 'checador-alerta'
+  });
+});
+
+// Al tocar la notificación → abrir/enfocar la PWA
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(lista) {
+      for (var i = 0; i < lista.length; i++) {
+        if ('focus' in lista[i]) return lista[i].focus();
+      }
+      if (clients.openWindow) return clients.openWindow('./');
+    })
+  );
+});

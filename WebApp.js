@@ -836,7 +836,17 @@ function mostrarPantallaPIN() {
     });
     ip.addEventListener('focus', _markFocusTop);
     ip.addEventListener('blur',  _clearFocus);
+    // ⭐ Focus automático al cargar (doble intento — a veces el primero llega
+    // antes de que el overlay termine de pintar)
     setTimeout(function() { ip.focus(); }, 100);
+    setTimeout(function() { if (document.activeElement !== ip) ip.focus(); }, 450);
+    // ⭐ Tocar cualquier área vacía de la pantalla regresa el cursor al PIN
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay || (e.target && e.target.id === 'pin-box')) {
+        var campo = window._modoPerfil ? document.getElementById('input-contrasena') : ip;
+        if (campo) campo.focus();
+      }
+    });
   }
 
   if (ic) {
@@ -1210,18 +1220,18 @@ function _registrarChecada(nombre, idUsuario, gpsData, setStatus) {
                     'stroke-dashoffset="0" transform="rotate(-90 300 300)" />' +
           '</g>' +
         '</svg>' +
-        '<div class="ring-panel ring-panel--flow">' +
-          '<div class="ring-flow__check" style="font-size:58px;line-height:1;">' + etiqueta.emoji + '</div>' +
-          '<div style="font-size:16px;color:#a7ffc4;text-transform:uppercase;letter-spacing:3px;font-weight:800;margin-top:8px;">' +
+        '<div class="ring-panel ring-panel--flow" style="max-width:88%;overflow-wrap:break-word;">' +
+          '<div class="ring-flow__check" style="font-size:clamp(42px,11vw,58px);line-height:1;">' + etiqueta.emoji + '</div>' +
+          '<div style="font-size:clamp(12px,3.4vw,16px);color:#a7ffc4;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-top:8px;">' +
             etiqueta.label +
           '</div>' +
-          '<div class="ring-flow__title" style="color:' + veredicto.color + ';font-size:36px;font-weight:800;line-height:1.15;margin-top:8px;">' +
+          '<div class="ring-flow__title" style="color:' + veredicto.color + ';font-size:clamp(24px,6.5vw,36px);font-weight:800;line-height:1.15;margin-top:8px;overflow-wrap:break-word;">' +
             veredicto.texto +
           '</div>' +
           (veredicto.detalle
-            ? '<div style="margin-top:12px;font-size:19px;font-weight:600;color:#F1F5F9;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.45;">' + veredicto.detalle + '</div>'
+            ? '<div style="margin-top:10px;font-size:clamp(14px,4vw,19px);font-weight:600;color:#F1F5F9;max-width:min(400px,92%);margin-left:auto;margin-right:auto;line-height:1.45;overflow-wrap:break-word;">' + veredicto.detalle + '</div>'
             : '') +
-          '<div style="margin-top:12px;font-size:15px;color:#94A3B8;">' + nombre + ' · ' + hora + '</div>' +
+          '<div style="margin-top:10px;font-size:clamp(12px,3.5vw,15px);color:#94A3B8;max-width:92%;margin-left:auto;margin-right:auto;overflow-wrap:break-word;">' + nombre + ' · ' + hora + '</div>' +
           (navigator.onLine === false
             ? '<div style="margin-top:8px;font-size:13px;color:#fbbf24;">📡 Se sincronizará al recuperar conexión</div>'
             : '') +

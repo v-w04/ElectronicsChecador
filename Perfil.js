@@ -214,7 +214,7 @@ function abrirPerfil(sesion) {
           '<div id="perfil-avatar-wrap" style="flex-shrink:0;border-radius:50%;border:2px solid rgba(80,150,220,0.25);' +
                  'box-shadow:0 0 16px rgba(30,144,255,0.25);line-height:0;">' + avatarHtml + '</div>' +
           '<div>' +
-            '<div style="font-size:21px;font-weight:800;color:var(--text-primary,#F1F5F9);letter-spacing:-0.3px;line-height:1.2;">' + sesion.nombre + '</div>' +
+            '<div class="perfil-nombre" style="font-size:21px;font-weight:800;color:var(--text-primary,#F1F5F9);letter-spacing:-0.3px;line-height:1.2;">' + sesion.nombre + '</div>' +
             '<div style="font-size:14px;color:var(--text-secondary,#94A3B8);margin-top:3px;font-weight:600;">' +
               (sesion.turnoHorario ? '🕐 ' + sesion.turnoHorario : '') +
             '</div>' +
