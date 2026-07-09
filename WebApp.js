@@ -347,16 +347,16 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       var iniM = t.inicio.h * 60 + t.inicio.m;
       var cfgT = _cfgTurnoDe(idUsuario) || {};
       var tol = cfgT.tolerancia || 15;
+      var limTol = iniM + tol, limRet = iniM + 30;
       var ret = minAhora - iniM;
-      var eraA = 'Tu entrada era a las ' + _formatearHora(iniM) + '. ';
-      if (ret <= 0) return { texto: '✅ Entrada puntual', color: '#3ddc84',
-                             detalle: 'Tu turno: ' + _formatearHora(iniM) + ' — llegaste a tiempo' };
-      if (ret <= tol) return { texto: '⚠️ Llegaste ' + ret + ' min tarde', color: '#fbbf24',
-                               detalle: eraA + 'Dentro de la tolerancia de ' + tol + ' min: tu bono sigue a salvo.' };
-      if (ret <= 30) return { texto: '❌ ' + ret + ' min tarde — PERDISTE EL BONO', color: '#ef4444',
-                              detalle: eraA + 'Aún no es retardo (empieza a los 31 min), pero cuídate: 3 retardos son MEDIO DÍA.' };
-      return { texto: '❌ RETARDO — ' + ret + ' min tarde', color: '#ef4444',
-               detalle: eraA + 'Esto cuenta como retardo. 3 retardos en la quincena = MEDIO DÍA de descuento. Bono perdido.' };
+      if (ret <= tol) return { texto: '✅ Entrada a tiempo', color: '#3ddc84',
+                               detalle: 'Apto para el bono de puntualidad.' };
+      if (ret <= 30) return { texto: '❌ Perdiste el bono', color: '#ef4444',
+                              detalle: (minAhora - limTol) + ' min pasado el límite de las ' + _formatearHora(limTol) +
+                                       '. Aún no es retardo (' + _formatearHora(limRet + 1) + ').' };
+      return { texto: '❌ Retardo', color: '#ef4444',
+               detalle: (minAhora - limRet) + ' min pasado el límite de las ' + _formatearHora(limRet) +
+                        '. 3 retardos = MEDIO DÍA de descuento.' };
     }
 
     case 'SALIDA_DESAYUNO': {
@@ -377,7 +377,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       }
       var excD = durD - _dd2;
       return { texto: '❌ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
-               detalle: 'Tomaste ' + durD + ' min de ' + _dd2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
+               detalle: 'Tomaste ' + durD + ' min de ' + _dd2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no se perdona ni un minuto.' };
     }
 
     case 'SALIDA_COMIDA': {
@@ -398,7 +398,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       }
       var excC = durC - _dc2;
       return { texto: '❌ Exceso de ' + excC + ' min en comida', color: '#ef4444',
-               detalle: 'Tomaste ' + durC + ' min de ' + _dc2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no perdonan ni una.' };
+               detalle: 'Tomaste ' + durC + ' min de ' + _dc2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no se perdona ni un minuto.' };
     }
 
     case 'SALIDA': {
@@ -1623,7 +1623,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v594';
+var FRONTEND_VERSION = 'v595';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {

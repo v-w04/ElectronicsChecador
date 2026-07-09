@@ -236,10 +236,6 @@ function abrirPerfil(sesion) {
       // Veredicto de la última checada desde el perfil
       '<div id="perfil-veredicto" style="display:none;margin-bottom:18px;"></div>' +
 
-      // Botones de checada
-      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Registrar checada</div>' +
-      '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;"></div>' +
-
       // Estado del día
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Hoy</div>' +
       '<div id="perfil-hoy" style="margin-bottom:28px;">' +
@@ -254,9 +250,15 @@ function abrirPerfil(sesion) {
 
       // ⭐ Mis alertas — preferencias por empleado
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">🔔 Mis alertas</div>' +
-      '<div id="perfil-alertas">' +
+      '<div id="perfil-alertas" style="margin-bottom:28px;">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
+
+      // ⭐ Botones de checada MANUAL — hasta el fondo a propósito: la checada
+      // normal es desde la tablet con PIN. Esto es para emergencias/pruebas.
+      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:6px;">Checada manual</div>' +
+      '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Solo para emergencias o pruebas — la checada normal es en la tablet con tu PIN.</div>' +
+      '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;"></div>' +
 
       // Limpieza local (pruebas): borra SOLO el registro del día en este
       // dispositivo. No toca el sheet ni la cola offline.
@@ -586,7 +588,7 @@ function _perfilActualizarCrono(sesion) {
         '<div style="font-size:38px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + fmt(trans) + '</div>' +
         '<div style="font-size:13px;color:#CBD5E1;">' +
           (excedido
-            ? '❌ Exceso de ' + Math.floor((trans - limSeg) / 60) + ' min — ¡CORRE! Por UN minuto te descuentan UNA HORA. Aquí no perdonan ni una.'
+            ? '❌ Exceso de ' + Math.floor((trans - limSeg) / 60) + ' min — ¡CORRE! Por UN minuto te descuentan UNA HORA. Aquí no se perdona ni un minuto.'
             : 'de ' + limMin + ':00 permitidos · te quedan ' + Math.ceil((limSeg - trans) / 60) + ' min') +
         '</div>' +
       '</div>';
