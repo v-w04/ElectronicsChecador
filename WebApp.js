@@ -577,7 +577,9 @@ function abrirSitioElectronics() {
   // CIERRA la anterior para no acumular pestañas. Reutilizar la misma pestaña
   // recargándola dejaba la cámara en negro.
   try { if (_sitioVentana && !_sitioVentana.closed) _sitioVentana.close(); } catch(e) {}
-  _sitioVentana = window.open('https://electronicsmexico.site/checador', '_blank');
+  // Trampolín propio: carga el sitio SOLO cuando la pestaña ya es visible
+  // (cargarlo en background dejaba la cámara del QR en negro)
+  _sitioVentana = window.open('sitio.html', '_blank');
 
   if (!_sitioVentana) {
     var viejo = document.getElementById('sitio-popup-aviso');
@@ -1581,7 +1583,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v616';
+var FRONTEND_VERSION = 'v617';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
