@@ -236,39 +236,33 @@ function abrirPerfil(sesion) {
       // Veredicto de la última checada desde el perfil
       '<div id="perfil-veredicto" style="display:none;margin-bottom:18px;"></div>' +
 
-      // Estado del día
+      // ── 1. Excepciones del día ──
+      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:6px;">Hoy no trabajo</div>' +
+      '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Marca el día y la app no te manda alertas.</div>' +
+      '<div id="perfil-excepciones" style="margin-bottom:28px;"></div>' +
+
+      // ── 2. Desglose de HOY ──
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Hoy</div>' +
       '<div id="perfil-hoy" style="margin-bottom:28px;">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
-      // Historial
-      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Últimos 7 días</div>' +
+      // ── 3. Historial de la quincena ──
+      '<div id="perfil-quincena-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"></div>' +
       '<div id="perfil-historial" style="margin-bottom:28px;">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
-      // ⭐ Mis alertas — preferencias por empleado
+      // ── 4. Mis alertas ──
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">🔔 Mis alertas</div>' +
       '<div id="perfil-alertas" style="margin-bottom:28px;">' +
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
-      // ⭐ Botones de checada MANUAL — hasta el fondo a propósito: la checada
-      // normal es desde la tablet con PIN. Esto es para emergencias/pruebas.
+      // ── 5. Checada manual (hasta el fondo, para emergencias) ──
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:6px;">Checada manual</div>' +
-      '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Solo para emergencias o pruebas — la checada normal es en la tablet con tu PIN.</div>' +
+      '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Solo para emergencias — lo normal es checar en la tablet con tu PIN.</div>' +
       '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;"></div>' +
-
-      // Limpieza local (pruebas): borra SOLO el registro del día en este
-      // dispositivo. No toca el sheet ni la cola offline.
-      '<div style="text-align:center;margin-top:32px;">' +
-        '<button onclick="_perfilLimpiarLocalHoy()" ' +
-                'style="padding:8px 16px;background:transparent;color:#475569;border:1px solid rgba(255,255,255,0.08);' +
-                       'border-radius:999px;font-size:12px;cursor:pointer;">' +
-          '🧹 Limpiar registros de hoy en este dispositivo' +
-        '</button>' +
-      '</div>' +
 
     '</div>';
   document.body.appendChild(overlay);
@@ -276,6 +270,8 @@ function abrirPerfil(sesion) {
   _perfilPintarBotones(sesion);
   _perfilCargarDatos(sesion);
   _perfilCargarAlertas(sesion);
+  _perfilCargarExcepciones(sesion);
+  _perfilCargarQuincena(sesion, 0);
 
   // ⭐ Notificaciones push: pedir el permiso REQUIERE un gesto del usuario
   // (Chrome silencia los prompts automáticos y iOS ni los muestra), así que
@@ -484,8 +480,7 @@ function _perfilCargarDatos(sesion) {
         } catch(e) {}
         _perfilPintarHoyLocal(sesion);
         _perfilIniciarCrono(sesion);
-        _perfilPintarHistorial(result.historial || {});
-      }
+        }
 
       if (window.OfflineQueue && OfflineQueue.contar) {
         OfflineQueue.contar().then(aplicarMerge).catch(function() { aplicarMerge(1); });
@@ -501,111 +496,9 @@ function _perfilCargarDatos(sesion) {
 }
 
 // ── Pintar checadas de HOY (desde registro local) ───────────────────────────
-function _perfilPintarHoyLocal(sesion) {
-  var cont = document.getElementById('perfil-hoy');
-  if (!cont) return;
-  var checadas = _checadasHoyDe(sesion.idUsuario);
-  if (checadas.length === 0) {
-    cont.innerHTML = '<div style="color:#475569;font-size:13px;font-style:italic;padding:8px 0;">Sin checadas todavía</div>';
-    return;
-  }
-  cont.innerHTML = checadas.map(function(c) {
-    var et = _ETIQUETAS_TIPO[c.tipo] || _ETIQUETAS_TIPO['EXTRA'];
-    var d = new Date(c.ts);
-    var hora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-    return (
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 15px;' +
-             'background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:10px;margin-bottom:6px;border:1px solid rgba(80,150,220,0.12);">' +
-        '<span style="font-size:14px;color:#E2E8F0;">' + et.emoji + ' ' + et.label + '</span>' +
-        '<span style="font-size:14px;color:#94A3B8;font-weight:700;font-variant-numeric:tabular-nums;">' + hora + '</span>' +
-      '</div>'
-    );
-  }).join('');
-}
+
 
 // ── Historial de 7 días ─────────────────────────────────────────────────────
-function _perfilPintarHistorial(historial) {
-  var cont = document.getElementById('perfil-historial');
-  if (!cont) return;
-  var fechas = Object.keys(historial).sort().reverse();
-  var hoy = _fechaHoyLocal();
-
-  var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-  var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-
-  function hhmm(h) { return (h || '').substring(0, 5); }
-  function aMin(h) {
-    var p = (h || '').match(/(\d{1,2}):(\d{2})/);
-    return p ? parseInt(p[1], 10) * 60 + parseInt(p[2], 10) : null;
-  }
-  function primera(items, tipo) {
-    for (var i = 0; i < items.length; i++) if (items[i].tipo === tipo) return items[i];
-    return null;
-  }
-  function fila(emoji, etiqueta, valor, extra, color) {
-    return '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;">' +
-      '<span style="width:20px;flex-shrink:0;font-size:14px;">' + emoji + '</span>' +
-      '<span style="width:74px;flex-shrink:0;font-size:12px;color:#64748B;">' + etiqueta + '</span>' +
-      '<span style="font-size:14px;font-weight:700;color:' + (color || '#E2E8F0') + ';font-variant-numeric:tabular-nums;">' + valor + '</span>' +
-      (extra ? '<span style="font-size:12px;color:' + (color || '#64748B') + ';">' + extra + '</span>' : '') +
-    '</div>';
-  }
-
-  var html = '';
-  fechas.forEach(function(f) {
-    if (f === hoy) return; // hoy se muestra arriba
-    var items = (historial[f] || []).slice().sort(function(a, b) {
-      return (aMin(a.hora) || 0) - (aMin(b.hora) || 0);
-    });
-    if (!items.length) return;
-
-    // Encabezado legible: "miércoles 8 jul"
-    var p = f.split('-');
-    var d = new Date(+p[0], +p[1] - 1, +p[2]);
-    var titulo = DIAS[d.getDay()] + ' ' + (+p[2]) + ' ' + MESES[+p[1] - 1];
-
-    var ent = primera(items, 'ENTRADA');
-    var sal = primera(items, 'SALIDA');
-    var sd = primera(items, 'SALIDA_DESAYUNO'), rd = primera(items, 'REGRESO_DESAYUNO');
-    var sc = primera(items, 'SALIDA_COMIDA'),   rc = primera(items, 'REGRESO_COMIDA');
-
-    var filas = '';
-    if (ent) filas += fila('🏢', 'Entrada', hhmm(ent.hora), '', '#E2E8F0');
-
-    if (sd) {
-      var durD = (rd && aMin(rd.hora) != null) ? (aMin(rd.hora) - aMin(sd.hora)) : null;
-      var valD = hhmm(sd.hora) + (rd ? ' → ' + hhmm(rd.hora) : ' → …');
-      filas += fila('🥐', 'Desayuno', valD, durD != null ? durD + ' min' : 'sin regreso',
-                    durD != null && durD > 25 ? '#F87171' : '#94A3B8');
-    }
-    if (sc) {
-      var durC = (rc && aMin(rc.hora) != null) ? (aMin(rc.hora) - aMin(sc.hora)) : null;
-      var valC = hhmm(sc.hora) + (rc ? ' → ' + hhmm(rc.hora) : ' → …');
-      filas += fila('🍽️', 'Comida', valC, durC != null ? durC + ' min' : 'sin regreso',
-                    durC != null && durC > 60 ? '#F87171' : '#94A3B8');
-    }
-    if (sal) filas += fila('🏠', 'Salida', hhmm(sal.hora), '', '#E2E8F0');
-
-    // Jornada total (entrada → salida)
-    var jornada = '';
-    if (ent && sal && aMin(ent.hora) != null && aMin(sal.hora) != null) {
-      var tot = aMin(sal.hora) - aMin(ent.hora);
-      jornada = (tot / 60).toFixed(1) + ' h';
-    }
-
-    html +=
-      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:12px;' +
-             'margin-bottom:8px;border:1px solid rgba(80,150,220,0.1);padding:12px 14px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-          '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;letter-spacing:0.3px;">' + titulo + '</span>' +
-          (jornada ? '<span style="font-size:12px;color:#64748B;font-weight:700;">' + jornada + '</span>' : '') +
-        '</div>' +
-        filas +
-      '</div>';
-  });
-
-  cont.innerHTML = html || '<div style="color:#475569;font-size:13px;font-style:italic;">Sin registros previos</div>';
-}
 
 // ── CRONÓMETROS EN VIVO ─────────────────────────────────────────────────────
 // Decide qué cronómetro corre según el estado del día:
@@ -989,4 +882,280 @@ function _perfilInicializarPush(sesion) {
       });
     };
   }
+}
+
+// ── Utilidades compartidas de desglose (Hoy e Historial) ───────────────────
+var _EXC_INFO = {
+  VACACIONES: { emoji: '🏖️', label: 'Vacaciones' },
+  ENFERMEDAD: { emoji: '🤒', label: 'Incapacidad' },
+  EVENTO:     { emoji: '🎉', label: 'Evento' },
+  FESTIVO:    { emoji: '📅', label: 'Día festivo' }
+};
+var _DIAS_SEM = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var _MESES_AB = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+function _hhmm(h) { return (h || '').substring(0, 5); }
+function _aMin(h) {
+  var p = (h || '').match(/(\d{1,2}):(\d{2})/);
+  return p ? parseInt(p[1], 10) * 60 + parseInt(p[2], 10) : null;
+}
+function _primeraDe(items, tipo) {
+  for (var i = 0; i < items.length; i++) if (items[i].tipo === tipo) return items[i];
+  return null;
+}
+function _filaDesglose(emoji, etiqueta, valor, extra, color) {
+  return '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;">' +
+    '<span style="width:20px;flex-shrink:0;font-size:14px;">' + emoji + '</span>' +
+    '<span style="width:74px;flex-shrink:0;font-size:12px;color:#64748B;">' + etiqueta + '</span>' +
+    '<span style="font-size:14px;font-weight:700;color:' + (color || '#E2E8F0') + ';font-variant-numeric:tabular-nums;">' + valor + '</span>' +
+    (extra ? '<span style="font-size:12px;color:' + (color || '#64748B') + ';">' + extra + '</span>' : '') +
+  '</div>';
+}
+
+// Construye las filas (entrada / desayuno / comida / salida) de un día
+function _filasDelDia(items, sesion) {
+  items = (items || []).slice().sort(function(a, b) { return (_aMin(a.hora) || 0) - (_aMin(b.hora) || 0); });
+  var durDes = (typeof _durDesayunoDe === 'function') ? _durDesayunoDe(sesion.idUsuario) : 20;
+  var durCom = (typeof _durComidaDe === 'function') ? _durComidaDe(sesion.idUsuario) : 60;
+
+  var ent = _primeraDe(items, 'ENTRADA'), sal = _primeraDe(items, 'SALIDA');
+  var sd = _primeraDe(items, 'SALIDA_DESAYUNO'), rd = _primeraDe(items, 'REGRESO_DESAYUNO');
+  var sc = _primeraDe(items, 'SALIDA_COMIDA'),   rc = _primeraDe(items, 'REGRESO_COMIDA');
+  var html = '';
+
+  if (ent) html += _filaDesglose('🏢', 'Entrada', _hhmm(ent.hora), '', '#E2E8F0');
+  if (sd) {
+    var dD = (rd && _aMin(rd.hora) != null) ? (_aMin(rd.hora) - _aMin(sd.hora)) : null;
+    html += _filaDesglose('🥐', 'Desayuno', _hhmm(sd.hora) + (rd ? ' → ' + _hhmm(rd.hora) : ' → …'),
+      dD != null ? dD + ' min' : 'en curso', dD != null && dD > durDes ? '#F87171' : '#94A3B8');
+  }
+  if (sc) {
+    var dC = (rc && _aMin(rc.hora) != null) ? (_aMin(rc.hora) - _aMin(sc.hora)) : null;
+    html += _filaDesglose('🍽️', 'Comida', _hhmm(sc.hora) + (rc ? ' → ' + _hhmm(rc.hora) : ' → …'),
+      dC != null ? dC + ' min' : 'en curso', dC != null && dC > durCom ? '#F87171' : '#94A3B8');
+  }
+  if (sal) html += _filaDesglose('🏠', 'Salida', _hhmm(sal.hora), '', '#E2E8F0');
+
+  var jornada = '';
+  if (ent && sal && _aMin(ent.hora) != null && _aMin(sal.hora) != null) {
+    jornada = ((_aMin(sal.hora) - _aMin(ent.hora)) / 60).toFixed(1) + ' h';
+  }
+  return { html: html, jornada: jornada, vacio: !html };
+}
+
+// ── HOY con el mismo desglose que el historial ─────────────────────────────
+function _perfilPintarHoyLocal(sesion) {
+  var cont = document.getElementById('perfil-hoy');
+  if (!cont) return;
+  var items = _checadasHoyDe(sesion.idUsuario).map(function(c) {
+    var d = new Date(c.ts);
+    return { tipo: c.tipo, hora: String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') };
+  });
+  var r = _filasDelDia(items, sesion);
+  if (r.vacio) {
+    cont.innerHTML = '<div style="padding:14px 16px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);' +
+      'border-radius:12px;border:1px solid rgba(80,150,220,0.1);color:#64748B;font-size:13px;font-style:italic;">' +
+      'Sin checadas hoy</div>';
+    return;
+  }
+  cont.innerHTML =
+    '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:12px;' +
+           'border:1px solid rgba(80,150,220,0.16);padding:12px 14px;">' +
+      (r.jornada ? '<div style="text-align:right;font-size:12px;color:#64748B;font-weight:700;margin-bottom:2px;">' + r.jornada + '</div>' : '') +
+      r.html +
+    '</div>';
+}
+
+// ── HISTORIAL POR QUINCENA (con navegación) ────────────────────────────────
+var _perfilQuincenaOffset = 0;
+
+function _perfilCargarQuincena(sesion, offset) {
+  _perfilQuincenaOffset = offset || 0;
+  var cont = document.getElementById('perfil-historial');
+  if (cont) cont.innerHTML = '<div style="color:#64748B;font-size:13px;font-style:italic;padding:8px 0;">Cargando quincena...</div>';
+  if (navigator.onLine === false) {
+    if (cont) cont.innerHTML = '<div style="color:#64748B;font-size:13px;font-style:italic;">📡 Sin internet</div>';
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) _perfilPintarQuincena(r, sesion);
+      else if (cont) cont.innerHTML = '<div style="color:#64748B;font-size:13px;">No se pudo cargar</div>';
+    })
+    .withFailureHandler(function() {
+      if (cont) cont.innerHTML = '<div style="color:#64748B;font-size:13px;">No se pudo cargar</div>';
+    })
+    .getHistorialQuincena(sesion.pin, _perfilQuincenaOffset);
+}
+
+function _perfilPintarQuincena(data, sesion) {
+  var head = document.getElementById('perfil-quincena-header');
+  var cont = document.getElementById('perfil-historial');
+  if (!cont) return;
+
+  // Encabezado con navegación
+  if (head) {
+    var pi = data.inicio.split('-'), pf = data.fin.split('-');
+    var rango = (+pi[2]) + '–' + (+pf[2]) + ' ' + _MESES_AB[+pf[1] - 1];
+    head.innerHTML =
+      '<button onclick="_perfilCargarQuincena(_perfilLeerSesion(), ' + (data.offset - 1) + ')" ' +
+              'style="padding:7px 12px;background:transparent;color:#A5B4FC;border:1px solid rgba(165,180,252,0.3);' +
+                     'border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">‹</button>' +
+      '<div style="text-align:center;">' +
+        '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;">Quincena ' + rango + '</div>' +
+        (data.esActual ? '<div style="font-size:11px;color:#64748B;">en curso</div>' : '') +
+      '</div>' +
+      (data.offset < 0
+        ? '<button onclick="_perfilCargarQuincena(_perfilLeerSesion(), ' + (data.offset + 1) + ')" ' +
+                  'style="padding:7px 12px;background:transparent;color:#A5B4FC;border:1px solid rgba(165,180,252,0.3);' +
+                         'border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">›</button>'
+        : '<span style="width:38px;"></span>');
+  }
+
+  // Resumen de la quincena
+  var res = data.resumen || {};
+  var chips = '';
+  function chip(txt, color) {
+    return '<span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;' +
+           'background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;margin:0 5px 5px 0;">' + txt + '</span>';
+  }
+  if (res.bonoPerdido) chips += chip('💸 Bono perdido', '#F87171');
+  else chips += chip('🎯 Bono a salvo', '#10B981');
+  if (res.retardos) chips += chip('⏰ ' + res.retardos + ' retardo(s)' + (res.descuento ? ' · ' + res.descuento : ''), '#F59E0B');
+  if (res.faltas) chips += chip('🚫 ' + res.faltas + ' falta(s)', '#F87171');
+
+  var html = chips ? '<div style="margin-bottom:12px;">' + chips + '</div>' : '';
+
+  (data.dias || []).forEach(function(d) {
+    if (d.finde && !d.checadas.length && !d.excepcion) return;  // fines de semana vacíos: no se listan
+
+    var p = d.fecha.split('-');
+    var fd = new Date(+p[0], +p[1] - 1, +p[2]);
+    var titulo = _DIAS_SEM[fd.getDay()] + ' ' + (+p[2]) + ' ' + _MESES_AB[+p[1] - 1];
+
+    // Marcas del día
+    var marcas = '';
+    if (d.perdioBono) marcas += ' 💸';
+    if (d.retardo)    marcas += ' ⏰';
+    if (d.falta)      marcas += ' 🚫';
+
+    var borde = 'rgba(80,150,220,0.1)', fondo = 'linear-gradient(180deg,#142340 0%,#0c1729 100%)';
+    if (d.retardo || d.falta) { borde = 'rgba(248,113,113,0.35)'; fondo = 'linear-gradient(180deg,#2a1620 0%,#1a0d14 100%)'; }
+    else if (d.perdioBono)    { borde = 'rgba(245,158,11,0.3)';   fondo = 'linear-gradient(180deg,#231c14 0%,#150f0a 100%)'; }
+
+    var cuerpo;
+    if (d.excepcion) {
+      var e = _EXC_INFO[d.excepcion] || { emoji: '•', label: d.excepcion };
+      cuerpo = '<div style="font-size:13px;color:#A5B4FC;padding:4px 0;">' + e.emoji + ' ' + e.label + '</div>';
+      borde = 'rgba(165,180,252,0.3)';
+    } else if (d.falta) {
+      cuerpo = '<div style="font-size:13px;color:#F87171;padding:4px 0;">🚫 Sin registros</div>';
+    } else {
+      var r = _filasDelDia(d.checadas, sesion);
+      cuerpo = r.html || '<div style="font-size:13px;color:#64748B;padding:4px 0;">Sin checadas</div>';
+      if (r.jornada) titulo += '';
+    }
+    var jornada = (!d.excepcion && !d.falta) ? _filasDelDia(d.checadas, sesion).jornada : '';
+
+    html +=
+      '<div style="background:' + fondo + ';border-radius:12px;margin-bottom:8px;border:1px solid ' + borde + ';padding:12px 14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;">' + titulo + marcas + '</span>' +
+          (jornada ? '<span style="font-size:12px;color:#64748B;font-weight:700;">' + jornada + '</span>' : '') +
+        '</div>' + cuerpo +
+      '</div>';
+  });
+
+  cont.innerHTML = html || '<div style="color:#475569;font-size:13px;font-style:italic;">Sin registros en esta quincena</div>';
+}
+
+// ── EXCEPCIONES DEL DÍA ────────────────────────────────────────────────────
+function _perfilCargarExcepciones(sesion) {
+  var cont = document.getElementById('perfil-excepciones');
+  if (!cont) return;
+  if (navigator.onLine === false) {
+    cont.innerHTML = '<div style="color:#64748B;font-size:13px;font-style:italic;">📡 Sin internet</div>';
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(r) { _perfilPintarExcepciones(sesion, (r && r.tipo) || ''); })
+    .withFailureHandler(function() { _perfilPintarExcepciones(sesion, ''); })
+    .getExcepcionHoy(sesion.pin);
+}
+
+function _perfilPintarExcepciones(sesion, activa) {
+  var cont = document.getElementById('perfil-excepciones');
+  if (!cont) return;
+
+  if (activa) {
+    var e = _EXC_INFO[activa] || { emoji: '•', label: activa };
+    cont.innerHTML =
+      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(165,180,252,0.4);' +
+             'border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:800;color:#C7D2FE;">' + e.emoji + ' ' + e.label + '</div>' +
+          '<div style="font-size:12px;color:#64748B;margin-top:2px;">Hoy no recibirás alertas.</div>' +
+        '</div>' +
+        '<button onclick="_perfilQuitarExcepcion()" ' +
+                'style="padding:9px 14px;background:transparent;color:#94A3B8;border:1px solid rgba(255,255,255,0.15);' +
+                       'border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Quitar</button>' +
+      '</div>' +
+      '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;padding:6px 2px 0;min-height:14px;"></div>';
+    return;
+  }
+
+  var tipos = [
+    { k: 'VACACIONES', e: '🏖️', l: 'Vacaciones' },
+    { k: 'ENFERMEDAD', e: '🤒', l: 'Incapacidad' },
+    { k: 'EVENTO',     e: '🎉', l: 'Evento' },
+    { k: 'FESTIVO',    e: '📅', l: 'Día festivo' }
+  ];
+  cont.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+      tipos.map(function(t) {
+        return '<button onclick="_perfilMarcarExcepcion(\'' + t.k + '\')" ' +
+               'onpointerdown="this.style.transform=\'scale(0.96)\'" onpointerup="this.style.transform=\'\'" ' +
+               'style="padding:14px 10px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);' +
+                      'border:1px solid rgba(165,180,252,0.22);border-radius:12px;cursor:pointer;color:#E2E8F0;transition:transform 0.12s;">' +
+                 '<div style="font-size:22px;line-height:1;margin-bottom:5px;">' + t.e + '</div>' +
+                 '<div style="font-size:13px;font-weight:700;">' + t.l + '</div>' +
+               '</button>';
+      }).join('') +
+    '</div>' +
+    '<div style="font-size:11px;color:#475569;margin-top:8px;">📅 Día festivo aplica a toda la empresa.</div>' +
+    '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;padding:6px 2px 0;min-height:14px;"></div>';
+}
+
+function _perfilMarcarExcepcion(tipo) {
+  var sesion = _perfilLeerSesion();
+  if (!sesion) return;
+  var st = document.getElementById('perfil-exc-status');
+  if (st) { st.style.color = '#64748B'; st.textContent = 'Guardando...'; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      var s = document.getElementById('perfil-exc-status');
+      if (r && r.ok) {
+        _perfilPintarExcepciones(sesion, tipo);
+        var s2 = document.getElementById('perfil-exc-status');
+        if (s2) { s2.style.color = '#10B981'; s2.textContent = r.message; }
+      } else if (s) { s.style.color = '#F87171'; s.textContent = (r && r.message) || 'No se pudo guardar'; }
+    })
+    .withFailureHandler(function() {
+      var s = document.getElementById('perfil-exc-status');
+      if (s) { s.style.color = '#F87171'; s.textContent = 'Sin conexión'; }
+    })
+    .guardarExcepcionDia(sesion.pin, tipo);
+}
+
+function _perfilQuitarExcepcion() {
+  var sesion = _perfilLeerSesion();
+  if (!sesion) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _perfilPintarExcepciones(sesion, '');
+      var s = document.getElementById('perfil-exc-status');
+      if (s && r) { s.style.color = '#94A3B8'; s.textContent = r.message || ''; }
+    })
+    .withFailureHandler(function() {})
+    .quitarExcepcionDia(sesion.pin);
 }

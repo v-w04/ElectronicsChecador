@@ -8,7 +8,7 @@
 //   - Auto-update: cuando sube nueva versión, los dispositivos la reciben al reabrir
 // ============================================================================
 
-const CACHE_VERSION = 'em-checador-v598';
+const CACHE_VERSION = 'em-checador-v599';
 const CACHE_NAME    = CACHE_VERSION;
 
 const APP_SHELL = [
