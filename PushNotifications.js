@@ -106,6 +106,10 @@ var PushNotifications = (function() {
         })
         .then(function(token) {
           if (!token) return { ok: false, error: 'FCM no devolvió token' };
+          // Token anterior de ESTE dispositivo (para que el backend lo
+          // reemplace y no lleguen notificaciones dobles)
+          var tokenAnterior = null;
+          try { tokenAnterior = localStorage.getItem(_LS_TOKEN); } catch(e) {}
           try { localStorage.setItem(_LS_TOKEN, token); } catch(e) {}
           return new Promise(function(res) {
             google.script.run
@@ -116,7 +120,7 @@ var PushNotifications = (function() {
               .withFailureHandler(function(e) {
                 res({ ok: false, error: 'El backend no aceptó el token: ' + (e && e.message ? e.message : e) });
               })
-              .registrarPushToken(pin, token);
+              .registrarPushToken(pin, token, tokenAnterior || '');
           });
         })
         .catch(function(e) {
