@@ -984,19 +984,67 @@ function _perfilPintarHoyLocal(sesion) {
   var items = _checadasHoyDe(sesion.idUsuario).map(function(c) {
     var d = new Date(c.ts);
     return { tipo: c.tipo, hora: String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') };
-  });
-  var r = _filasDelDia(items, sesion);
-  if (r.vacio) {
-    cont.innerHTML = '<div style="padding:14px 16px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);' +
-      'border-radius:12px;border:1px solid rgba(80,150,220,0.1);color:#64748B;font-size:13px;font-style:italic;">' +
+  }).sort(function(a, b) { return (_aMin(a.hora) || 0) - (_aMin(b.hora) || 0); });
+
+  if (!items.length) {
+    cont.innerHTML = '<div style="padding:16px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);' +
+      'border-radius:14px;border:1px solid rgba(80,150,220,0.12);color:#64748B;font-size:13px;font-style:italic;text-align:center;">' +
       'Sin checadas hoy</div>';
     return;
   }
+
+  var durDes = (typeof _durDesayunoDe === 'function') ? _durDesayunoDe(sesion.idUsuario) : 20;
+  var durCom = (typeof _durComidaDe === 'function') ? _durComidaDe(sesion.idUsuario) : 60;
+  var ent = _primeraDe(items, 'ENTRADA'), sal = _primeraDe(items, 'SALIDA');
+  var sd = _primeraDe(items, 'SALIDA_DESAYUNO'), rd = _primeraDe(items, 'REGRESO_DESAYUNO');
+  var sc = _primeraDe(items, 'SALIDA_COMIDA'),   rc = _primeraDe(items, 'REGRESO_COMIDA');
+
+  function evento(emoji, etiqueta, horas, chip, chipColor) {
+    return '<div style="display:flex;align-items:center;gap:14px;padding:11px 0;">' +
+      '<div style="width:42px;height:42px;border-radius:12px;background:rgba(80,150,220,0.1);' +
+             'border:1px solid rgba(127,223,255,0.18);display:flex;align-items:center;justify-content:center;' +
+             'font-size:19px;flex-shrink:0;">' + emoji + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:10.5px;color:#64748B;text-transform:uppercase;letter-spacing:1.4px;font-weight:800;">' + etiqueta + '</div>' +
+        '<div style="font-size:19px;font-weight:800;color:#E2E8F0;font-variant-numeric:tabular-nums;letter-spacing:0.3px;">' + horas + '</div>' +
+      '</div>' +
+      (chip ? '<span style="padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:800;flex-shrink:0;' +
+              'background:' + chipColor + '1d;color:' + chipColor + ';border:1px solid ' + chipColor + '3d;">' + chip + '</span>' : '') +
+    '</div>';
+  }
+  var sep = '<div style="height:1px;background:rgba(148,163,184,0.09);margin:0 0 0 56px;"></div>';
+
+  var filas = [];
+  if (ent) filas.push(evento('🏢', 'Entrada', ent.hora, '', ''));
+  if (sd) {
+    var dD = (rd && _aMin(rd.hora) != null) ? (_aMin(rd.hora) - _aMin(sd.hora)) : null;
+    filas.push(evento('🥐', 'Desayuno', sd.hora + '  →  ' + (rd ? rd.hora : '…'),
+      dD != null ? dD + ' min' : 'en curso',
+      dD == null ? '#3B82F6' : (dD > durDes ? '#F87171' : '#10B981')));
+  }
+  if (sc) {
+    var dC = (rc && _aMin(rc.hora) != null) ? (_aMin(rc.hora) - _aMin(sc.hora)) : null;
+    filas.push(evento('🍽️', 'Comida', sc.hora + '  →  ' + (rc ? rc.hora : '…'),
+      dC != null ? dC + ' min' : 'en curso',
+      dC == null ? '#3B82F6' : (dC > durCom ? '#F87171' : '#10B981')));
+  }
+  if (sal) filas.push(evento('🏠', 'Salida', sal.hora, '', ''));
+
+  var jornada = '';
+  if (ent && sal && _aMin(ent.hora) != null && _aMin(sal.hora) != null) {
+    jornada = ((_aMin(sal.hora) - _aMin(ent.hora)) / 60).toFixed(1);
+  }
+
   cont.innerHTML =
-    '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:12px;' +
-           'border:1px solid rgba(80,150,220,0.16);padding:12px 14px;">' +
-      (r.jornada ? '<div style="text-align:right;font-size:12px;color:#64748B;font-weight:700;margin-bottom:2px;">' + r.jornada + '</div>' : '') +
-      r.html +
+    '<div style="background:linear-gradient(165deg,#16264a 0%,#0d1a33 45%,#0a1426 100%);border-radius:16px;' +
+           'border:1px solid rgba(127,223,255,0.22);padding:6px 18px 8px;box-shadow:0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(127,223,255,0.08);">' +
+      (jornada
+        ? '<div style="display:flex;justify-content:flex-end;padding-top:10px;">' +
+            '<div style="text-align:right;"><span style="font-size:22px;font-weight:800;color:#7fdfff;">' + jornada + '</span>' +
+            '<span style="font-size:12px;color:#64748B;font-weight:700;"> h de jornada</span></div>' +
+          '</div>'
+        : '<div style="padding-top:6px;"></div>') +
+      filas.join(sep) +
     '</div>';
 }
 
@@ -1026,8 +1074,9 @@ function _perfilPintarQuincena(data, sesion) {
   var head = document.getElementById('perfil-quincena-header');
   var cont = document.getElementById('perfil-historial');
   if (!cont) return;
+  window._qDatos = data;   // para expandir/colapsar sin recargar
 
-  // Encabezado con navegación
+  // Encabezado con navegación ‹ ›
   if (head) {
     var pi = data.inicio.split('-'), pf = data.fin.split('-');
     var rango = (+pi[2]) + '–' + (+pf[2]) + ' ' + _MESES_AB[+pf[1] - 1];
@@ -1046,63 +1095,105 @@ function _perfilPintarQuincena(data, sesion) {
         : '<span style="width:38px;"></span>');
   }
 
-  // Resumen de la quincena
+  // Chips de resumen + botón expandir todo
   var res = data.resumen || {};
-  var chips = '';
   function chip(txt, color) {
     return '<span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;' +
            'background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;margin:0 5px 5px 0;">' + txt + '</span>';
   }
-  if (res.bonoPerdido) chips += chip('💸 Bono perdido', '#F87171');
-  else chips += chip('🎯 Bono a salvo', '#10B981');
+  var chips = res.bonoPerdido ? chip('💸 Bono perdido', '#F87171') : chip('🎯 Bono a salvo', '#10B981');
   if (res.retardos) chips += chip('⏰ ' + res.retardos + ' retardo(s)' + (res.descuento ? ' · ' + res.descuento : ''), '#F59E0B');
   if (res.faltas) chips += chip('🚫 ' + res.faltas + ' falta(s)', '#F87171');
 
-  var html = chips ? '<div style="margin-bottom:12px;">' + chips + '</div>' : '';
+  var html =
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+      '<div>' + chips + '</div>' +
+      '<button id="q-exp-btn" onclick="_perfilExpandirTodo()" ' +
+              'style="padding:5px 12px;background:transparent;color:#64748B;border:1px solid rgba(255,255,255,0.12);' +
+                     'border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">⊞ Expandir todo</button>' +
+    '</div>';
 
-  var _hoyStr = _fechaHoyLocal();
-  (data.dias || []).forEach(function(d) {
-    if (d.fecha === _hoyStr) return;                            // hoy ya se muestra en su propia sección
-    if (d.finde && !d.checadas.length && !d.excepcion) return;  // fines de semana vacíos: no se listan
+  var hoyStr = _fechaHoyLocal();
+  (data.dias || []).forEach(function(d, idx) {
+    if (d.fecha === hoyStr) return;
+    if (d.finde && !d.checadas.length && !d.excepcion) return;
 
     var p = d.fecha.split('-');
     var fd = new Date(+p[0], +p[1] - 1, +p[2]);
     var titulo = _DIAS_SEM[fd.getDay()] + ' ' + (+p[2]) + ' ' + _MESES_AB[+p[1] - 1];
 
-    // Marcas del día
     var marcas = '';
     if (d.perdioBono) marcas += ' 💸';
     if (d.retardo)    marcas += ' ⏰';
-    if (d.falta)      marcas += ' 🚫';
 
     var borde = 'rgba(80,150,220,0.1)', fondo = 'linear-gradient(180deg,#142340 0%,#0c1729 100%)';
-    if (d.retardo || d.falta) { borde = 'rgba(248,113,113,0.35)'; fondo = 'linear-gradient(180deg,#2a1620 0%,#1a0d14 100%)'; }
-    else if (d.perdioBono)    { borde = 'rgba(245,158,11,0.3)';   fondo = 'linear-gradient(180deg,#231c14 0%,#150f0a 100%)'; }
+    if (d.retardo || d.falta) { borde = 'rgba(248,113,113,0.3)'; fondo = 'linear-gradient(180deg,#231320 0%,#160b12 100%)'; }
+    else if (d.perdioBono)    { borde = 'rgba(245,158,11,0.28)'; fondo = 'linear-gradient(180deg,#221b12 0%,#140f09 100%)'; }
+    else if (d.excepcion)     { borde = 'rgba(165,180,252,0.28)'; }
 
-    var cuerpo;
+    // Resumen del renglón colapsado: entrada → salida (o excepción / falta)
+    var resumenLinea, expandible = false;
     if (d.excepcion) {
       var e = _EXC_INFO[d.excepcion] || { emoji: '•', label: d.excepcion };
-      cuerpo = '<div style="font-size:13px;color:#A5B4FC;padding:4px 0;">' + e.emoji + ' ' + e.label + '</div>';
-      borde = 'rgba(165,180,252,0.3)';
+      resumenLinea = '<span style="color:#A5B4FC;font-weight:700;">' + e.emoji + ' ' + e.label + '</span>';
     } else if (d.falta) {
-      cuerpo = '<div style="font-size:13px;color:#F87171;padding:4px 0;">🚫 Sin registros</div>';
+      resumenLinea = '<span style="color:#F87171;font-weight:700;">🚫 Sin registros</span>';
     } else {
-      var r = _filasDelDia(d.checadas, sesion);
-      cuerpo = r.html || '<div style="font-size:13px;color:#64748B;padding:4px 0;">Sin checadas</div>';
-      if (r.jornada) titulo += '';
+      var ent = _primeraDe(d.checadas, 'ENTRADA'), sal = _primeraDe(d.checadas, 'SALIDA');
+      resumenLinea =
+        '<span style="font-variant-numeric:tabular-nums;color:#CBD5E1;font-weight:700;">' +
+          '🏢 ' + (ent ? _hhmm(ent.hora) : '—') +
+          ' <span style="color:#475569;">→</span> 🏠 ' + (sal ? _hhmm(sal.hora) : '—') +
+        '</span>';
+      expandible = true;
     }
-    var jornada = (!d.excepcion && !d.falta) ? _filasDelDia(d.checadas, sesion).jornada : '';
 
+    var idDia = 'qdia-' + d.fecha;
     html +=
-      '<div style="background:' + fondo + ';border-radius:12px;margin-bottom:8px;border:1px solid ' + borde + ';padding:12px 14px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-          '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;">' + titulo + marcas + '</span>' +
-          (jornada ? '<span style="font-size:12px;color:#64748B;font-weight:700;">' + jornada + '</span>' : '') +
-        '</div>' + cuerpo +
+      '<div style="background:' + fondo + ';border-radius:12px;margin-bottom:7px;border:1px solid ' + borde + ';overflow:hidden;">' +
+        '<div ' + (expandible ? 'onclick="_perfilToggleDia(\'' + idDia + '\')" style="cursor:pointer;"' : 'style="cursor:default;"') + '>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;">' +
+            '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;white-space:nowrap;">' + titulo + marcas + '</span>' +
+            '<span style="font-size:12.5px;flex:1;text-align:right;">' + resumenLinea + '</span>' +
+            (expandible ? '<span id="' + idDia + '-flecha" style="color:#475569;font-size:11px;transition:transform 0.2s;">▼</span>' : '') +
+          '</div>' +
+        '</div>' +
+        (expandible
+          ? '<div id="' + idDia + '" style="display:none;padding:2px 14px 12px;border-top:1px solid rgba(148,163,184,0.08);">' +
+              _filasDelDia(d.checadas, sesion).html +
+              (function() { var j = _filasDelDia(d.checadas, sesion).jornada;
+                return j ? '<div style="text-align:right;font-size:11.5px;color:#64748B;font-weight:700;">' + j + ' de jornada</div>' : ''; })() +
+            '</div>'
+          : '') +
       '</div>';
   });
 
   cont.innerHTML = html || '<div style="color:#475569;font-size:13px;font-style:italic;">Sin registros en esta quincena</div>';
+}
+
+// Toggle de un día del acordeón
+function _perfilToggleDia(id) {
+  var body = document.getElementById(id);
+  var fl = document.getElementById(id + '-flecha');
+  if (!body) return;
+  var abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  if (fl) fl.style.transform = abierto ? '' : 'rotate(180deg)';
+}
+
+// Expandir / colapsar todos los días
+var _qTodoExpandido = false;
+function _perfilExpandirTodo() {
+  _qTodoExpandido = !_qTodoExpandido;
+  var bodies = document.querySelectorAll('[id^="qdia-"]:not([id$="-flecha"])');
+  bodies.forEach(function(b) {
+    if (b.id.indexOf('-flecha') !== -1) return;
+    b.style.display = _qTodoExpandido ? 'block' : 'none';
+    var fl = document.getElementById(b.id + '-flecha');
+    if (fl) fl.style.transform = _qTodoExpandido ? 'rotate(180deg)' : '';
+  });
+  var btn = document.getElementById('q-exp-btn');
+  if (btn) btn.textContent = _qTodoExpandido ? '⊟ Colapsar todo' : '⊞ Expandir todo';
 }
 
 // ── EXCEPCIONES DEL DÍA ────────────────────────────────────────────────────
@@ -1144,21 +1235,21 @@ function _perfilPintarExcepciones(sesion, activa) {
     { k: 'VACACIONES', e: '🏖️', l: 'Vacaciones' },
     { k: 'ENFERMEDAD', e: '🤒', l: 'Incapacidad' },
     { k: 'EVENTO',     e: '🎉', l: 'Evento' },
-    { k: 'FESTIVO',    e: '📅', l: 'Día festivo' }
+    { k: 'FESTIVO',    e: '📅', l: 'Festivo' }
   ];
   cont.innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">' +
       tipos.map(function(t) {
         return '<button onclick="_perfilMarcarExcepcion(\'' + t.k + '\')" ' +
-               'onpointerdown="this.style.transform=\'scale(0.96)\'" onpointerup="this.style.transform=\'\'" ' +
-               'style="padding:14px 10px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);' +
-                      'border:1px solid rgba(165,180,252,0.22);border-radius:12px;cursor:pointer;color:#E2E8F0;transition:transform 0.12s;">' +
-                 '<div style="font-size:22px;line-height:1;margin-bottom:5px;">' + t.e + '</div>' +
-                 '<div style="font-size:13px;font-weight:700;">' + t.l + '</div>' +
+               'onpointerdown="this.style.transform=\'scale(0.94)\'" onpointerup="this.style.transform=\'\'" ' +
+               'style="padding:9px 4px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);' +
+                      'border:1px solid rgba(165,180,252,0.2);border-radius:10px;cursor:pointer;color:#CBD5E1;transition:transform 0.12s;">' +
+                 '<span style="font-size:15px;">' + t.e + '</span>' +
+                 '<div style="font-size:10.5px;font-weight:700;margin-top:3px;letter-spacing:0.2px;">' + t.l + '</div>' +
                '</button>';
       }).join('') +
     '</div>' +
-    '<div style="font-size:11px;color:#475569;margin-top:8px;">📅 Día festivo aplica a toda la empresa.</div>' +
+    '<div style="font-size:10.5px;color:#475569;margin-top:6px;">📅 Festivo aplica a toda la empresa.</div>' +
     '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;padding:6px 2px 0;min-height:14px;"></div>';
 }
 
