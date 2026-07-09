@@ -1043,7 +1043,9 @@ function _perfilPintarQuincena(data, sesion) {
 
   var html = chips ? '<div style="margin-bottom:12px;">' + chips + '</div>' : '';
 
+  var _hoyStr = _fechaHoyLocal();
   (data.dias || []).forEach(function(d) {
+    if (d.fecha === _hoyStr) return;                            // hoy ya se muestra en su propia sección
     if (d.finde && !d.checadas.length && !d.excepcion) return;  // fines de semana vacíos: no se listan
 
     var p = d.fecha.split('-');
