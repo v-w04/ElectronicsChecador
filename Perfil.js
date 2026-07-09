@@ -529,20 +529,81 @@ function _perfilPintarHistorial(historial) {
   if (!cont) return;
   var fechas = Object.keys(historial).sort().reverse();
   var hoy = _fechaHoyLocal();
+
+  var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  function hhmm(h) { return (h || '').substring(0, 5); }
+  function aMin(h) {
+    var p = (h || '').match(/(\d{1,2}):(\d{2})/);
+    return p ? parseInt(p[1], 10) * 60 + parseInt(p[2], 10) : null;
+  }
+  function primera(items, tipo) {
+    for (var i = 0; i < items.length; i++) if (items[i].tipo === tipo) return items[i];
+    return null;
+  }
+  function fila(emoji, etiqueta, valor, extra, color) {
+    return '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;">' +
+      '<span style="width:20px;flex-shrink:0;font-size:14px;">' + emoji + '</span>' +
+      '<span style="width:74px;flex-shrink:0;font-size:12px;color:#64748B;">' + etiqueta + '</span>' +
+      '<span style="font-size:14px;font-weight:700;color:' + (color || '#E2E8F0') + ';font-variant-numeric:tabular-nums;">' + valor + '</span>' +
+      (extra ? '<span style="font-size:12px;color:' + (color || '#64748B') + ';">' + extra + '</span>' : '') +
+    '</div>';
+  }
+
   var html = '';
   fechas.forEach(function(f) {
-    if (f === hoy) return; // hoy ya se muestra arriba
-    var items = historial[f].map(function(c) {
-      var et = _ETIQUETAS_TIPO[c.tipo] || _ETIQUETAS_TIPO['EXTRA'];
-      return et.emoji + ' ' + (c.hora || '').substring(0, 5);
-    }).join(' · ');
-    html += (
-      '<div style="padding:10px 15px;background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:10px;margin-bottom:6px;border:1px solid rgba(80,150,220,0.08);">' +
-        '<div style="font-size:12px;color:#94A3B8;font-weight:700;margin-bottom:3px;">' + f + '</div>' +
-        '<div style="font-size:13px;color:#CBD5E1;">' + (items || '—') + '</div>' +
-      '</div>'
-    );
+    if (f === hoy) return; // hoy se muestra arriba
+    var items = (historial[f] || []).slice().sort(function(a, b) {
+      return (aMin(a.hora) || 0) - (aMin(b.hora) || 0);
+    });
+    if (!items.length) return;
+
+    // Encabezado legible: "miércoles 8 jul"
+    var p = f.split('-');
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    var titulo = DIAS[d.getDay()] + ' ' + (+p[2]) + ' ' + MESES[+p[1] - 1];
+
+    var ent = primera(items, 'ENTRADA');
+    var sal = primera(items, 'SALIDA');
+    var sd = primera(items, 'SALIDA_DESAYUNO'), rd = primera(items, 'REGRESO_DESAYUNO');
+    var sc = primera(items, 'SALIDA_COMIDA'),   rc = primera(items, 'REGRESO_COMIDA');
+
+    var filas = '';
+    if (ent) filas += fila('🏢', 'Entrada', hhmm(ent.hora), '', '#E2E8F0');
+
+    if (sd) {
+      var durD = (rd && aMin(rd.hora) != null) ? (aMin(rd.hora) - aMin(sd.hora)) : null;
+      var valD = hhmm(sd.hora) + (rd ? ' → ' + hhmm(rd.hora) : ' → …');
+      filas += fila('🥐', 'Desayuno', valD, durD != null ? durD + ' min' : 'sin regreso',
+                    durD != null && durD > 25 ? '#F87171' : '#94A3B8');
+    }
+    if (sc) {
+      var durC = (rc && aMin(rc.hora) != null) ? (aMin(rc.hora) - aMin(sc.hora)) : null;
+      var valC = hhmm(sc.hora) + (rc ? ' → ' + hhmm(rc.hora) : ' → …');
+      filas += fila('🍽️', 'Comida', valC, durC != null ? durC + ' min' : 'sin regreso',
+                    durC != null && durC > 60 ? '#F87171' : '#94A3B8');
+    }
+    if (sal) filas += fila('🏠', 'Salida', hhmm(sal.hora), '', '#E2E8F0');
+
+    // Jornada total (entrada → salida)
+    var jornada = '';
+    if (ent && sal && aMin(ent.hora) != null && aMin(sal.hora) != null) {
+      var tot = aMin(sal.hora) - aMin(ent.hora);
+      jornada = (tot / 60).toFixed(1) + ' h';
+    }
+
+    html +=
+      '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:12px;' +
+             'margin-bottom:8px;border:1px solid rgba(80,150,220,0.1);padding:12px 14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;letter-spacing:0.3px;">' + titulo + '</span>' +
+          (jornada ? '<span style="font-size:12px;color:#64748B;font-weight:700;">' + jornada + '</span>' : '') +
+        '</div>' +
+        filas +
+      '</div>';
   });
+
   cont.innerHTML = html || '<div style="color:#475569;font-size:13px;font-style:italic;">Sin registros previos</div>';
 }
 
@@ -848,7 +909,11 @@ function _perfilInicializarPush(sesion) {
              'border-radius:12px;padding:12px 16px;font-size:13px;color:#94A3B8;">🔔 Vinculando este dispositivo...</div>';
     PushNotifications.solicitarYRegistrar(sesion.pin).then(function(r) {
       if (!banner) return;
-      var ok = r === true || (r && r.ok);
+      // ⭐ Si el dispositivo ya tiene token guardado, está vinculado aunque
+      // esta llamada haya fallado (p.ej. iOS respondiendo raro al revalidar).
+      var yaTieneToken = (typeof PushNotifications.tokenActual === 'function') &&
+                         !!PushNotifications.tokenActual();
+      var ok = r === true || (r && r.ok) || yaTieneToken;
       window._pushUltimoError = (r && r.error) || '';
       if (ok) {
         banner.innerHTML =
