@@ -95,26 +95,25 @@ function abrirLoginPerfil() {
 
 function activarModoPerfil() {
   window._modoPerfil = true;
-  var overlay = document.getElementById('pin-overlay');
   var box = document.getElementById('pin-box');
   var btn = document.getElementById('btn-mi-perfil');
 
-  if (overlay) {
-    overlay.style.transition = 'background 0.45s ease';
-    overlay.style.background =
-      'radial-gradient(circle at 50% 38%, #6b1220 0%, #3f0a12 48%, #16050a 100%)';
-  }
-  if (box) {
-    box.style.transition = 'filter 0.45s ease';
-    box.style.filter = 'hue-rotate(140deg) saturate(1.25)'; // anillo azul → rojo
-  }
-  if (btn) {
-    btn.innerHTML = '✕ Cancelar';
-    btn.style.color = '#FCA5A5';
-    btn.style.borderColor = 'rgba(248,113,113,0.5)';
+  // ⭐ Solo el DISCO CENTRAL cambia a violeta (el fondo y el anillo se quedan)
+  var panel = box ? box.querySelector('.ring-panel') : null;
+  if (panel) {
+    panel.style.transition = 'background 0.4s ease, box-shadow 0.4s ease';
+    panel.style.background = 'radial-gradient(circle at 50% 35%, #4c3a8f 0%, #2e2358 55%, #1a1436 100%)';
+    panel.style.boxShadow = 'inset 0 0 0 1px rgba(167,139,250,0.35), inset 0 20px 60px rgba(0,0,0,0.45), 0 0 40px rgba(139,92,246,0.18)';
   }
 
-  // Etiqueta "MODO PERFIL" arriba del anillo
+  if (btn) {
+    btn.innerHTML = '✕ Cancelar';
+    btn.style.color = '#C4B5FD';
+    btn.style.borderColor = 'rgba(167,139,250,0.45)';
+  }
+
+  // Etiqueta MODO PERFIL
+  var overlay = document.getElementById('pin-overlay');
   var tag = document.getElementById('perfil-mode-tag');
   if (!tag && overlay) {
     tag = document.createElement('div');
@@ -122,60 +121,78 @@ function activarModoPerfil() {
     tag.innerHTML = '👤 MODO PERFIL — entra con tu PIN y contraseña';
     tag.style.cssText =
       'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;' +
-      'padding:9px 20px;border-radius:999px;background:rgba(127,29,29,0.45);color:#FECACA;' +
-      'border:1px solid rgba(248,113,113,0.45);font-size:13px;font-weight:700;letter-spacing:1px;' +
+      'padding:9px 20px;border-radius:999px;background:rgba(76,58,143,0.4);color:#DDD6FE;' +
+      'border:1px solid rgba(167,139,250,0.4);font-size:13px;font-weight:700;letter-spacing:1px;' +
       'backdrop-filter:blur(8px);white-space:nowrap;';
     overlay.appendChild(tag);
   }
 
-  // Checkbox "mantener sesión" abajo, centrado
-  var keep = document.getElementById('perfil-keep-wrap');
-  if (!keep && overlay) {
-    keep = document.createElement('label');
-    keep.id = 'perfil-keep-wrap';
-    keep.innerHTML =
-      '<input id="perfil-keep" type="checkbox" style="width:17px;height:17px;accent-color:#EF4444;vertical-align:middle;"> ' +
-      '<span style="vertical-align:middle;">Mantener mi sesión en este dispositivo</span>';
-    keep.style.cssText =
-      'position:fixed;bottom:66px;left:50%;transform:translateX(-50%);z-index:100000;' +
-      'color:#FCA5A5;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;' +
-      'background:rgba(22,5,10,0.6);padding:8px 16px;border-radius:999px;backdrop-filter:blur(6px);';
-    overlay.appendChild(keep);
+  // ⭐ Botón "Registrar en este dispositivo" a la DERECHA del disco central.
+  // Es un interruptor: encendido = la sesión queda guardada en el dispositivo.
+  var kb = document.getElementById('perfil-keep-btn');
+  if (!kb && box) {
+    kb = document.createElement('button');
+    kb.id = 'perfil-keep-btn';
+    kb.type = 'button';
+    kb.dataset.on = '0';
+    kb.innerHTML = '📱 Registrar en<br>este dispositivo';
+    kb.style.cssText =
+      'position:absolute;top:50%;left:calc(50% + 30%);transform:translateY(-50%);z-index:6;' +
+      'padding:12px 14px;border-radius:12px;background:rgba(30,27,75,0.75);color:#A5B4FC;' +
+      'border:1px solid rgba(167,139,250,0.3);font-size:12px;font-weight:700;line-height:1.35;' +
+      'cursor:pointer;backdrop-filter:blur(6px);text-align:center;transition:all 0.2s;max-width:130px;';
+    kb.onclick = function(e) {
+      e.preventDefault();
+      var on = kb.dataset.on === '1';
+      kb.dataset.on = on ? '0' : '1';
+      if (!on) {
+        kb.style.background = 'linear-gradient(135deg,#6d28d9,#8b5cf6)';
+        kb.style.color = '#fff';
+        kb.style.borderColor = 'rgba(196,181,253,0.6)';
+        kb.innerHTML = '✅ Se guardará en<br>este dispositivo';
+      } else {
+        kb.style.background = 'rgba(30,27,75,0.75)';
+        kb.style.color = '#A5B4FC';
+        kb.style.borderColor = 'rgba(167,139,250,0.3)';
+        kb.innerHTML = '📱 Registrar en<br>este dispositivo';
+      }
+      var ip = document.getElementById('input-pin');
+      if (ip && !ip.value) ip.focus();
+    };
+    box.appendChild(kb);
   }
 
-  // ⭐ Mostrar el campo de contraseña (invisible en el flujo rápido de solo PIN)
+  // Mostrar el campo de contraseña (oculto en el flujo rápido de solo PIN)
   var campoPass = document.getElementById('campo-contrasena-wrap');
   if (campoPass) campoPass.style.visibility = 'visible';
 
-  // ⭐ Focus INMEDIATO en el input del PIN — sin toques extra. Como esto corre
-  // dentro del gesto del usuario (click del botón), el teclado móvil se
-  // despliega de una vez.
+  // Focus inmediato en el PIN
   var inputPin = document.getElementById('input-pin');
-  if (inputPin) {
-    inputPin.value = '';
-    inputPin.focus();
-  }
+  if (inputPin) { inputPin.value = ''; inputPin.focus(); }
 }
 
 function desactivarModoPerfil() {
   window._modoPerfil = false;
-  var overlay = document.getElementById('pin-overlay');
   var box = document.getElementById('pin-box');
   var btn = document.getElementById('btn-mi-perfil');
-  if (overlay) overlay.style.background = '';
-  if (box) box.style.filter = '';
+
+  var panel = box ? box.querySelector('.ring-panel') : null;
+  if (panel) { panel.style.background = ''; panel.style.boxShadow = ''; }
+
   if (btn) {
     btn.innerHTML = '👤 Mi Perfil';
     btn.style.color = '#94A3B8';
     btn.style.borderColor = 'rgba(255,255,255,0.1)';
   }
-  // ⭐ Ocultar y limpiar el campo de contraseña (el flujo rápido es solo PIN)
   var campoPass = document.getElementById('campo-contrasena-wrap');
   if (campoPass) campoPass.style.visibility = 'hidden';
   var inputPass = document.getElementById('input-contrasena');
   if (inputPass) inputPass.value = '';
+
   var tag = document.getElementById('perfil-mode-tag');
   if (tag) tag.remove();
+  var kb = document.getElementById('perfil-keep-btn');
+  if (kb) kb.remove();
   var keep = document.getElementById('perfil-keep-wrap');
   if (keep) keep.remove();
 }

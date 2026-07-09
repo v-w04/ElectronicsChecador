@@ -1141,8 +1141,9 @@ function procesarAcceso() {
 
     // ⭐ MODO PERFIL activo → entrar al perfil en lugar de checar
     if (window._modoPerfil && typeof abrirPerfil === 'function') {
+      var keepBtn = document.getElementById('perfil-keep-btn');
       var keepEl = document.getElementById('perfil-keep');
-      var persistente = !!(keepEl && keepEl.checked);
+      var persistente = !!(keepBtn && keepBtn.dataset.on === '1') || !!(keepEl && keepEl.checked);
       _perfilGuardarSesion(usuario, persistente);
       desactivarModoPerfil();
       _setRingState('success');
@@ -1623,7 +1624,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v599';
+var FRONTEND_VERSION = 'v600';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
