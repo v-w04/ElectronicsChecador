@@ -683,8 +683,9 @@ function mostrarPantallaPIN() {
   // ⭐ Botonera inferior CENTRADA: "Mi Perfil" + "Electronics" lado a lado
   var botonera = document.createElement('div');
   botonera.id = 'botonera-inferior';
+  // ⭐ Botonera ARRIBA (móvil y web)
   botonera.style.cssText =
-    'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100000;' +
+    'position:fixed;top:calc(14px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:100000;' +
     'display:flex;gap:12px;align-items:center;';
 
   var estiloBtn =
@@ -1583,7 +1584,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v607';
+var FRONTEND_VERSION = 'v608';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
@@ -1689,3 +1690,60 @@ function _diagLimpiarTodo() {
     })
     .limpiarTodoChecador();
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SALIDA REMOTA — la app abrió desde la notificación con ?salidaRemota=ID
+// ─────────────────────────────────────────────────────────────────────────────
+(function _procesarSalidaRemota() {
+  try {
+    var m = location.search.match(/[?&]salidaRemota=([^&]+)/);
+    if (!m) return;
+    var idUsuario = decodeURIComponent(m[1]);
+    // Limpiar la URL para que un refresco no re-registre
+    try { history.replaceState(null, '', location.pathname); } catch(e) {}
+
+    function pintar(color, emoji, titulo, detalle) {
+      var ov = document.createElement('div');
+      ov.id = 'salida-remota-overlay';
+      ov.style.cssText =
+        'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100050;' +
+        'background:radial-gradient(circle at 50% 40%, ' + color + '22 0%, #050b18 75%);' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:26px;text-align:center;';
+      ov.innerHTML =
+        '<div style="font-size:56px;line-height:1;">' + emoji + '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + color + ';">' + titulo + '</div>' +
+        '<div style="font-size:14px;color:#CBD5E1;max-width:340px;line-height:1.6;">' + detalle + '</div>' +
+        '<button onclick="document.getElementById(\'salida-remota-overlay\').remove()" ' +
+                'style="margin-top:10px;padding:13px 28px;border-radius:12px;background:rgba(15,23,42,0.9);color:#7fdfff;' +
+                       'border:1px solid rgba(127,223,255,0.4);font-size:14px;font-weight:800;cursor:pointer;">Entendido</button>';
+      document.body.appendChild(ov);
+    }
+
+    function intentar() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return setTimeout(intentar, 400);
+      }
+      pintar('#94A3B8', '⏳', 'Registrando tu salida...', 'Un momento.');
+      google.script.run
+        .withSuccessHandler(function(r) {
+          var old = document.getElementById('salida-remota-overlay');
+          if (old) old.remove();
+          if (r && r.ok) {
+            pintar('#10B981', '🏠', r.yaExistia ? 'Ya estaba registrada' : 'Salida registrada',
+                   (r.message || '') + (r.yaExistia ? '' : ' Que descanses.'));
+          } else {
+            pintar('#EF4444', '⚠️', 'No se pudo registrar', (r && r.message) || 'Intenta desde la app.');
+          }
+        })
+        .withFailureHandler(function(e) {
+          var old = document.getElementById('salida-remota-overlay');
+          if (old) old.remove();
+          pintar('#EF4444', '⚠️', 'Sin conexión', 'No se pudo registrar la salida remota. Intenta de nuevo.');
+        })
+        .checadaSalidaRemota(idUsuario);
+    }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') intentar();
+    else document.addEventListener('DOMContentLoaded', intentar);
+  } catch(e) {}
+})();

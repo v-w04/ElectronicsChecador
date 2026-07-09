@@ -120,7 +120,7 @@ function activarModoPerfil() {
     tag.id = 'perfil-mode-tag';
     tag.innerHTML = '👤 MODO PERFIL — entra con tu PIN y contraseña';
     tag.style.cssText =
-      'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;' +
+      'position:fixed;top:calc(66px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:100000;' +
       'padding:9px 20px;border-radius:999px;background:rgba(76,58,143,0.4);color:#DDD6FE;' +
       'border:1px solid rgba(167,139,250,0.4);font-size:13px;font-weight:700;letter-spacing:1px;' +
       'backdrop-filter:blur(8px);white-space:nowrap;';

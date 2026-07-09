@@ -27,6 +27,7 @@ messaging.onBackgroundMessage(function(payload) {
   const titulo = d.title || (payload.notification && payload.notification.title) || 'Checador Electronics';
   const cuerpo = d.body || (payload.notification && payload.notification.body) || '';
   self.registration.showNotification(titulo, {
+    data: { url: d.url || '' },
     body: cuerpo,
     icon: 'icon-192.png',
     badge: 'icon-192.png',
@@ -44,6 +45,29 @@ self.addEventListener('notificationclick', function(event) {
         if ('focus' in lista[i]) return lista[i].focus();
       }
       if (clients.openWindow) return clients.openWindow('./');
+    })
+  );
+});
+
+
+// Al tocar la notificación: abrir la app (con la acción si trae URL, p.ej.
+// la salida remota) o enfocar la ventana ya abierta.
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  var destino = (event.notification.data && event.notification.data.url) ||
+                self.registration.scope;
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(lista) {
+      // Si trae acción específica (salida remota), abrir SIEMPRE esa URL
+      if (destino.indexOf('salidaRemota') !== -1) {
+        return clients.openWindow(destino);
+      }
+      for (var i = 0; i < lista.length; i++) {
+        if (lista[i].url.indexOf(self.registration.scope) === 0 && 'focus' in lista[i]) {
+          return lista[i].focus();
+        }
+      }
+      return clients.openWindow(destino);
     })
   );
 });
