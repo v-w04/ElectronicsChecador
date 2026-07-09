@@ -554,110 +554,69 @@ function _enviarDirecto(datos) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SITIO ELECTRONICS — abre electronicsmexico.site/checador en pestaña real
 // ─────────────────────────────────────────────────────────────────────────────
-// El sitio NO permite iframes (bloqueado por su hosting), así que se abre en
-// una pestaña/Custom Tab de Chrome con window.open(). La PWA conserva la
-// referencia y a los 15 segundos CIERRA esa pestaña automáticamente → el
-// empleado cae de vuelta al checador. Mientras tanto, la PWA muestra una
-// pantalla de espera con el contador grande.
-var _SITIO_AUTOREGRESO_SEG = 7;
-var _sitioTimerRegreso = null;
+// El sitio no permite iframes, así que se abre en su propia pestaña y se queda
+// ABIERTA el tiempo que el empleado necesite (sin contador ni cierre
+// automático). Al volver a esta app, el botón ✕ quita la pantalla de espera y
+// regresa al PIN; la pestaña del sitio sigue disponible.
 var _sitioVentana = null;
 
 function abrirSitioElectronics() {
   var viejo = document.getElementById('sitio-electronics-overlay');
   if (viejo) viejo.remove();
-  if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
 
-  // Abrir la pestaña DENTRO del gesto del usuario (para que Chrome no la bloquee)
+  // Abrir dentro del gesto del usuario (si no, Chrome bloquea el popup)
   _sitioVentana = window.open('https://electronicsmexico.site/checador', '_blank');
 
-  // Pantalla de espera en la PWA con contador grande
   var ov = document.createElement('div');
   ov.id = 'sitio-electronics-overlay';
   ov.style.cssText =
     'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100005;' +
     'background:radial-gradient(circle at 50% 50%, #0e1d3a 0%, #050b18 100%);' +
-    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;';
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;';
+
+  // ✕ siempre visible arriba a la izquierda
+  var btnX =
+    '<button onclick="cerrarSitioElectronics()" aria-label="Volver al checador" ' +
+            'style="position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:14px;z-index:100006;' +
+                   'width:46px;height:46px;border-radius:50%;background:rgba(15,23,42,0.92);color:#7fdfff;' +
+                   'border:1px solid rgba(127,223,255,0.45);font-size:20px;font-weight:700;cursor:pointer;' +
+                   'backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.5);line-height:1;">✕</button>';
 
   if (_sitioVentana) {
-    ov.innerHTML =
-      '<div style="font-size:17px;color:#94A3B8;font-weight:600;text-align:center;">🌐 Sitio Electronics abierto</div>' +
-      '<div style="font-size:15px;color:#64748B;text-align:center;max-width:340px;line-height:1.5;">' +
-        'Haz tu registro con el QR. La pestaña se cerrará sola y regresarás aquí.' +
+    ov.innerHTML = btnX +
+      '<div style="font-size:44px;line-height:1;">🌐</div>' +
+      '<div style="font-size:18px;color:#E2E8F0;font-weight:700;text-align:center;">Sitio Electronics abierto</div>' +
+      '<div style="font-size:14px;color:#64748B;text-align:center;max-width:330px;line-height:1.55;">' +
+        'Haz tu registro con el QR con calma. La pestaña se queda abierta el tiempo que necesites.' +
       '</div>' +
-      '<div style="width:130px;height:130px;border-radius:50%;background:rgba(15,23,42,0.9);' +
-             'border:4px solid #7fdfff;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-             'box-shadow:0 0 34px rgba(127,223,255,0.4);">' +
-        '<div id="sitio-contador-num" style="font-size:52px;font-weight:800;color:#7fdfff;line-height:1;font-variant-numeric:tabular-nums;">' +
-          _SITIO_AUTOREGRESO_SEG +
-        '</div>' +
-        '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:2px;margin-top:4px;">regreso</div>' +
-      '</div>' +
-      '<div style="display:flex;gap:12px;">' +
-        '<button onclick="_sitioMasTiempo()" ' +
-                'style="padding:12px 22px;border-radius:999px;background:rgba(30,41,59,0.8);color:#94A3B8;' +
-                       'border:1px solid rgba(255,255,255,0.15);font-size:14px;font-weight:700;cursor:pointer;">+30s</button>' +
-        '<button onclick="cerrarSitioElectronics()" ' +
-                'style="padding:12px 22px;border-radius:999px;background:rgba(15,23,42,0.9);color:#7fdfff;' +
-                       'border:1px solid rgba(127,223,255,0.4);font-size:14px;font-weight:700;cursor:pointer;">← Volver ya</button>' +
-      '</div>';
+      '<button onclick="cerrarSitioElectronics()" ' +
+              'style="margin-top:6px;padding:14px 26px;border-radius:12px;background:rgba(15,23,42,0.9);color:#7fdfff;' +
+                     'border:1px solid rgba(127,223,255,0.4);font-size:15px;font-weight:800;cursor:pointer;">' +
+        '✕ Volver al checador' +
+      '</button>';
   } else {
-    // Popup bloqueado por el navegador → botón manual (el click directo siempre pasa)
-    ov.innerHTML =
-      '<div style="font-size:16px;color:#F59E0B;font-weight:700;text-align:center;">El navegador bloqueó la apertura automática</div>' +
+    // Popup bloqueado por el navegador → enlace manual (el click directo sí pasa)
+    ov.innerHTML = btnX +
+      '<div style="font-size:16px;color:#F59E0B;font-weight:700;text-align:center;max-width:330px;">' +
+        'El navegador bloqueó la apertura automática' +
+      '</div>' +
       '<a href="https://electronicsmexico.site/checador" target="_blank" rel="noopener" ' +
-         'onclick="setTimeout(function(){ cerrarSitioElectronics(); }, ' + (_SITIO_AUTOREGRESO_SEG * 1000) + ');" ' +
          'style="padding:16px 30px;border-radius:14px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;' +
                 'font-size:17px;font-weight:800;text-decoration:none;">🌐 Abrir sitio Electronics</a>' +
       '<button onclick="cerrarSitioElectronics()" ' +
               'style="padding:10px 20px;border-radius:999px;background:transparent;color:#64748B;' +
-                     'border:1px solid rgba(255,255,255,0.12);font-size:13px;cursor:pointer;">← Volver al checador</button>';
+                     'border:1px solid rgba(255,255,255,0.12);font-size:13px;cursor:pointer;">✕ Volver al checador</button>';
   }
   document.body.appendChild(ov);
-
-  // Cuenta regresiva → al llegar a 0 cierra la pestaña del sitio y limpia
-  if (_sitioVentana) {
-    window._sitioSegundosRestantes = _SITIO_AUTOREGRESO_SEG;
-    _sitioTimerRegreso = setInterval(function() {
-      window._sitioSegundosRestantes--;
-      var num = document.getElementById('sitio-contador-num');
-      if (num) num.textContent = window._sitioSegundosRestantes;
-      if (window._sitioSegundosRestantes <= 0) cerrarSitioElectronics();
-
-      // ⭐ Si el empleado cerró la pestaña él mismo → limpiar de inmediato
-      try { if (_sitioVentana && _sitioVentana.closed) cerrarSitioElectronics(); } catch(e) {}
-    }, 1000);
-
-    // ⭐ Si el empleado REGRESA a la PWA por su cuenta (cambia de pestaña/app),
-    // el contador ya no tiene sentido: cerrar la pestaña externa y limpiar YA.
-    window._sitioOnVisible = function() {
-      if (document.visibilityState === 'visible' &&
-          document.getElementById('sitio-electronics-overlay')) {
-        cerrarSitioElectronics();
-      }
-    };
-    document.addEventListener('visibilitychange', window._sitioOnVisible);
-  }
 }
 
-function _sitioMasTiempo() {
-  window._sitioSegundosRestantes = (window._sitioSegundosRestantes || 0) + 30;
-  var num = document.getElementById('sitio-contador-num');
-  if (num) num.textContent = window._sitioSegundosRestantes;
-}
-
+// Solo quita la pantalla de espera: la pestaña del sitio NO se cierra
 function cerrarSitioElectronics() {
-  if (_sitioTimerRegreso) { clearInterval(_sitioTimerRegreso); _sitioTimerRegreso = null; }
-  if (window._sitioOnVisible) {
-    document.removeEventListener('visibilitychange', window._sitioOnVisible);
-    window._sitioOnVisible = null;
-  }
-  // ⭐ Cerrar la pestaña del sitio externo (permitido porque la abrió este script)
-  try { if (_sitioVentana && !_sitioVentana.closed) _sitioVentana.close(); } catch(e) {}
-  _sitioVentana = null;
   var ov = document.getElementById('sitio-electronics-overlay');
   if (ov) ov.remove();
-  // La pantalla del PIN sigue intacta debajo
+  _sitioVentana = null;
+  var ip = document.getElementById('input-pin');
+  if (ip) ip.focus();
 }
 
 function mostrarPantallaPIN() {
@@ -1624,7 +1583,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v605';
+var FRONTEND_VERSION = 'v607';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {

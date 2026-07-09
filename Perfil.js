@@ -550,25 +550,28 @@ function _perfilActualizarCrono(sesion) {
            String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
-  // 1) ¿En desayuno o comida sin regresar?
+  // 1) ¿En desayuno o comida sin regresar? → CUENTA REGRESIVA: parte del
+  // límite (25:00) hacia 00:00; al pasarse muestra el exceso como −MM:SS.
   if (ultima && (ultima.tipo === 'SALIDA_DESAYUNO' || ultima.tipo === 'SALIDA_COMIDA')) {
     var esDes = ultima.tipo === 'SALIDA_DESAYUNO';
     var limMin = esDes ? _durDesayunoDe(sesion.idUsuario) : _durComidaDe(sesion.idUsuario);
     var trans = Math.floor((ahora.getTime() - ultima.ts) / 1000);
     var limSeg = limMin * 60;
-    var excedido = trans > limSeg;
-    var color = excedido ? '#EF4444' : (trans > limSeg - 300 ? '#F59E0B' : '#3B82F6');
+    var resta = limSeg - trans;             // >0: tiempo que queda · <0: exceso
+    var excedido = resta < 0;
+    var color = excedido ? '#EF4444' : (resta <= 300 ? '#F59E0B' : '#3B82F6');
     var titulo = esDes ? '🥐 Desayuno en curso' : '🍽️ Comida en curso';
+    var display = (excedido ? '−' : '') + fmt(Math.abs(resta));
 
     box.style.display = 'block';
     box.innerHTML =
       '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid ' + color + '55;border-radius:14px;padding:18px;text-align:center;">' +
         '<div style="font-size:12px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">' + titulo + '</div>' +
-        '<div style="font-size:38px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + fmt(trans) + '</div>' +
+        '<div style="font-size:38px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + display + '</div>' +
         '<div style="font-size:13px;color:#CBD5E1;">' +
           (excedido
-            ? '❌ Exceso de ' + Math.floor((trans - limSeg) / 60) + ' min — ¡CORRE! Por UN minuto te descuentan UNA HORA. '
-            : 'de ' + limMin + ':00 permitidos · te quedan ' + Math.ceil((limSeg - trans) / 60) + ' min') +
+            ? '❌ Exceso — checa tu regreso YA'
+            : 'de ' + limMin + ' min · regresa antes de que llegue a 0') +
         '</div>' +
       '</div>';
     return;
