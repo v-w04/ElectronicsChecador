@@ -552,71 +552,33 @@ function _enviarDirecto(datos) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SITIO ELECTRONICS — abre electronicsmexico.site/checador en pestaña real
+// SITIO ELECTRONICS — abre/recarga electronicsmexico.site/checador
 // ─────────────────────────────────────────────────────────────────────────────
-// El sitio no permite iframes, así que se abre en su propia pestaña y se queda
-// ABIERTA el tiempo que el empleado necesite (sin contador ni cierre
-// automático). Al volver a esta app, el botón ✕ quita la pantalla de espera y
-// regresa al PIN; la pestaña del sitio sigue disponible.
-var _sitioVentana = null;
-
+// SIN pantalla de espera: la PWA se queda en el PIN tal cual. El nombre fijo
+// de ventana ('electronicsSite') hace que el botón REUTILICE la misma pestaña
+// y la RECARGUE — así la cámara del QR se reinicia (al cambiar de app el
+// navegador la suspende y quedaba en negro).
 function abrirSitioElectronics() {
-  var viejo = document.getElementById('sitio-electronics-overlay');
-  if (viejo) viejo.remove();
-
-  // Abrir dentro del gesto del usuario (si no, Chrome bloquea el popup)
-  _sitioVentana = window.open('https://electronicsmexico.site/checador', '_blank');
-
-  var ov = document.createElement('div');
-  ov.id = 'sitio-electronics-overlay';
-  ov.style.cssText =
-    'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100005;' +
-    'background:radial-gradient(circle at 50% 50%, #0e1d3a 0%, #050b18 100%);' +
-    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;';
-
-  // ✕ siempre visible arriba a la izquierda
-  var btnX =
-    '<button onclick="cerrarSitioElectronics()" aria-label="Volver al checador" ' +
-            'style="position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:14px;z-index:100006;' +
-                   'width:46px;height:46px;border-radius:50%;background:rgba(15,23,42,0.92);color:#7fdfff;' +
-                   'border:1px solid rgba(127,223,255,0.45);font-size:20px;font-weight:700;cursor:pointer;' +
-                   'backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.5);line-height:1;">✕</button>';
-
-  if (_sitioVentana) {
-    ov.innerHTML = btnX +
-      '<div style="font-size:44px;line-height:1;">🌐</div>' +
-      '<div style="font-size:18px;color:#E2E8F0;font-weight:700;text-align:center;">Sitio Electronics abierto</div>' +
-      '<div style="font-size:14px;color:#64748B;text-align:center;max-width:330px;line-height:1.55;">' +
-        'Haz tu registro con el QR con calma. La pestaña se queda abierta el tiempo que necesites.' +
-      '</div>' +
-      '<button onclick="cerrarSitioElectronics()" ' +
-              'style="margin-top:6px;padding:14px 26px;border-radius:12px;background:rgba(15,23,42,0.9);color:#7fdfff;' +
-                     'border:1px solid rgba(127,223,255,0.4);font-size:15px;font-weight:800;cursor:pointer;">' +
-        '✕ Volver al checador' +
-      '</button>';
-  } else {
-    // Popup bloqueado por el navegador → enlace manual (el click directo sí pasa)
-    ov.innerHTML = btnX +
-      '<div style="font-size:16px;color:#F59E0B;font-weight:700;text-align:center;max-width:330px;">' +
-        'El navegador bloqueó la apertura automática' +
-      '</div>' +
-      '<a href="https://electronicsmexico.site/checador" target="_blank" rel="noopener" ' +
-         'style="padding:16px 30px;border-radius:14px;background:linear-gradient(135deg,#2456a8,#1e90ff);color:#fff;' +
-                'font-size:17px;font-weight:800;text-decoration:none;">🌐 Abrir sitio Electronics</a>' +
-      '<button onclick="cerrarSitioElectronics()" ' +
-              'style="padding:10px 20px;border-radius:999px;background:transparent;color:#64748B;' +
-                     'border:1px solid rgba(255,255,255,0.12);font-size:13px;cursor:pointer;">✕ Volver al checador</button>';
+  var win = window.open('https://electronicsmexico.site/checador', 'electronicsSite');
+  if (win && win.focus) { try { win.focus(); } catch(e) {} }
+  if (!win) {
+    // Popup bloqueado → aviso mínimo con enlace directo (el click sí pasa)
+    var viejo = document.getElementById('sitio-popup-aviso');
+    if (viejo) viejo.remove();
+    var av = document.createElement('div');
+    av.id = 'sitio-popup-aviso';
+    av.style.cssText =
+      'position:fixed;top:calc(70px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);' +
+      'z-index:100010;background:rgba(15,23,42,0.96);border:1px solid rgba(127,223,255,0.4);border-radius:12px;' +
+      'padding:12px 16px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
+    av.innerHTML =
+      '<a href="https://electronicsmexico.site/checador" target="electronicsSite" rel="noopener" ' +
+         'style="color:#7fdfff;font-size:14px;font-weight:700;text-decoration:none;">🌐 Abrir sitio Electronics</a>' +
+      '<button onclick="document.getElementById(\'sitio-popup-aviso\').remove()" ' +
+              'style="background:none;border:none;color:#64748B;font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>';
+    document.body.appendChild(av);
+    setTimeout(function() { var a = document.getElementById('sitio-popup-aviso'); if (a) a.remove(); }, 12000);
   }
-  document.body.appendChild(ov);
-}
-
-// Solo quita la pantalla de espera: la pestaña del sitio NO se cierra
-function cerrarSitioElectronics() {
-  var ov = document.getElementById('sitio-electronics-overlay');
-  if (ov) ov.remove();
-  _sitioVentana = null;
-  var ip = document.getElementById('input-pin');
-  if (ip) ip.focus();
 }
 
 function mostrarPantallaPIN() {
@@ -1584,7 +1546,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v608';
+var FRONTEND_VERSION = 'v609';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
