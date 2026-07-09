@@ -356,7 +356,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
                                        '. Aún no es retardo (' + _formatearHora(limRet + 1) + ').' };
       return { texto: '❌ Retardo', color: '#ef4444',
                detalle: (minAhora - limRet) + ' min pasado el límite de las ' + _formatearHora(limRet) +
-                        '. 3 retardos = MEDIO DÍA de descuento.' };
+                        '. 3 retardos = MEDIO DÍA.' };
     }
 
     case 'SALIDA_DESAYUNO': {
@@ -377,7 +377,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       }
       var excD = durD - _dd2;
       return { texto: '❌ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
-               detalle: 'Tomaste ' + durD + ' min de ' + _dd2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no se perdona ni un minuto.' };
+               detalle: durD + ' min de ' + _dd2 + '. Se descuenta UNA HORA.' };
     }
 
     case 'SALIDA_COMIDA': {
@@ -398,7 +398,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       }
       var excC = durC - _dc2;
       return { texto: '❌ Exceso de ' + excC + ' min en comida', color: '#ef4444',
-               detalle: 'Tomaste ' + durC + ' min de ' + _dc2 + ' permitidos. Por UN minuto de exceso te descuentan UNA HORA. Aquí no se perdona ni un minuto.' };
+               detalle: durC + ' min de ' + _dc2 + '. Se descuenta UNA HORA.' };
     }
 
     case 'SALIDA': {
@@ -407,8 +407,8 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       if (minAhora > minFin) {
         var extra = minAhora - minFin;
         return { texto: '⏱️ ' + extra + ' minutos regalados', color: '#fbbf24',
-                 detalle: 'Trabajaste ' + extra + ' minutos de más que nadie te va a pagar. ' +
-                          'Tu salida era a las ' + _formatearHora(minFin) + '. Mañana sal a tu hora.' };
+                 detalle: 'Nadie paga este tiempo. ' +
+                          'Tu salida era a las ' + _formatearHora(minFin) + '.' };
       }
       if (minAhora < minFin) {
         var antes = minFin - minAhora;
@@ -426,10 +426,10 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
         var iniM = t.inicio.h * 60 + t.inicio.m;
         if (minAhora > finM) {
           return { texto: '⛔ Ya pasó tu hora de salida', color: '#ef4444',
-                   detalle: 'Tu horario terminó a las ' + _formatearHora(finM) + '. Ya vete a descansar — no hay nada que checar a esta hora.' };
+                   detalle: 'Tu horario terminó a las ' + _formatearHora(finM) + '. Ya vete a descansar.' };
         }
         return { texto: '🌙 Aún no es hora de checar', color: '#fbbf24',
-                 detalle: 'Tu turno empieza a las ' + _formatearHora(iniM) + '. Puedes registrar tu entrada desde las ' + _formatearHora(Math.max(0, iniM - 120)) + '.' };
+                 detalle: 'Puedes checar desde las ' + _formatearHora(Math.max(0, iniM - 120)) + '.' };
       }
       return { texto: '⛔ Fuera de horario', color: '#fbbf24', detalle: 'Vuelve más cerca de tu horario.' };
     }
@@ -1623,7 +1623,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v595';
+var FRONTEND_VERSION = 'v597';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {

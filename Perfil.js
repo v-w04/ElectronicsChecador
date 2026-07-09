@@ -588,7 +588,7 @@ function _perfilActualizarCrono(sesion) {
         '<div style="font-size:38px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + fmt(trans) + '</div>' +
         '<div style="font-size:13px;color:#CBD5E1;">' +
           (excedido
-            ? '❌ Exceso de ' + Math.floor((trans - limSeg) / 60) + ' min — ¡CORRE! Por UN minuto te descuentan UNA HORA. Aquí no se perdona ni un minuto.'
+            ? '❌ Exceso de ' + Math.floor((trans - limSeg) / 60) + ' min — ¡CORRE! Por UN minuto te descuentan UNA HORA. '
             : 'de ' + limMin + ':00 permitidos · te quedan ' + Math.ceil((limSeg - trans) / 60) + ' min') +
         '</div>' +
       '</div>';
@@ -608,8 +608,7 @@ function _perfilActualizarCrono(sesion) {
         '<div style="background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.4);border-radius:14px;padding:18px;text-align:center;">' +
           '<div style="font-size:12px;color:#FBBF24;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">⏱️ Tiempo regalado</div>' +
           '<div style="font-size:38px;font-weight:800;color:#FBBF24;font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + fmt(reg) + '</div>' +
-          '<div style="font-size:13px;color:#CBD5E1;">Tiempo trabajado de más que nadie te va a pagar. Tu salida era a las ' +
-            String(turno.fin.h).padStart(2, '0') + ':' + String(turno.fin.m).padStart(2, '0') + '. Checa tu salida y vete a descansar.</div>' +
+          '<div style="font-size:13px;color:#CBD5E1;">Nadie paga este tiempo. Checa tu salida.</div>' +
         '</div>';
       return;
     }
@@ -695,6 +694,7 @@ function _perfilPintarAlertas(sesion) {
       '</div>';
   });
 
+  html += '<div id="perfil-dispositivos" style="margin-top:14px;"></div>';
   html += '<button onclick="_perfilTestPush()" ' +
           'style="width:100%;margin-top:8px;padding:13px;background:transparent;color:#7fdfff;' +
                  'border:1px solid rgba(127,223,255,0.4);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">' +
@@ -702,6 +702,57 @@ function _perfilPintarAlertas(sesion) {
   '</button>';
   html += '<div id="perfil-alertas-status" style="font-size:12px;color:#64748B;text-align:right;padding:4px 4px 0;min-height:16px;"></div>';
   cont.innerHTML = html;
+  _perfilCargarDispositivos(sesion);
+}
+
+// ── Mis dispositivos: un empleado puede vincular varios (celular, tablet...) ──
+function _perfilCargarDispositivos(sesion) {
+  var cont = document.getElementById('perfil-dispositivos');
+  if (!cont || navigator.onLine === false) return;
+  var tkActual = (typeof PushNotifications !== 'undefined' && PushNotifications.tokenActual)
+    ? PushNotifications.tokenActual() : '';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      var c = document.getElementById('perfil-dispositivos');
+      if (!c || !r || !r.ok) return;
+      var lista = r.dispositivos || [];
+      if (lista.length === 0) {
+        c.innerHTML = '<div style="font-size:12px;color:#64748B;padding:4px 2px;">Sin dispositivos vinculados todavía.</div>';
+        return;
+      }
+      var html = '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;' +
+                 'letter-spacing:1.5px;font-weight:800;margin-bottom:8px;">📱 Mis dispositivos (' + lista.length + ')</div>';
+      lista.forEach(function(d) {
+        html +=
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;margin-bottom:6px;' +
+                 'background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border-radius:10px;' +
+                 'border:1px solid ' + (d.esActual ? 'rgba(16,185,129,0.4)' : 'rgba(80,150,220,0.12)') + ';">' +
+            '<div style="min-width:0;">' +
+              '<div style="font-size:13px;font-weight:700;color:var(--text-primary,#F1F5F9);">' + d.dispositivo +
+                (d.esActual ? ' <span style="color:#10B981;font-size:11px;">· este</span>' : '') + '</div>' +
+              '<div style="font-size:11px;color:#64748B;">Desde ' + (d.registrado || '—') + '</div>' +
+            '</div>' +
+            (d.esActual ? '' :
+              '<button onclick="_perfilDesvincular(\'' + d.token.substring(0, 60) + '\')" ' +
+                      'style="padding:7px 12px;background:transparent;color:#F87171;border:1px solid rgba(248,113,113,0.3);' +
+                             'border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Quitar</button>') +
+          '</div>';
+      });
+      c.innerHTML = html;
+    })
+    .withFailureHandler(function() {})
+    .getMisDispositivos(sesion.pin, tkActual);
+}
+
+function _perfilDesvincular(tokenPrefijo) {
+  var sesion = _perfilLeerSesion();
+  if (!sesion) return;
+  if (!window.confirm('¿Quitar este dispositivo? Dejará de recibir tus alertas.')) return;
+  google.script.run
+    .withSuccessHandler(function() { _perfilCargarDispositivos(sesion); })
+    .withFailureHandler(function() {})
+    .desvincularDispositivo(sesion.pin, tokenPrefijo);
 }
 
 // ── Test inmediato: valida todo el circuito de push y reporta el eslabón roto ──
