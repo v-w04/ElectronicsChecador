@@ -237,11 +237,19 @@ function abrirPerfil(sesion) {
             '</div>' +
           '</div>' +
         '</div>' +
-        '<button onclick="_perfilCerrarSesion()" ' +
-                'style="padding:10px 18px;background:transparent;color:var(--danger,#EF4444);border:1px solid rgba(239,68,68,0.35);' +
-                       'border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">' +
-          'Cerrar sesión' +
-        '</button>' +
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+          // ⭐ Recargar: suelta el cache de usuarios/turnos y recarga la app.
+          // Necesario cuando cambian horarios en TURNOS_DEFAULT (en iOS no hay
+          // "deslizar para recargar" como en Android).
+          '<button id="perfil-btn-recargar" onclick="_perfilRecargarTodo()" title="Recargar turnos y horarios" ' +
+                  'style="padding:10px 13px;background:transparent;color:#7fdfff;border:1px solid rgba(127,223,255,0.35);' +
+                         'border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;line-height:1;">↻</button>' +
+          '<button onclick="_perfilCerrarSesion()" ' +
+                  'style="padding:10px 18px;background:transparent;color:var(--danger,#EF4444);border:1px solid rgba(239,68,68,0.35);' +
+                         'border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">' +
+            'Cerrar sesión' +
+          '</button>' +
+        '</div>' +
       '</div>' +
 
       // Banner de notificaciones (activar / estado)
@@ -1208,4 +1216,40 @@ function _perfilDiagAlertas() {
       if (b) b.innerHTML = '<div style="font-size:12px;color:#F87171;">El backend no tiene diagnosticoAlertas — re-despliega el Code-Simple.gs.</div>';
     })
     .diagnosticoAlertas(sesion.pin);
+}
+
+
+// ── Recargar app y cache (turnos/horarios nuevos) ──────────────────────────
+// En iOS la PWA instalada no tiene "deslizar para recargar": este botón hace
+// el trabajo — borra el cache de usuarios, las checadas locales del día y el
+// cache del service worker, y vuelve a cargar.
+function _perfilRecargarTodo() {
+  var btn = document.getElementById('perfil-btn-recargar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+
+  try { localStorage.removeItem('em_usuarios_cache'); } catch(e) {}
+  try { localStorage.removeItem(_LS_KEY_CHECADAS_DIA); } catch(e) {}
+  if (typeof _usuariosCache !== 'undefined') _usuariosCache = null;
+
+  var tareas = [];
+  // Vaciar los caches del service worker (para jalar archivos nuevos)
+  if (window.caches && caches.keys) {
+    tareas.push(caches.keys().then(function(ks) {
+      return Promise.all(ks.map(function(k) { return caches.delete(k); }));
+    }).catch(function() {}));
+  }
+  // Actualizar el service worker registrado
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    tareas.push(navigator.serviceWorker.getRegistrations().then(function(rs) {
+      return Promise.all(rs.map(function(r) { return r.update().catch(function() {}); }));
+    }).catch(function() {}));
+  }
+
+  Promise.all(tareas).then(function() {
+    setTimeout(function() {
+      // Cache-bust duro: recargar con parámetro de tiempo
+      var u = location.origin + location.pathname + '?r=' + Date.now();
+      location.replace(u);
+    }, 350);
+  });
 }
