@@ -28,10 +28,17 @@ messaging.onBackgroundMessage(function(payload) {
   const cuerpo = d.body || (payload.notification && payload.notification.body) || '';
   self.registration.showNotification(titulo, {
     data: { url: d.url || '' },
+    // ⭐ Persistente: no se auto-oculta — el empleado tiene que quitarla
+    // (Android/desktop la fijan; iOS decide según los ajustes del sistema)
+    requireInteraction: true,
+    renotify: true,
+    // ⭐ Estilo "urgente": se queda en pantalla hasta que el usuario la
+    // descarte a mano (Android/PC). Vibración larga tipo alarma.
+    requireInteraction: true,
     body: cuerpo,
     icon: 'icon-192.png',
     badge: 'icon-192.png',
-    vibrate: [200, 100, 200],
+    vibrate: [400, 150, 400, 150, 400],
     tag: 'checador-alerta'
   });
 });

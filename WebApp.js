@@ -406,8 +406,8 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       var minFin = turno.fin.h * 60 + turno.fin.m;
       if (minAhora > minFin) {
         var extra = minAhora - minFin;
-        return { texto: '⏱️ ' + extra + ' minutos regalados', color: '#fbbf24',
-                 detalle: 'Nadie paga este tiempo. ' +
+        return { texto: '⏱️ ' + extra + ' min de tiempo extra', color: '#fbbf24',
+                 detalle: 'Tiempo extra que no se paga. ' +
                           'Tu salida era a las ' + _formatearHora(minFin) + '.' };
       }
       if (minAhora < minFin) {
@@ -590,7 +590,7 @@ function mostrarPantallaPIN() {
     try {
       var ses = (typeof _perfilLeerSesion === 'function') ? _perfilLeerSesion() : null;
       if (ses && ses.persistente && typeof abrirPerfil === 'function') {
-        setTimeout(function() { abrirPerfil(ses); }, 100);
+        setTimeout(function() { abrirPerfil(ses); }, 0);
       }
     } catch(e) {}
   }
@@ -741,6 +741,7 @@ function mostrarPantallaPIN() {
                'inputmode="numeric" pattern="[0-9]*" maxlength="4" ' +
                'autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
                'data-form-type="other" data-lpignore="true" data-1p-ignore="true" ' +
+               'readonly onfocus="this.removeAttribute(\'readonly\')" ontouchstart="this.removeAttribute(\'readonly\')" ' +
                'name="" placeholder="••••" aria-label="PIN de acceso" />' +
       '</div>' +
 
@@ -837,10 +838,27 @@ function mostrarPantallaPIN() {
     });
     ip.addEventListener('focus', _markFocusTop);
     ip.addEventListener('blur',  _clearFocus);
-    // ⭐ Focus automático al cargar (doble intento — a veces el primero llega
-    // antes de que el overlay termine de pintar)
-    setTimeout(function() { ip.focus(); }, 100);
-    setTimeout(function() { if (document.activeElement !== ip) ip.focus(); }, 450);
+    // ⭐ Focus automático al cargar — SOLO si NO hay sesión guardada en este
+    // dispositivo. Con sesión activa, enfocar el PIN hacía que iOS levantara
+    // el teclado y ofreciera contraseñas al abrir la app.
+    var haySesion = false;
+    try {
+      var _rawSes = localStorage.getItem('em_perfil_sesion');
+      haySesion = !!(_rawSes && JSON.parse(_rawSes) && JSON.parse(_rawSes).persistente);
+    } catch(e) {}
+    if (!haySesion) {
+      setTimeout(function() { ip.focus(); }, 100);
+      setTimeout(function() { if (document.activeElement !== ip) ip.focus(); }, 450);
+    } else {
+      try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch(e) {}
+      // ⭐ Sesión guardada en este dispositivo → abrir el perfil DIRECTO,
+      // sin teclado ni pantalla de PIN de por medio.
+      var _intentosPerfil = 0;
+      (function _bootPerfil() {
+        if (typeof abrirLoginPerfil === 'function') { abrirLoginPerfil(); return; }
+        if (++_intentosPerfil < 25) setTimeout(_bootPerfil, 200);
+      })();
+    }
     // ⭐ Tocar cualquier área vacía de la pantalla regresa el cursor al PIN
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay || (e.target && e.target.id === 'pin-box')) {
@@ -1546,7 +1564,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v610';
+var FRONTEND_VERSION = 'v611';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {

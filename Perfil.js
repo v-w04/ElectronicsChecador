@@ -272,22 +272,23 @@ function abrirPerfil(sesion) {
         '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
       '</div>' +
 
-      // ── 3. Historial de la quincena ──
-      '<div id="perfil-quincena-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"></div>' +
-      '<div id="perfil-historial" style="margin-bottom:28px;">' +
-        '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
-      '</div>' +
+      // ── 3. Quincena (colapsable, cerrada de inicio) ──
+      _secColapsable('sec-quincena', '📆 Mis checadas por quincena',
+        '<div id="perfil-quincena-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"></div>' +
+        '<div id="perfil-historial">' +
+          '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
+        '</div>') +
 
-      // ── 4. Mis alertas ──
-      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">🔔 Mis alertas</div>' +
-      '<div id="perfil-alertas" style="margin-bottom:28px;">' +
-        '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
-      '</div>' +
+      // ── 4. Mis alertas (colapsable) ──
+      _secColapsable('sec-alertas', '🔔 Mis alertas y dispositivos',
+        '<div id="perfil-alertas">' +
+          '<div style="color:#64748B;font-size:14px;font-style:italic;padding:8px 0;">Cargando...</div>' +
+        '</div>') +
 
-      // ── 5. Checada manual (hasta el fondo, para emergencias) ──
-      '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:6px;">Checada manual</div>' +
-      '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Solo para emergencias — lo normal es checar en la tablet con tu PIN.</div>' +
-      '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;"></div>' +
+      // ── 5. Checada manual (colapsable, hasta el fondo) ──
+      _secColapsable('sec-manual', '🆘 Checada manual',
+        '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Solo para emergencias — lo normal es checar en la tablet con tu PIN.</div>' +
+        '<div id="perfil-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>') +
 
     '</div>';
   document.body.appendChild(overlay);
@@ -588,9 +589,9 @@ function _perfilActualizarCrono(sesion) {
       box.style.display = 'block';
       box.innerHTML =
         '<div style="background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.4);border-radius:14px;padding:18px;text-align:center;">' +
-          '<div style="font-size:12px;color:#FBBF24;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">⏱️ Tiempo regalado</div>' +
+          '<div style="font-size:12px;color:#FBBF24;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">⏱️ Tiempo extra (no se paga)</div>' +
           '<div style="font-size:38px;font-weight:800;color:#FBBF24;font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + fmt(reg) + '</div>' +
-          '<div style="font-size:13px;color:#CBD5E1;">Nadie paga este tiempo. Checa tu salida.</div>' +
+          '<div style="font-size:13px;color:#CBD5E1;">Checa tu salida.</div>' +
         '</div>';
       return;
     }
@@ -609,7 +610,7 @@ var _PERFIL_CATS_ALERTAS = [
   { key: 'entrada',  emoji: '🏢', label: 'Entrada',  desc: 'Aviso 15 min antes y al momento de tu hora (bono)' },
   { key: 'desayuno', emoji: '🥐', label: 'Desayuno', desc: 'Aviso antes del exceso y recordatorios' },
   { key: 'comida',   emoji: '🍽️', label: 'Comida',   desc: 'Aviso antes del exceso y recordatorios' },
-  { key: 'salida',   emoji: '🏠', label: 'Salida',   desc: 'Aviso antes de tu hora y tiempo regalado' }
+  { key: 'salida',   emoji: '🏠', label: 'Salida',   desc: 'Aviso antes de tu hora y tiempo extra' }
 ];
 
 function _perfilCargarAlertas(sesion) {
@@ -1249,7 +1250,7 @@ function _perfilPintarExcepciones(sesion, activa) {
                '</button>';
       }).join('') +
     '</div>' +
-    '<div style="font-size:10.5px;color:#475569;margin-top:6px;">📅 Festivo aplica a toda la empresa.</div>' +
+
     '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;padding:6px 2px 0;min-height:14px;"></div>';
 }
 
@@ -1346,4 +1347,26 @@ function _perfilRecargarTodo() {
       location.replace(u);
     }, 350);
   });
+}
+
+
+// ── Secciones colapsables del perfil (cerradas de inicio) ──────────────────
+function _secColapsable(id, titulo, innerHtml) {
+  return '<div style="background:linear-gradient(180deg,#101d38 0%,#0b1526 100%);border:1px solid rgba(80,150,220,0.14);' +
+                'border-radius:14px;margin-bottom:14px;overflow:hidden;">' +
+    '<div onclick="_perfilToggleSec(\'' + id + '\')" ' +
+         'style="display:flex;justify-content:space-between;align-items:center;padding:15px 16px;cursor:pointer;">' +
+      '<span style="font-size:13px;font-weight:800;color:#CBD5E1;letter-spacing:0.4px;">' + titulo + '</span>' +
+      '<span id="' + id + '-flecha" style="color:#475569;font-size:12px;transition:transform 0.2s;">▼</span>' +
+    '</div>' +
+    '<div id="' + id + '" style="display:none;padding:0 16px 16px;">' + innerHtml + '</div>' +
+  '</div>';
+}
+function _perfilToggleSec(id) {
+  var body = document.getElementById(id);
+  var fl = document.getElementById(id + '-flecha');
+  if (!body) return;
+  var abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  if (fl) fl.style.transform = abierto ? '' : 'rotate(180deg)';
 }

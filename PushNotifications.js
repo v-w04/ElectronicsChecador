@@ -20,6 +20,23 @@ var PushNotifications = (function() {
   var VAPID_KEY = 'BHyfFo8jnvNKeIuXlAEqsXmfTLCaJqKEVkfWHSl8Lk4W155rGgA9LSlP_a4zF1vviWXtHY6QpikDcnrm9flaUo4';
 
   var _LS_TOKEN = 'em_push_token';
+
+  // Nombre legible del dispositivo para la hoja PUSH_TOKENS
+  function _nombreDispositivo() {
+    var ua = navigator.userAgent || '';
+    var so = /iPhone/i.test(ua) ? 'iPhone'
+           : /iPad/i.test(ua) ? 'iPad'
+           : /Android/i.test(ua) ? (/Tablet|Tab/i.test(ua) ? 'Tablet Android' : 'Android')
+           : /Windows/i.test(ua) ? 'Windows'
+           : /Macintosh/i.test(ua) ? 'Mac' : 'Dispositivo';
+    var nav = /CriOS|Chrome/i.test(ua) ? 'Chrome'
+            : /FxiOS|Firefox/i.test(ua) ? 'Firefox'
+            : /Edg/i.test(ua) ? 'Edge'
+            : /Safari/i.test(ua) ? 'Safari' : '';
+    var pwa = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+              window.navigator.standalone;
+    return so + (nav ? ' · ' + nav : '') + (pwa ? ' (app)' : '');
+  }
   var _sdkCargado = false;
 
   function _cargarScript(url) {
@@ -52,7 +69,15 @@ var PushNotifications = (function() {
     }
     if (navigator.onLine === false) return Promise.resolve({ ok: false, error: 'Sin internet' });
 
-    return Notification.requestPermission().then(function(permiso) {
+    // ⭐ BUG iOS: si el permiso YA está concedido, NO volver a pedirlo. En iOS,
+    // requestPermission() fuera de un gesto del usuario responde 'denied'
+    // aunque el permiso siga vigente — de ahí el "concedido pero no se pudo
+    // vincular" cada vez que se reabría la app.
+    var pedirPermiso = (Notification.permission === 'granted')
+      ? Promise.resolve('granted')
+      : Notification.requestPermission();
+
+    return pedirPermiso.then(function(permiso) {
       if (permiso !== 'granted') {
         console.log('🔕 Permiso de notificaciones: ' + permiso);
         return { ok: false, error: 'Permiso: ' + permiso };
@@ -88,18 +113,36 @@ var PushNotifications = (function() {
                 return;
               }
               try {
-                var old = document.getElementById('push-inapp-banner');
+                // ⭐ ALERTA CENTRADA tipo emergencia: se queda hasta que el
+                // usuario la cierre a mano.
+                var old = document.getElementById('push-inapp-modal');
                 if (old) old.remove();
-                var el = document.createElement('div');
-                el.id = 'push-inapp-banner';
-                el.style.cssText =
-                  'position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);' +
-                  'z-index:100020;max-width:92vw;background:#142340;border:1px solid rgba(127,223,255,0.5);' +
-                  'border-radius:14px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,0.6);color:#F1F5F9;';
-                el.innerHTML = '<div style="font-size:14px;font-weight:800;">' + t + '</div>' +
-                               '<div style="font-size:13px;color:#CBD5E1;margin-top:3px;">' + b + '</div>';
-                document.body.appendChild(el);
-                setTimeout(function() { if (el) el.remove(); }, 6000);
+                var wrap = document.createElement('div');
+                wrap.id = 'push-inapp-modal';
+                wrap.style.cssText =
+                  'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100060;' +
+                  'display:flex;align-items:center;justify-content:center;padding:26px;' +
+                  'background:rgba(2,6,18,0.72);backdrop-filter:blur(6px);';
+                wrap.innerHTML =
+                  '<div style="max-width:360px;width:100%;background:linear-gradient(180deg,#1a2a4d 0%,#0e1b36 100%);' +
+                         'border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;padding:26px 22px;text-align:center;' +
+                         'box-shadow:0 20px 70px rgba(0,0,0,0.7), 0 0 40px rgba(251,191,36,0.12);animation:pushPulse 1.2s ease infinite;">' +
+                    '<div style="font-size:34px;line-height:1;margin-bottom:10px;">🔔</div>' +
+                    '<div style="font-size:17px;font-weight:800;color:#FDE68A;line-height:1.35;">' + t + '</div>' +
+                    '<div style="font-size:14px;color:#E2E8F0;margin-top:8px;line-height:1.55;">' + b + '</div>' +
+                    '<button onclick="document.getElementById(\'push-inapp-modal\').remove()" ' +
+                            'style="margin-top:18px;width:100%;padding:14px;border-radius:12px;' +
+                                   'background:linear-gradient(135deg,#d97706,#f59e0b);color:#1a1206;border:none;' +
+                                   'font-size:15px;font-weight:800;cursor:pointer;">Entendido</button>' +
+                  '</div>';
+                if (!document.getElementById('push-pulse-style')) {
+                  var st = document.createElement('style');
+                  st.id = 'push-pulse-style';
+                  st.textContent = '@keyframes pushPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.012);}}';
+                  document.head.appendChild(st);
+                }
+                document.body.appendChild(wrap);
+                if (navigator.vibrate) { try { navigator.vibrate([400,150,400,150,400]); } catch(e) {} }
               } catch(e) {}
             });
           }
@@ -125,7 +168,7 @@ var PushNotifications = (function() {
               .withFailureHandler(function(e) {
                 res({ ok: false, error: 'El backend no aceptó el token: ' + (e && e.message ? e.message : e) });
               })
-              .registrarPushToken(pin, token, tokenAnterior || '');
+              .registrarPushToken(pin, token, tokenAnterior || '', _nombreDispositivo());
           });
         })
         .catch(function(e) {
@@ -153,7 +196,12 @@ var PushNotifications = (function() {
     });
   }
 
-  return { solicitarYRegistrar: solicitarYRegistrar, eliminar: eliminar };
+  function tokenActual() {
+    try { return localStorage.getItem(_LS_TOKEN) || ''; } catch(e) { return ''; }
+  }
+
+  return { solicitarYRegistrar: solicitarYRegistrar, eliminar: eliminar,
+           tokenActual: tokenActual, nombreDispositivo: _nombreDispositivo };
 })();
 
 console.log('✅ PushNotifications módulo cargado');
