@@ -264,7 +264,7 @@ function abrirPerfil(sesion) {
       // ── 1. Excepciones del día ──
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:6px;">Hoy no trabajo</div>' +
       '<div style="font-size:12px;color:#64748B;margin-bottom:12px;">Marca el día y la app no te manda alertas.</div>' +
-      '<div id="perfil-excepciones" style="margin-bottom:28px;"></div>' +
+      '<div id="perfil-excepciones" style="margin-bottom:16px;"></div>' +
 
       // ── 2. Desglose de HOY ──
       '<div style="font-size:12px;color:var(--text-secondary,#94A3B8);text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:12px;">Hoy</div>' +
@@ -1228,7 +1228,7 @@ function _perfilPintarExcepciones(sesion, activa) {
                 'style="padding:9px 14px;background:transparent;color:#94A3B8;border:1px solid rgba(255,255,255,0.15);' +
                        'border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Quitar</button>' +
       '</div>' +
-      '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;padding:6px 2px 0;min-height:14px;"></div>';
+      '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;"></div>';
     return;
   }
 
@@ -1251,7 +1251,7 @@ function _perfilPintarExcepciones(sesion, activa) {
       }).join('') +
     '</div>' +
 
-    '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;padding:6px 2px 0;min-height:14px;"></div>';
+    '<div id="perfil-exc-status" style="font-size:12px;color:#64748B;"></div>';
 }
 
 function _perfilMarcarExcepcion(tipo) {

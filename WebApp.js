@@ -558,11 +558,15 @@ function _enviarDirecto(datos) {
 // de ventana ('electronicsSite') hace que el botón REUTILICE la misma pestaña
 // y la RECARGUE — así la cámara del QR se reinicia (al cambiar de app el
 // navegador la suspende y quedaba en negro).
+var _sitioVentana = null;
 function abrirSitioElectronics() {
-  var win = window.open('https://electronicsmexico.site/checador', 'electronicsSite');
-  if (win && win.focus) { try { win.focus(); } catch(e) {} }
-  if (!win) {
-    // Popup bloqueado → aviso mínimo con enlace directo (el click sí pasa)
+  // ⭐ Pestaña NUEVA cada vez (así la cámara del QR arranca fresca) y se
+  // CIERRA la anterior para no acumular pestañas. Reutilizar la misma pestaña
+  // recargándola dejaba la cámara en negro.
+  try { if (_sitioVentana && !_sitioVentana.closed) _sitioVentana.close(); } catch(e) {}
+  _sitioVentana = window.open('https://electronicsmexico.site/checador', '_blank');
+
+  if (!_sitioVentana) {
     var viejo = document.getElementById('sitio-popup-aviso');
     if (viejo) viejo.remove();
     var av = document.createElement('div');
@@ -572,7 +576,7 @@ function abrirSitioElectronics() {
       'z-index:100010;background:rgba(15,23,42,0.96);border:1px solid rgba(127,223,255,0.4);border-radius:12px;' +
       'padding:12px 16px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
     av.innerHTML =
-      '<a href="https://electronicsmexico.site/checador" target="electronicsSite" rel="noopener" ' +
+      '<a href="https://electronicsmexico.site/checador" target="_blank" rel="noopener" ' +
          'style="color:#7fdfff;font-size:14px;font-weight:700;text-decoration:none;">🌐 Abrir sitio Electronics</a>' +
       '<button onclick="document.getElementById(\'sitio-popup-aviso\').remove()" ' +
               'style="background:none;border:none;color:#64748B;font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>';
@@ -671,7 +675,7 @@ function mostrarPantallaPIN() {
   btnSitio.onclick = function() { abrirSitioElectronics(); };
   botonera.appendChild(btnSitio);
 
-  overlay.appendChild(botonera);
+  document.body.appendChild(botonera);  // al body: fixed real (dentro del overlay con transform quedaba a la mitad)
 
   // ⭐ Versión del frontend SIEMPRE visible (abajo izquierda, discreta)
   var verTag = document.createElement('div');
@@ -680,7 +684,7 @@ function mostrarPantallaPIN() {
   verTag.style.cssText =
     'position:fixed;bottom:calc(18px + env(safe-area-inset-bottom, 0px));left:14px;z-index:100000;' +
     'font-size:11px;color:rgba(148,163,184,0.55);font-family:monospace;letter-spacing:0.5px;pointer-events:none;';
-  overlay.appendChild(verTag);
+  document.body.appendChild(verTag);
 
   // Toda la estructura usa los mismos IDs que procesarAcceso espera:
   //   #input-pin, #input-contrasena, #input-contrasena2,
@@ -1564,7 +1568,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v611';
+var FRONTEND_VERSION = 'v612';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
