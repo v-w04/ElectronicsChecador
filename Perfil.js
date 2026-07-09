@@ -671,7 +671,13 @@ function _perfilPintarAlertas(sesion) {
                  'border:1px solid rgba(127,223,255,0.4);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">' +
     '🔔 Enviar notificación de PRUEBA ahora' +
   '</button>';
+  html += '<button onclick="_perfilDiagAlertas()" ' +
+          'style="width:100%;margin-top:8px;padding:11px;background:transparent;color:#94A3B8;' +
+                 'border:1px solid rgba(255,255,255,0.14);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">' +
+    '🩺 ¿Por qué no me llegan alertas?' +
+  '</button>';
   html += '<div id="perfil-alertas-status" style="font-size:12px;color:#64748B;text-align:right;padding:4px 4px 0;min-height:16px;"></div>';
+  html += '<div id="perfil-diag-alertas" style="margin-top:8px;"></div>';
   cont.innerHTML = html;
   _perfilCargarDispositivos(sesion);
 }
@@ -1177,4 +1183,29 @@ function _perfilQuitarExcepcion() {
     })
     .withFailureHandler(function() {})
     .quitarExcepcionDia(sesion.pin);
+}
+
+
+// ── Diagnóstico de alertas: revisa eslabón por eslabón y dice qué bloquea ──
+function _perfilDiagAlertas() {
+  var sesion = _perfilLeerSesion();
+  if (!sesion) return;
+  var box = document.getElementById('perfil-diag-alertas');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:#64748B;padding:8px 0;">Revisando...</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      var b = document.getElementById('perfil-diag-alertas');
+      if (!b) return;
+      if (!r || !r.ok) { b.innerHTML = '<div style="font-size:12px;color:#F87171;">' + ((r && r.message) || 'Error') + '</div>'; return; }
+      b.innerHTML =
+        '<div style="background:linear-gradient(180deg,#142340 0%,#0c1729 100%);border:1px solid rgba(80,150,220,0.16);' +
+               'border-radius:12px;padding:12px 14px;font-size:12px;color:#CBD5E1;line-height:1.85;">' +
+          r.lineas.join('<br>') +
+        '</div>';
+    })
+    .withFailureHandler(function() {
+      var b = document.getElementById('perfil-diag-alertas');
+      if (b) b.innerHTML = '<div style="font-size:12px;color:#F87171;">El backend no tiene diagnosticoAlertas — re-despliega el Code-Simple.gs.</div>';
+    })
+    .diagnosticoAlertas(sesion.pin);
 }
