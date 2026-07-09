@@ -342,33 +342,21 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
 
   switch (tipo) {
     case 'ENTRADA': {
-      if (!turno) return { texto: 'Entrada registrada', color: '#3ddc84', detalle: '' };
-      var minInicio = turno.inicio.h * 60 + turno.inicio.m;
-      if (minAhora <= minInicio) {
-        return { texto: '✅ Entrada puntual', color: '#3ddc84',
-                 detalle: 'Tu turno: ' + _formatearHora(minInicio) + ' — llegaste a tiempo' };
-      }
-      // ── Escalones de gravedad (reglas de Electronics) ──
-      //   1-15 min  → tarde dentro del margen, aviso fuerte
-      //   16-30 min → perdiste el bono
-      //   31-59 min → RETARDO formal: a la 3ª descuentan medio día
-      //   60+ min   → descuento de medio día directo
-      var retardo = minAhora - minInicio;
-      var eraA = 'Tu entrada era a las ' + _formatearHora(minInicio) + '. ';
-      if (retardo <= 15) {
-        return { texto: '⚠️ Llegaste ' + retardo + ' min tarde', color: '#fbbf24',
-                 detalle: eraA + 'Estás muy mal: esto se descuenta y ya perdiste tu bono.' };
-      }
-      if (retardo <= 30) {
-        return { texto: '❌ ' + retardo + ' min tarde — PERDISTE EL BONO', color: '#ef4444',
-                 detalle: eraA + 'Esto va directo a descuento. Aquí no perdonan ni una.' };
-      }
-      if (retardo <= 59) {
-        return { texto: '❌ RETARDO — ' + retardo + ' min tarde', color: '#ef4444',
-                 detalle: eraA + '⚡ AGUAS: a la tercera te descuentan MEDIO DÍA. Bono perdido.' };
-      }
-      return { texto: '❌ ' + retardo + ' min tarde', color: '#ef4444',
-               detalle: eraA + '⚡ Te van a descontar MEDIO DÍA. Bono perdido.' };
+      var t = _turnoDe(idUsuario);
+      if (!t) return { texto: 'Entrada registrada', color: '#3ddc84', detalle: '' };
+      var iniM = t.inicio.h * 60 + t.inicio.m;
+      var cfgT = _cfgTurnoDe(idUsuario) || {};
+      var tol = cfgT.tolerancia || 15;
+      var ret = minAhora - iniM;
+      var eraA = 'Tu entrada era a las ' + _formatearHora(iniM) + '. ';
+      if (ret <= 0) return { texto: '✅ Entrada puntual', color: '#3ddc84',
+                             detalle: 'Tu turno: ' + _formatearHora(iniM) + ' — llegaste a tiempo' };
+      if (ret <= tol) return { texto: '⚠️ Llegaste ' + ret + ' min tarde', color: '#fbbf24',
+                               detalle: eraA + 'Dentro de la tolerancia de ' + tol + ' min: tu bono sigue a salvo.' };
+      if (ret <= 30) return { texto: '❌ ' + ret + ' min tarde — PERDISTE EL BONO', color: '#ef4444',
+                              detalle: eraA + 'Aún no es retardo (empieza a los 31 min), pero cuídate: 3 retardos son MEDIO DÍA.' };
+      return { texto: '❌ RETARDO — ' + ret + ' min tarde', color: '#ef4444',
+               detalle: eraA + 'Esto cuenta como retardo. 3 retardos en la quincena = MEDIO DÍA de descuento. Bono perdido.' };
     }
 
     case 'SALIDA_DESAYUNO': {
@@ -1635,7 +1623,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v592';
+var FRONTEND_VERSION = 'v593';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {

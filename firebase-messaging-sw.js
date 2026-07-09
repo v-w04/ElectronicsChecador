@@ -20,9 +20,12 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 // Notificaciones en background (app cerrada o minimizada)
+// El backend manda SOLO data (sin "notification") para que la notificación
+// se muestre UNA sola vez, aquí, con nuestro ícono y vibración.
 messaging.onBackgroundMessage(function(payload) {
-  const titulo = (payload.notification && payload.notification.title) || 'Checador Electronics';
-  const cuerpo = (payload.notification && payload.notification.body) || '';
+  const d = payload.data || {};
+  const titulo = d.title || (payload.notification && payload.notification.title) || 'Checador Electronics';
+  const cuerpo = d.body || (payload.notification && payload.notification.body) || '';
   self.registration.showNotification(titulo, {
     body: cuerpo,
     icon: 'icon-192.png',

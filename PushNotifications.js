@@ -72,16 +72,21 @@ var PushNotifications = (function() {
           if (!window._fcmOnMessageListo) {
             window._fcmOnMessageListo = true;
             messaging.onMessage(function(payload) {
-              var t = (payload.notification && payload.notification.title) || 'Checador Electronics';
-              var b = (payload.notification && payload.notification.body) || '';
-              try {
-                if (window._fcmReg && window._fcmReg.showNotification) {
-                  window._fcmReg.showNotification(t, {
-                    body: b, icon: 'icon-192.png', vibrate: [200, 100, 200], tag: 'checador-fg'
-                  });
-                }
-              } catch(e) {}
-              // Banner in-app además (visible aunque el sistema silencie)
+              var d = payload.data || {};
+              var t = d.title || (payload.notification && payload.notification.title) || 'Checador Electronics';
+              var b = d.body  || (payload.notification && payload.notification.body)  || '';
+              // Si la app está oculta → notificación del sistema.
+              // Si está a la vista → SOLO banner (nunca las dos = doble aviso).
+              if (document.hidden) {
+                try {
+                  if (window._fcmReg && window._fcmReg.showNotification) {
+                    window._fcmReg.showNotification(t, {
+                      body: b, icon: 'icon-192.png', vibrate: [200, 100, 200], tag: 'checador-fg'
+                    });
+                  }
+                } catch(e) {}
+                return;
+              }
               try {
                 var old = document.getElementById('push-inapp-banner');
                 if (old) old.remove();
