@@ -72,6 +72,19 @@ function _chequearVersionEnBackground() {
   // Sin internet → omitir (evita esperar timeout). Cuando vuelva internet
   // se llamará otra vez al recargar la app.
   if (navigator.onLine === false) return;
+
+  // ⭐ TTL: si el cache tiene más de 10 minutos, resincronizar directo.
+  // Así los cambios de horario en el sheet llegan solos a los dispositivos.
+  try {
+    var ts = parseInt(localStorage.getItem('em_usuarios_cache_timestamp') || '0', 10);
+    if (ts && (Date.now() - ts) > 10 * 60 * 1000) {
+      console.log('🔄 Cache >10 min — resincronizando turnos...');
+      _usuariosCache = null;
+      localStorage.removeItem('em_usuarios_cache');
+      _sincronizarUsuarios(null);
+      return;
+    }
+  } catch(e) {}
   google.script.run
     .withSuccessHandler(function(result) {
       if (!result || !result.ok || !result.version) return;
@@ -1568,7 +1581,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v614';
+var FRONTEND_VERSION = 'v616';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
