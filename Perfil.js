@@ -124,23 +124,23 @@ function activarModoPerfil() {
       'padding:9px 20px;border-radius:999px;background:rgba(76,58,143,0.4);color:#DDD6FE;' +
       'border:1px solid rgba(167,139,250,0.4);font-size:13px;font-weight:700;letter-spacing:1px;' +
       'backdrop-filter:blur(8px);white-space:nowrap;';
-    overlay.appendChild(tag);
+    document.body.appendChild(tag);
   }
 
-  // ⭐ Botón "Registrar en este dispositivo" a la DERECHA del disco central.
-  // Es un interruptor: encendido = la sesión queda guardada en el dispositivo.
+  // ⭐ Botón "Registrar en este dispositivo" — ARRIBA, centrado, debajo de
+  // la etiqueta MODO PERFIL (al body: fixed real, sin el bug del transform)
   var kb = document.getElementById('perfil-keep-btn');
-  if (!kb && box) {
+  if (!kb) {
     kb = document.createElement('button');
     kb.id = 'perfil-keep-btn';
     kb.type = 'button';
     kb.dataset.on = '0';
-    kb.innerHTML = '📱 Registrar en<br>este dispositivo';
+    kb.innerHTML = '📱 Registrar en este dispositivo';
     kb.style.cssText =
-      'position:absolute;top:50%;left:calc(50% + 30%);transform:translateY(-50%);z-index:6;' +
-      'padding:12px 14px;border-radius:12px;background:rgba(30,27,75,0.75);color:#A5B4FC;' +
-      'border:1px solid rgba(167,139,250,0.3);font-size:12px;font-weight:700;line-height:1.35;' +
-      'cursor:pointer;backdrop-filter:blur(6px);text-align:center;transition:all 0.2s;max-width:130px;';
+      'position:fixed;top:calc(110px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:100000;' +
+      'padding:10px 18px;border-radius:999px;background:rgba(30,27,75,0.85);color:#A5B4FC;' +
+      'border:1px solid rgba(167,139,250,0.35);font-size:12.5px;font-weight:700;white-space:nowrap;' +
+      'cursor:pointer;backdrop-filter:blur(8px);transition:all 0.2s;max-width:92vw;';
     kb.onclick = function(e) {
       e.preventDefault();
       var on = kb.dataset.on === '1';
@@ -149,17 +149,17 @@ function activarModoPerfil() {
         kb.style.background = 'linear-gradient(135deg,#6d28d9,#8b5cf6)';
         kb.style.color = '#fff';
         kb.style.borderColor = 'rgba(196,181,253,0.6)';
-        kb.innerHTML = '✅ Se guardará en<br>este dispositivo';
+        kb.innerHTML = '✅ Se guardará en este dispositivo';
       } else {
-        kb.style.background = 'rgba(30,27,75,0.75)';
+        kb.style.background = 'rgba(30,27,75,0.85)';
         kb.style.color = '#A5B4FC';
-        kb.style.borderColor = 'rgba(167,139,250,0.3)';
-        kb.innerHTML = '📱 Registrar en<br>este dispositivo';
+        kb.style.borderColor = 'rgba(167,139,250,0.35)';
+        kb.innerHTML = '📱 Registrar en este dispositivo';
       }
       var ip = document.getElementById('input-pin');
       if (ip && !ip.value) ip.focus();
     };
-    box.appendChild(kb);
+    document.body.appendChild(kb);
   }
 
   // Mostrar el campo de contraseña (oculto en el flujo rápido de solo PIN)
