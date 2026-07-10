@@ -1189,6 +1189,7 @@ function _perfilPintarQuincena(data, sesion) {
     '</div>';
 
   var hoyStr = _fechaHoyLocal();
+  var segFinDia = turnoQ ? (turnoQ.fin.h * 3600 + turnoQ.fin.m * 60) : null;
   (data.dias || []).forEach(function(d, idx) {
     if (d.fecha === hoyStr) return;
     if (d.finde && !d.checadas.length && !d.excepcion) return;
@@ -1197,30 +1198,41 @@ function _perfilPintarQuincena(data, sesion) {
     var fd = new Date(+p[0], +p[1] - 1, +p[2]);
     var titulo = _DIAS_SEM[fd.getDay()] + ' ' + (+p[2]) + ' ' + _MESES_AB[+p[1] - 1];
 
-    var marcas = '';
-    if (d.perdioBono) marcas += ' 💸';
-    if (d.retardo)    marcas += ' ⏰';
-
+    // Sin símbolos ni sombreados: todas las cards con el mismo fondo neutro.
     var borde = 'rgba(80,150,220,0.1)', fondo = 'linear-gradient(180deg,#142340 0%,#0c1729 100%)';
-    if (d.retardo || d.falta) { borde = 'rgba(248,113,113,0.3)'; fondo = 'linear-gradient(180deg,#231320 0%,#160b12 100%)'; }
-    else if (d.perdioBono)    { borde = 'rgba(245,158,11,0.28)'; fondo = 'linear-gradient(180deg,#221b12 0%,#140f09 100%)'; }
-    else if (d.excepcion)     { borde = 'rgba(165,180,252,0.28)'; }
 
-    // Resumen del renglón colapsado: entrada → salida (o excepción / falta)
+    // Renglón colapsado: entrada → salida. La ENTRADA va en ROJO si ese día
+    // se perdió el bono (llegada después de la tolerancia).
     var resumenLinea, expandible = false;
     if (d.excepcion) {
       var e = _EXC_INFO[d.excepcion] || { emoji: '•', label: d.excepcion };
       resumenLinea = '<span style="color:#A5B4FC;font-weight:700;">' + e.emoji + ' ' + e.label + '</span>';
     } else if (d.falta) {
-      resumenLinea = '<span style="color:#F87171;font-weight:700;">🚫 Sin registros</span>';
+      resumenLinea = '<span style="color:#F87171;font-weight:700;">Sin registros</span>';
     } else {
       var ent = _primeraDe(d.checadas, 'ENTRADA'), sal = _primeraDe(d.checadas, 'SALIDA');
+      var colorEnt = d.perdioBono ? '#F87171' : '#CBD5E1';
       resumenLinea =
-        '<span style="font-variant-numeric:tabular-nums;color:#CBD5E1;font-weight:700;">' +
-          '🏢 ' + (ent ? _hhmm(ent.hora) : '—') +
-          ' <span style="color:#475569;">→</span> 🏠 ' + (sal ? _hhmm(sal.hora) : '—') +
+        '<span style="font-variant-numeric:tabular-nums;font-weight:700;">' +
+          '🏢 <span style="color:' + colorEnt + ';">' + (ent ? _hhmm(ent.hora) : '—') + '</span>' +
+          ' <span style="color:#475569;">→</span> 🏠 <span style="color:#CBD5E1;">' + (sal ? _hhmm(sal.hora) : '—') + '</span>' +
         '</span>';
       expandible = true;
+    }
+
+    // Pie del expandido: jornada + tiempo extra regalado de ESE día
+    var pie = '';
+    if (expandible) {
+      var r = _filasDelDia(d.checadas, sesion);
+      var extraDia = 0;
+      var salD = _primeraDe(d.checadas, 'SALIDA');
+      if (salD && segFinDia != null && _aSeg(salD.hora) != null) {
+        extraDia = Math.max(0, _aSeg(salD.hora) - segFinDia);
+      }
+      var partes = [];
+      if (r.jornada) partes.push(r.jornada + ' de jornada');
+      if (extraDia > 0) partes.push('<span style="color:#FBBF24;">⏱️ ' + _fmtHMS(extraDia) + ' extra sin pago</span>');
+      if (partes.length) pie = '<div style="text-align:right;font-size:11.5px;color:#64748B;font-weight:700;">' + partes.join(' · ') + '</div>';
     }
 
     var idDia = 'qdia-' + d.fecha;
@@ -1228,16 +1240,14 @@ function _perfilPintarQuincena(data, sesion) {
       '<div style="background:' + fondo + ';border-radius:12px;margin-bottom:7px;border:1px solid ' + borde + ';overflow:hidden;">' +
         '<div ' + (expandible ? 'onclick="_perfilToggleDia(\'' + idDia + '\')" style="cursor:pointer;"' : 'style="cursor:default;"') + '>' +
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;">' +
-            '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;white-space:nowrap;">' + titulo + marcas + '</span>' +
+            '<span style="font-size:12px;color:#A5B4FC;font-weight:800;text-transform:capitalize;white-space:nowrap;">' + titulo + '</span>' +
             '<span style="font-size:12.5px;flex:1;text-align:right;">' + resumenLinea + '</span>' +
             (expandible ? '<span id="' + idDia + '-flecha" style="color:#475569;font-size:11px;transition:transform 0.2s;">▼</span>' : '') +
           '</div>' +
         '</div>' +
         (expandible
           ? '<div id="' + idDia + '" style="display:none;padding:2px 14px 12px;border-top:1px solid rgba(148,163,184,0.08);">' +
-              _filasDelDia(d.checadas, sesion).html +
-              (function() { var j = _filasDelDia(d.checadas, sesion).jornada;
-                return j ? '<div style="text-align:right;font-size:11.5px;color:#64748B;font-weight:700;">' + j + ' de jornada</div>' : ''; })() +
+              _filasDelDia(d.checadas, sesion).html + pie +
             '</div>'
           : '') +
       '</div>';
