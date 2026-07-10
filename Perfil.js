@@ -538,6 +538,7 @@ function _perfilIniciarCrono(sesion) {
 }
 
 function _perfilActualizarCrono(sesion) {
+  _tickExtrasVivos();
   var box = document.getElementById('perfil-crono');
   if (!box) { _perfilDetenerTimers(); return; }
 
@@ -599,6 +600,20 @@ function _perfilActualizarCrono(sesion) {
 
   // 3) Nada activo → ocultar
   box.style.display = 'none';
+}
+
+// Contadores vivos de "extra sin pago" (HOY y quincena) — corre cada segundo
+// junto con el cronómetro del perfil.
+function _tickExtrasVivos() {
+  var ahoraS = (function(){ var d = new Date(); return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds(); })();
+  if (window._hoyExtraVivo) {
+    var el = document.getElementById('hoy-extra-live');
+    if (el) el.textContent = '⏱️ ' + _fmtHMS(ahoraS - window._hoyExtraVivo.segFin);
+  }
+  if (window._qExtraInfo && window._qExtraInfo.vivo) {
+    var eq = document.getElementById('q-extra-live');
+    if (eq) eq.textContent = _fmtHMS(window._qExtraInfo.base + Math.max(0, ahoraS - window._qExtraInfo.segFin));
+  }
 }
 
 console.log('✅ Perfil módulo cargado');
@@ -930,6 +945,15 @@ var _DIAS_SEM = ['domingo','lunes','martes','miércoles','jueves','viernes','sá
 var _MESES_AB = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 function _hhmm(h) { return (h || '').substring(0, 5); }
+function _aSeg(h) {
+  var p = (h || '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return p ? (parseInt(p[1],10)*3600 + parseInt(p[2],10)*60 + (parseInt(p[3],10)||0)) : null;
+}
+function _fmtHMS(seg) {
+  seg = Math.max(0, Math.floor(seg));
+  var h = Math.floor(seg/3600), m = Math.floor((seg%3600)/60), s = seg%60;
+  return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
 function _aMin(h) {
   var p = (h || '').match(/(\d{1,2}):(\d{2})/);
   return p ? parseInt(p[1], 10) * 60 + parseInt(p[2], 10) : null;
@@ -1036,6 +1060,30 @@ function _perfilPintarHoyLocal(sesion) {
     jornada = ((_aMin(sal.hora) - _aMin(ent.hora)) / 60).toFixed(1);
   }
 
+  // ── Tiempo EXTRA SIN PAGO de hoy (después de la hora de salida) ──
+  var turnoH = _turnoDe(sesion.idUsuario);
+  var extraHtml = '';
+  window._hoyExtraVivo = null;
+  if (turnoH) {
+    var segFin = turnoH.fin.h * 3600 + turnoH.fin.m * 60;
+    var ahoraS = (function(){ var d = new Date(); return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds(); })();
+    if (sal && _aSeg(sal.hora) != null) {
+      var exF = Math.max(0, _aSeg(sal.hora) - segFin);
+      if (exF > 0) extraHtml =
+        '<div style="display:flex;justify-content:flex-end;gap:6px;align-items:baseline;padding-bottom:6px;">' +
+          '<span style="font-size:15px;font-weight:800;color:#FBBF24;font-variant-numeric:tabular-nums;">⏱️ ' + _fmtHMS(exF) + '</span>' +
+          '<span style="font-size:11px;color:#64748B;font-weight:700;">extra sin pago</span>' +
+        '</div>';
+    } else if (items.length && ahoraS > segFin) {
+      window._hoyExtraVivo = { segFin: segFin };
+      extraHtml =
+        '<div style="display:flex;justify-content:flex-end;gap:6px;align-items:baseline;padding-bottom:6px;">' +
+          '<span id="hoy-extra-live" style="font-size:15px;font-weight:800;color:#FBBF24;font-variant-numeric:tabular-nums;">⏱️ ' + _fmtHMS(ahoraS - segFin) + '</span>' +
+          '<span style="font-size:11px;color:#64748B;font-weight:700;">extra sin pago · en curso</span>' +
+        '</div>';
+    }
+  }
+
   cont.innerHTML =
     '<div style="background:linear-gradient(165deg,#16264a 0%,#0d1a33 45%,#0a1426 100%);border-radius:16px;' +
            'border:1px solid rgba(127,223,255,0.22);padding:6px 18px 8px;box-shadow:0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(127,223,255,0.08);">' +
@@ -1046,6 +1094,7 @@ function _perfilPintarHoyLocal(sesion) {
           '</div>'
         : '<div style="padding-top:6px;"></div>') +
       filas.join(sep) +
+      extraHtml +
     '</div>';
 }
 
@@ -1105,6 +1154,31 @@ function _perfilPintarQuincena(data, sesion) {
   var chips = res.bonoPerdido ? chip('💸 Bono perdido', '#F87171') : chip('🎯 Bono a salvo', '#10B981');
   if (res.retardos) chips += chip('⏰ ' + res.retardos + ' retardo(s)' + (res.descuento ? ' · ' + res.descuento : ''), '#F59E0B');
   if (res.faltas) chips += chip('🚫 ' + res.faltas + ' falta(s)', '#F87171');
+
+  // ⏱️ Suma de tiempo EXTRA SIN PAGO de la quincena (salidas después de hora)
+  var turnoQ = _turnoDe(sesion.idUsuario);
+  window._qExtraInfo = null;
+  if (turnoQ) {
+    var segFinQ = turnoQ.fin.h * 3600 + turnoQ.fin.m * 60;
+    var baseQ = 0, vivoQ = false;
+    var hoyQ = _fechaHoyLocal();
+    (data.dias || []).forEach(function(d) {
+      if (d.excepcion || d.falta) return;
+      var salD = _primeraDe(d.checadas || [], 'SALIDA');
+      if (salD && _aSeg(salD.hora) != null) {
+        baseQ += Math.max(0, _aSeg(salD.hora) - segFinQ);
+      } else if (d.fecha === hoyQ && data.esActual && (d.checadas || []).length) {
+        var ahoraS = (function(){ var x = new Date(); return x.getHours()*3600 + x.getMinutes()*60 + x.getSeconds(); })();
+        if (ahoraS > segFinQ) vivoQ = true;
+      }
+    });
+    if (baseQ > 0 || vivoQ) {
+      window._qExtraInfo = { base: baseQ, vivo: vivoQ, segFin: segFinQ };
+      var ahoraS2 = (function(){ var x = new Date(); return x.getHours()*3600 + x.getMinutes()*60 + x.getSeconds(); })();
+      var totalQ = baseQ + (vivoQ ? Math.max(0, ahoraS2 - segFinQ) : 0);
+      chips += chip('⏱️ <span id="q-extra-live">' + _fmtHMS(totalQ) + '</span> extra sin pago' + (vivoQ ? ' · en curso' : ''), '#FBBF24');
+    }
+  }
 
   var html =
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
