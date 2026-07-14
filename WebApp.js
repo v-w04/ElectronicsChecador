@@ -225,7 +225,8 @@ var _ETIQUETAS_TIPO = {
   'REGRESO_COMIDA':   { emoji: '🍽️', label: 'Regreso de comida' },
   'SALIDA':           { emoji: '🏠', label: 'Salida' },
   'EXTRA':            { emoji: '➕', label: 'Registro extra' },
-  'FUERA_HORARIO':    { emoji: '⛔', label: 'Fuera de horario' }
+  'FUERA_HORARIO':    { emoji: '⛔', label: 'Fuera de horario' },
+  'SALIDA_TEMPRANA':  { emoji: '⛔', label: 'Aún no es tu salida' }
 };
 
 // ── Registro local de checadas del día (persiste offline) ──────────────────
@@ -297,7 +298,9 @@ function _detectarTipoChecada(idUsuario) {
   if (!tiene('SALIDA_COMIDA') && enVentana(c.comMin, c.comMax)) return 'SALIDA_COMIDA';
   if (!tiene('ENTRADA') && (c.comMin == null || minAhora < c.comMin)) return 'ENTRADA';
   if (!tiene('SALIDA_DESAYUNO') && enVentana(c.desMin, c.desMax)) return 'SALIDA_DESAYUNO';
-  if (!tiene('SALIDA') && finMin != null && minAhora >= finMin - 90) return 'SALIDA';
+  if (!tiene('SALIDA') && finMin != null && minAhora >= finMin) return 'SALIDA';
+  if (!tiene('SALIDA') && finMin != null && minAhora < finMin && tiene('ENTRADA') &&
+      (c.comMax == null || tiene('REGRESO_COMIDA') || minAhora > c.comMax)) return 'SALIDA_TEMPRANA';
 
   if (!tiene('ENTRADA'))          return 'ENTRADA';
   if (!tiene('SALIDA_DESAYUNO') && (c.desMax == null || minAhora <= c.desMax)) return 'SALIDA_DESAYUNO';
@@ -432,6 +435,12 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
                detalle: 'Justo a las ' + _formatearHora(minFin) + '. Perfecto.' };
     }
 
+    case 'SALIDA_TEMPRANA': {
+      var ts = _turnoDe(idUsuario);
+      var fm = ts ? (ts.fin.h * 60 + ts.fin.m) : null;
+      return { texto: '⛔ Todavía no es tu salida', color: '#ef4444',
+               detalle: 'Tu salida es a las ' + (fm != null ? _formatearHora(fm) : '—') + '. No puedes checar antes.' };
+    }
     case 'FUERA_HORARIO': {
       var t = _turnoDe(idUsuario);
       if (t) {
@@ -1268,8 +1277,8 @@ function _flujoLocalChecada(nombre, idUsuario, datos) {
   var tipoChecada = _detectarTipoChecada(idUsuario);
   var veredicto = _calcularVeredicto(tipoChecada, idUsuario, ahora);
 
-  // ⛔ Fuera de horario: solo el mensaje — no se registra ni se encola
-  if (tipoChecada === 'FUERA_HORARIO') {
+  // ⛔ Fuera de horario o salida antes de hora: solo mensaje, no se registra
+  if (tipoChecada === 'FUERA_HORARIO' || tipoChecada === 'SALIDA_TEMPRANA') {
     _pintarPantallaChecada(tipoChecada, veredicto, nombre, datos.hora, false);
     return;
   }
@@ -1583,7 +1592,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v619';
+var FRONTEND_VERSION = 'v620';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {
