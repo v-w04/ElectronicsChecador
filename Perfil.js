@@ -623,8 +623,9 @@ console.log('✅ Perfil módulo cargado');
 // Se guardan en la hoja PREFS_ALERTAS; el motor las respeta al minuto.
 var _PERFIL_CATS_ALERTAS = [
   { key: 'entrada',  emoji: '🏢', label: 'Entrada',  desc: 'Aviso 15 min antes y al momento de tu hora (bono)' },
-  { key: 'desayuno', emoji: '🥐', label: 'Desayuno', desc: 'Aviso antes del exceso y recordatorios' },
-  { key: 'comida',   emoji: '🍽️', label: 'Comida',   desc: 'Aviso antes del exceso y recordatorios' },
+  { key: 'desayuno', emoji: '🥐', label: 'Desayuno', desc: 'Aviso antes de pasarte y recordatorios' },
+  { key: 'comida',   emoji: '🍽️', label: 'Comida',   desc: 'Aviso antes de pasarte y recordatorios' },
+  { key: 'comida_nohecha', emoji: '⏳', label: 'Comida no tomada', desc: 'Aviso si se acerca tu salida y no has comido' },
   { key: 'salida',   emoji: '🏠', label: 'Salida',   desc: 'Aviso antes de tu hora y tiempo extra' }
 ];
 
