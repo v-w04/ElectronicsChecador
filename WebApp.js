@@ -393,7 +393,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       }
       var excD = durD - _dd2;
       return { texto: '❌ Exceso de ' + excD + ' min en desayuno', color: '#ef4444',
-               detalle: durD + ' min de ' + _dd2 + '. Se descuenta UNA HORA.' };
+               detalle: durD + ' min de ' + _dd2 + ' permitidos. El exceso se descuenta por hora completa.' };
     }
 
     case 'SALIDA_COMIDA': {
@@ -414,7 +414,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
       }
       var excC = durC - _dc2;
       return { texto: '❌ Exceso de ' + excC + ' min en comida', color: '#ef4444',
-               detalle: durC + ' min de ' + _dc2 + '. Se descuenta UNA HORA.' };
+               detalle: durC + ' min de ' + _dc2 + ' permitidos. El exceso se descuenta por hora completa.' };
     }
 
     case 'SALIDA': {
@@ -448,7 +448,7 @@ function _calcularVeredicto(tipo, idUsuario, ahora) {
         var iniM = t.inicio.h * 60 + t.inicio.m;
         if (minAhora > finM) {
           return { texto: '⛔ Ya pasó tu hora de salida', color: '#ef4444',
-                   detalle: 'Tu horario terminó a las ' + _formatearHora(finM) + '. Ya vete a descansar.' };
+                   detalle: 'Tu horario terminó a las ' + _formatearHora(finM) + '. No hay nada que registrar.' };
         }
         return { texto: '🌙 Aún no es hora de checar', color: '#fbbf24',
                  detalle: 'Puedes checar desde las ' + _formatearHora(Math.max(0, iniM - 120)) + '.' };
@@ -1592,7 +1592,7 @@ function forzarDosColumnasMovil() {
 // desplegado, spreadsheet real al que pega, service account, trigger, y los
 // datos de HOY que el backend está viendo. Si frontend y backend no son la
 // misma versión, aquí se ve inmediatamente.
-var FRONTEND_VERSION = 'v621';
+var FRONTEND_VERSION = 'v622';
 
 // ⭐ Normalizador de PIN/ID (espejo del backend): "0055" y 55 son el mismo
 function _normId(v) {

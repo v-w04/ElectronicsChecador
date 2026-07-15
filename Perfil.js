@@ -572,8 +572,8 @@ function _perfilActualizarCrono(sesion) {
         '<div style="font-size:38px;font-weight:800;color:' + color + ';font-variant-numeric:tabular-nums;margin:6px 0 2px;">' + display + '</div>' +
         '<div style="font-size:13px;color:#CBD5E1;">' +
           (excedido
-            ? '❌ Exceso — checa tu regreso YA'
-            : 'de ' + limMin + ' min · regresa antes de que llegue a 0') +
+            ? '❌ Tiempo excedido — registra tu regreso'
+            : 'de ' + limMin + ' min permitidos') +
         '</div>' +
       '</div>';
     return;
