@@ -1,0 +1,5 @@
+# Los .bat y .ps1 deben quedar con CRLF o CMD / PowerShell no los parsean bien.
+# (No se pone "* text=auto" a proposito: el repo ya existia y eso marcaria
+#  todo el frontend como modificado en el siguiente commit.)
+*.bat text eol=crlf
+*.ps1 text eol=crlf

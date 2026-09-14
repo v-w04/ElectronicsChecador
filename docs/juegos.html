@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tablero de juegos · Electronics México</title>
+<link rel="icon" href="favicon.ico">
+<style>
+/* ===========================================================================
+   TABLERO DE JUEGOS — Electronics México
+   Aire de consola: fondo claro, tarjetas cuadradas, un solo acento rojo y
+   tipografía gorda. Nada de marcas ni personajes ajenos: los juegos se
+   distinguen por su inicial y su color, no por arte de nadie más.
+   =========================================================================== */
+:root{
+  --papel:#ffffff;
+  --fondo:#f2f3f5;
+  --panel:#ffffff;
+  --linea:#e3e5e8;
+  --tinta:#1a1a1c;
+  --tinta-2:#5a5f66;
+  --tinta-3:#8b9198;
+  --rojo:#e4002b;
+  --rojo-hi:#ff2a4f;
+  --azul:#0a7cff;
+  --verde:#0f9d58;
+  --oro:#e8a800;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --r-chico:10px; --r:16px; --r-grande:22px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+body{padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3{margin:0;letter-spacing:-.02em}
+button{font-family:inherit}
+
+/* --- barra superior --- */
+.barra{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-block:18px 0;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:11px}
+.marca .bolita{width:34px;height:34px;border-radius:50%;background:var(--rojo)}
+.marca b{font-size:16px;font-weight:800}
+.marca span{display:block;font-size:11.5px;color:var(--tinta-3);font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase}
+.tabs{display:flex;gap:6px}
+.tabs a{text-decoration:none;color:var(--tinta-2);font-weight:700;font-size:14px;
+  padding:9px 16px;border-radius:999px}
+.tabs a:hover{background:#e9ebee;color:var(--tinta)}
+.tabs a.on{background:var(--tinta);color:#fff}
+
+/* --- título --- */
+.encabezado{padding-block:26px 6px;display:flex;align-items:flex-end;
+  justify-content:space-between;gap:16px;flex-wrap:wrap}
+.encabezado h1{font-size:34px;font-weight:800}
+.encabezado p{margin:6px 0 0;color:var(--tinta-2);font-size:14px}
+
+/* --- avisos --- */
+#aviso{margin-top:14px;border-radius:var(--r);padding:12px 16px;font-size:13.5px;
+  font-weight:600;display:none;border:1px solid var(--linea);background:var(--panel)}
+#aviso.ver{display:block}
+#aviso.ok{background:#e9f7ee;border-color:#bfe6cd;color:#0b6b3a}
+#aviso.err{background:#fdecef;border-color:#f7c3cd;color:#9b0020}
+
+/* --- fila de juegos --- */
+.juegos{display:flex;gap:14px;overflow-x:auto;padding:22px 2px 6px;scroll-snap-type:x mandatory}
+.juego{scroll-snap-align:start;flex:0 0 auto;width:150px;border:0;background:transparent;
+  padding:0;cursor:pointer;text-align:center}
+.juego .caja{width:150px;height:150px;border-radius:var(--r-grande);display:flex;
+  align-items:center;justify-content:center;font-size:56px;color:#fff;
+  box-shadow:0 2px 0 rgba(0,0,0,.06);transition:transform .12s ease}
+.juego:hover .caja{transform:translateY(-3px)}
+.juego.sel .caja{outline:4px solid var(--rojo);outline-offset:3px}
+.juego .nombre{margin-top:10px;font-weight:800;font-size:14px;line-height:1.25}
+.juego .dato{font-size:12px;color:var(--tinta-3);font-weight:600}
+.juego.nuevo .caja{background:var(--panel);color:var(--tinta-3);border:2px dashed var(--linea);font-size:34px}
+
+/* --- paneles --- */
+.panel{background:var(--panel);border:1px solid var(--linea);border-radius:var(--r-grande);
+  padding:20px;margin-top:18px}
+.panel h2{font-size:19px;font-weight:800}
+.panel .sub{color:var(--tinta-3);font-size:13px;margin-top:3px}
+.cab{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+/* --- botones --- */
+.btn{border:0;border-radius:999px;padding:13px 22px;font-size:15px;font-weight:800;cursor:pointer}
+.btn.rojo{background:var(--rojo);color:#fff}
+.btn.rojo:hover{background:var(--rojo-hi)}
+.btn.claro{background:#eceef1;color:var(--tinta)}
+.btn.claro:hover{background:#e0e3e7}
+.btn.chico{padding:9px 15px;font-size:13.5px}
+.btn:disabled{opacity:.5;cursor:default}
+
+/* --- filtros --- */
+.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.filtro{border:1px solid var(--linea);background:var(--papel);color:var(--tinta-2);
+  border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700;cursor:pointer}
+.filtro.on{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+
+/* --- tabla de posiciones --- */
+.tabla{margin-top:16px;display:flex;flex-direction:column}
+.fila{display:grid;grid-template-columns:44px 1fr repeat(4,64px);gap:10px;align-items:center;
+  padding:12px 8px;border-top:1px solid var(--linea);font-size:14px}
+.fila.enc{border-top:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--tinta-3);font-weight:700;padding-bottom:4px}
+.fila .pos{font-weight:800;font-size:16px;text-align:center;color:var(--tinta-3)}
+.fila.p1 .pos{color:var(--oro)}
+.fila.p2 .pos{color:#9aa3ab}
+.fila.p3 .pos{color:#c1703a}
+.fila .quien{font-weight:700}
+.fila .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--tinta-2)}
+.fila .n.fuerte{color:var(--tinta);font-weight:800}
+.vacio{padding:26px 8px;color:var(--tinta-3);font-size:14px;text-align:center}
+
+/* --- histórico --- */
+.partida{border:1px solid var(--linea);border-radius:var(--r);padding:14px 16px;margin-top:10px;
+  display:flex;gap:14px;align-items:flex-start}
+.partida .ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:21px;color:#fff;flex:0 0 auto}
+.partida .cuerpo{flex:1;min-width:0}
+.partida .linea1{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.partida .juego-n{font-weight:800}
+.partida .cuando{font-size:12.5px;color:var(--tinta-3);font-family:var(--mono)}
+.partida .nota{font-size:12.5px;color:var(--tinta-3)}
+.partida ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:3px;font-size:13.5px}
+.partida ol li::marker{color:var(--tinta-3);font-weight:700}
+.partida .gan{font-weight:800}
+
+/* --- modal --- */
+.fondo{position:fixed;inset:0;background:rgba(20,20,22,.55);display:none;
+  align-items:center;justify-content:center;padding:16px;z-index:40}
+.fondo.ver{display:flex}
+.modal{background:var(--papel);border-radius:26px;padding:24px;width:100%;max-width:560px;
+  max-height:92vh;overflow-y:auto}
+.modal h3{font-size:22px;font-weight:800}
+.campo{margin-top:16px}
+.campo label{display:block;font-size:12px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--tinta-3);margin-bottom:6px}
+.campo input,.campo select{width:100%;padding:12px 14px;border:1px solid var(--linea);
+  border-radius:var(--r-chico);font-size:15px;font-family:inherit;background:var(--papel);color:var(--tinta)}
+.campo input:focus,.campo select:focus{outline:2px solid var(--azul);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--linea);background:var(--papel);border-radius:999px;
+  padding:9px 14px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--tinta-2)}
+.chip.on{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.podio{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.podio .p{display:grid;grid-template-columns:34px 1fr 96px;gap:10px;align-items:center}
+.podio .p .lugar{font-weight:800;text-align:center;color:var(--tinta-3)}
+.podio .p .nom{font-weight:700;font-size:14px}
+.podio .p input{padding:9px 10px;font-size:14px;border:1px solid var(--linea);border-radius:8px;width:100%}
+.acciones{display:flex;gap:10px;margin-top:22px}
+.acciones .btn{flex:1}
+
+@media (max-width:620px){
+  .encabezado h1{font-size:27px}
+  .juego,.juego .caja{width:126px}
+  .juego .caja{height:126px;font-size:46px}
+  .fila{grid-template-columns:34px 1fr repeat(4,50px);font-size:13px;gap:6px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="barra">
+    <div class="marca">
+      <div class="bolita"></div>
+      <div><b>Electronics México</b><span>Tablero interno</span></div>
+    </div>
+    <nav class="tabs">
+      <a href="tablero.html">Checadas</a>
+      <a href="juegos.html" class="on" aria-current="page">Juegos</a>
+    </nav>
+  </div>
+
+  <div class="encabezado">
+    <div>
+      <h1>Tablero de juegos</h1>
+      <p>Quién gana qué en la oficina. Cada partida queda guardada.</p>
+    </div>
+    <button class="btn rojo" id="btn-nueva" type="button">Registrar partida</button>
+  </div>
+
+  <div id="aviso" role="status" aria-live="polite"></div>
+
+  <div class="juegos" id="juegos"></div>
+
+  <section class="panel">
+    <div class="cab">
+      <div>
+        <h2 id="titulo-tabla">Posiciones</h2>
+        <div class="sub" id="sub-tabla">—</div>
+      </div>
+    </div>
+    <div class="filtros" id="filtros-periodo"></div>
+    <div class="tabla" id="tabla"></div>
+  </section>
+
+  <section class="panel">
+    <div class="cab">
+      <div>
+        <h2>Últimas partidas</h2>
+        <div class="sub" id="sub-hist">—</div>
+      </div>
+      <select id="filtro-jugador" class="filtro" style="padding:9px 14px"></select>
+    </div>
+    <div id="historico"></div>
+  </section>
+</div>
+
+<div class="fondo" id="fondo" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+  <div class="modal">
+    <h3 id="modal-titulo">Registrar partida</h3>
+
+    <div class="campo">
+      <label for="m-juego">Juego</label>
+      <select id="m-juego"></select>
+    </div>
+
+    <div class="campo">
+      <label for="m-fecha">Fecha</label>
+      <input type="date" id="m-fecha">
+    </div>
+
+    <div class="campo">
+      <label>Quién jugó <span style="text-transform:none;letter-spacing:0;font-weight:400">(en el orden que llegaron)</span></label>
+      <div class="chips" id="m-chips"></div>
+    </div>
+
+    <div class="campo" id="m-podio-campo" hidden>
+      <label>Resultado</label>
+      <div class="podio" id="m-podio"></div>
+    </div>
+
+    <div class="campo">
+      <label for="m-nota">Nota <span style="text-transform:none;letter-spacing:0;font-weight:400">(opcional)</span></label>
+      <input type="text" id="m-nota" placeholder="Torneo del viernes, revancha, 150cc...">
+    </div>
+
+    <div class="acciones">
+      <button class="btn claro" id="m-cancelar" type="button">Cancelar</button>
+      <button class="btn rojo" id="m-guardar" type="button">Guardar partida</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   CONFIGURACIÓN
+   =========================================================================== */
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
+
+// Colores de las cajas. Se reparten por orden del catálogo, así que un juego
+// siempre tiene el mismo color mientras no se reordene la hoja JUEGOS.
+var COLORES = ['#e4002b','#0a7cff','#0f9d58','#7b3fe4','#e8a800','#00b3a4','#ff6b00','#d6006e'];
+
+/* ===========================================================================
+   PUENTE CON APPS SCRIPT
+   text/plain a propósito: con application/json el navegador manda una
+   petición previa que Apps Script no contesta.
+   =========================================================================== */
+function gas(fn, args) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args || [] }),
+    redirect: 'follow'
+  })
+  .then(function (r) { return r.text(); })
+  .then(function (t) {
+    try { return JSON.parse(t); }
+    catch (e) { throw new Error('Respuesta rara del servidor: ' + t.slice(0, 120)); }
+  });
+}
+
+/* ===========================================================================
+   ESTADO
+   =========================================================================== */
+var JUEGOS = [];
+var JUGADORES = [];
+var PARTIDAS = [];      // una fila por jugador
+var juegoSel = null;
+var periodo = 'mes';    // 'mes' | 'todo'
+var filtroJugador = '';
+var seleccion = [];     // ids elegidos en el modal, en orden
+
+var elAviso = document.getElementById('aviso');
+function aviso(t, clase) { elAviso.className = 'ver ' + (clase || ''); elAviso.textContent = t; }
+function quitarAviso(ms) { setTimeout(function () { elAviso.className = ''; }, ms || 4000); }
+
+function colorDe(nombre) {
+  var i = JUEGOS.map(function (j) { return j.juego; }).indexOf(nombre);
+  return COLORES[(i < 0 ? 0 : i) % COLORES.length];
+}
+function iconoDe(nombre) {
+  var j = JUEGOS.filter(function (x) { return x.juego === nombre; })[0];
+  return j ? j.icono : '🎮';
+}
+function mesDe(fecha) { return (fecha || '').slice(0, 7); }
+function mesActual() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function fechaBonita(f) {
+  var p = (f || '').split('-');
+  if (p.length !== 3) return f || '';
+  var MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return parseInt(p[2], 10) + ' ' + MES[parseInt(p[1], 10) - 1];
+}
+
+/* ===========================================================================
+   FILA DE JUEGOS
+   =========================================================================== */
+function pintarJuegos() {
+  var cont = document.getElementById('juegos');
+  cont.innerHTML = '';
+
+  JUEGOS.filter(function (j) { return j.activo; }).forEach(function (j) {
+    var partidas = {};
+    PARTIDAS.forEach(function (p) { if (p.juego === j.juego) partidas[p.id] = true; });
+    var n = Object.keys(partidas).length;
+
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'juego' + (juegoSel === j.juego ? ' sel' : '');
+    b.innerHTML =
+      '<div class="caja" style="background:' + colorDe(j.juego) + '">' + j.icono + '</div>' +
+      '<div class="nombre">' + j.juego + '</div>' +
+      '<div class="dato">' + (n ? n + (n === 1 ? ' partida' : ' partidas') : 'sin partidas') + '</div>';
+    b.onclick = function () { juegoSel = j.juego; pintarTodo(); };
+    cont.appendChild(b);
+  });
+
+  var nuevo = document.createElement('button');
+  nuevo.type = 'button';
+  nuevo.className = 'juego nuevo';
+  nuevo.innerHTML = '<div class="caja">＋</div><div class="nombre">Agregar juego</div>' +
+                    '<div class="dato">nuevo marcador</div>';
+  nuevo.onclick = nuevoJuego;
+  cont.appendChild(nuevo);
+}
+
+function nuevoJuego() {
+  var nombre = prompt('¿Qué juego agregamos?');
+  if (!nombre) return;
+  var icono = prompt('Un emoji para su caja (Enter para 🎮)') || '🎮';
+  aviso('Agregando ' + nombre + '...');
+  gas('agregarJuego', [nombre, icono, 'POSICION'])
+    .then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+      aviso('✓ ' + r.message, 'ok'); quitarAviso();
+      cargar();
+    })
+    .catch(function (e) { aviso('No se pudo agregar: ' + e.message, 'err'); });
+}
+
+/* ===========================================================================
+   POSICIONES
+   =========================================================================== */
+function partidasAgrupadas(filtro) {
+  var mapa = {};
+  PARTIDAS.forEach(function (p) {
+    if (filtro && !filtro(p)) return;
+    if (!mapa[p.id]) mapa[p.id] = { id: p.id, fecha: p.fecha, hora: p.hora,
+                                    juego: p.juego, nota: p.nota, jugadores: [] };
+    mapa[p.id].jugadores.push(p);
+  });
+  return Object.keys(mapa).map(function (k) { return mapa[k]; })
+    .map(function (par) {
+      par.jugadores.sort(function (a, b) {
+        if (a.posicion != null && b.posicion != null) return a.posicion - b.posicion;
+        return (b.puntos || 0) - (a.puntos || 0);
+      });
+      return par;
+    })
+    .sort(function (a, b) {
+      return (b.fecha + b.hora).localeCompare(a.fecha + a.hora);
+    });
+}
+
+function pintarTabla() {
+  document.getElementById('titulo-tabla').textContent =
+    juegoSel ? 'Posiciones · ' + juegoSel : 'Posiciones';
+  document.getElementById('sub-tabla').textContent =
+    (periodo === 'mes' ? 'Este mes' : 'Desde el principio') +
+    (juegoSel ? '' : ' · todos los juegos');
+
+  var pers = document.getElementById('filtros-periodo');
+  pers.innerHTML = '';
+  [['mes', 'Este mes'], ['todo', 'Todo']].forEach(function (op) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'filtro' + (periodo === op[0] ? ' on' : '');
+    b.textContent = op[1];
+    b.onclick = function () { periodo = op[0]; pintarTodo(); };
+    pers.appendChild(b);
+  });
+  if (juegoSel) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'filtro';
+    b.textContent = '✕ ver todos los juegos';
+    b.onclick = function () { juegoSel = null; pintarTodo(); };
+    pers.appendChild(b);
+  }
+
+  var mes = mesActual();
+  var stats = {};
+  partidasAgrupadas(function (p) {
+    if (juegoSel && p.juego !== juegoSel) return false;
+    if (periodo === 'mes' && mesDe(p.fecha) !== mes) return false;
+    return true;
+  }).forEach(function (par) {
+    par.jugadores.forEach(function (j, idx) {
+      var k = j.jugador || j.idJugador;
+      if (!stats[k]) stats[k] = { nombre: k, jugadas: 0, ganadas: 0, podios: 0, puntos: 0 };
+      stats[k].jugadas++;
+      if (idx === 0) stats[k].ganadas++;
+      if (idx < 3) stats[k].podios++;
+      stats[k].puntos += (j.puntos || 0);
+    });
+  });
+
+  var lista = Object.keys(stats).map(function (k) { return stats[k]; })
+    .sort(function (a, b) {
+      if (b.ganadas !== a.ganadas) return b.ganadas - a.ganadas;
+      if (b.podios !== a.podios) return b.podios - a.podios;
+      return b.puntos - a.puntos;
+    });
+
+  var cont = document.getElementById('tabla');
+  cont.innerHTML = '';
+  if (!lista.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no hay partidas aquí. Registra una y aparecen las posiciones.</div>';
+    return;
+  }
+
+  var enc = document.createElement('div');
+  enc.className = 'fila enc';
+  enc.innerHTML = '<div class="pos">#</div><div>Jugador</div>' +
+    '<div class="n">Jugadas</div><div class="n">Ganadas</div><div class="n">Podios</div><div class="n">Puntos</div>';
+  cont.appendChild(enc);
+
+  lista.forEach(function (s, i) {
+    var f = document.createElement('div');
+    f.className = 'fila p' + (i + 1);
+    f.innerHTML =
+      '<div class="pos">' + (i + 1) + '</div>' +
+      '<div class="quien">' + s.nombre + '</div>' +
+      '<div class="n">' + s.jugadas + '</div>' +
+      '<div class="n fuerte">' + s.ganadas + '</div>' +
+      '<div class="n">' + s.podios + '</div>' +
+      '<div class="n">' + (s.puntos || '—') + '</div>';
+    cont.appendChild(f);
+  });
+}
+
+/* ===========================================================================
+   HISTÓRICO
+   =========================================================================== */
+function pintarHistorico() {
+  var sel = document.getElementById('filtro-jugador');
+  if (!sel.options.length) {
+    var nombres = {};
+    PARTIDAS.forEach(function (p) { if (p.jugador) nombres[p.jugador] = true; });
+    sel.innerHTML = '<option value="">Todos los jugadores</option>' +
+      Object.keys(nombres).sort().map(function (n) {
+        return '<option value="' + n + '">' + n + '</option>';
+      }).join('');
+    sel.onchange = function () { filtroJugador = sel.value; pintarHistorico(); };
+  }
+
+  var lista = partidasAgrupadas(function (p) {
+    if (juegoSel && p.juego !== juegoSel) return false;
+    return true;
+  });
+  if (filtroJugador) {
+    lista = lista.filter(function (par) {
+      return par.jugadores.some(function (j) { return j.jugador === filtroJugador; });
+    });
+  }
+
+  document.getElementById('sub-hist').textContent =
+    lista.length ? lista.length + (lista.length === 1 ? ' partida' : ' partidas') : '—';
+
+  var cont = document.getElementById('historico');
+  cont.innerHTML = '';
+  if (!lista.length) {
+    cont.innerHTML = '<div class="vacio">Sin partidas con estos filtros.</div>';
+    return;
+  }
+
+  lista.slice(0, 40).forEach(function (par) {
+    var d = document.createElement('div');
+    d.className = 'partida';
+    d.innerHTML =
+      '<div class="ico" style="background:' + colorDe(par.juego) + '">' + iconoDe(par.juego) + '</div>' +
+      '<div class="cuerpo">' +
+        '<div class="linea1">' +
+          '<span class="juego-n">' + par.juego + '</span>' +
+          '<span class="cuando">' + fechaBonita(par.fecha) + ' · ' + (par.hora || '') + '</span>' +
+          (par.nota ? '<span class="nota">' + par.nota + '</span>' : '') +
+        '</div>' +
+        '<ol>' + par.jugadores.map(function (j, i) {
+          return '<li' + (i === 0 ? ' class="gan"' : '') + '>' + j.jugador +
+                 (j.puntos ? ' · ' + j.puntos + ' pts' : '') + '</li>';
+        }).join('') + '</ol>' +
+      '</div>';
+    cont.appendChild(d);
+  });
+}
+
+function pintarTodo() { pintarJuegos(); pintarTabla(); pintarHistorico(); }
+
+/* ===========================================================================
+   MODAL: REGISTRAR PARTIDA
+   =========================================================================== */
+var fondo = document.getElementById('fondo');
+
+document.getElementById('btn-nueva').onclick = abrirModal;
+document.getElementById('m-cancelar').onclick = cerrarModal;
+fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrarModal(); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModal(); });
+
+function abrirModal() {
+  seleccion = [];
+
+  var selJ = document.getElementById('m-juego');
+  selJ.innerHTML = JUEGOS.filter(function (j) { return j.activo; }).map(function (j) {
+    return '<option value="' + j.juego + '"' + (j.juego === juegoSel ? ' selected' : '') + '>' +
+           j.icono + '  ' + j.juego + '</option>';
+  }).join('');
+
+  var hoy = new Date();
+  document.getElementById('m-fecha').value =
+    hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+    String(hoy.getDate()).padStart(2, '0');
+  document.getElementById('m-nota').value = '';
+
+  var chips = document.getElementById('m-chips');
+  chips.innerHTML = '';
+  JUGADORES.forEach(function (j) {
+    var c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'chip';
+    c.textContent = j.nombre.split(' ')[0] + ' ' + (j.nombre.split(' ')[1] || '');
+    c.onclick = function () {
+      var i = seleccion.indexOf(j.id);
+      if (i === -1) { seleccion.push(j.id); c.classList.add('on'); }
+      else { seleccion.splice(i, 1); c.classList.remove('on'); }
+      pintarPodio();
+    };
+    chips.appendChild(c);
+  });
+
+  pintarPodio();
+  fondo.classList.add('ver');
+}
+
+function cerrarModal() { fondo.classList.remove('ver'); }
+
+function pintarPodio() {
+  var campo = document.getElementById('m-podio-campo');
+  var podio = document.getElementById('m-podio');
+  campo.hidden = seleccion.length === 0;
+  podio.innerHTML = '';
+  seleccion.forEach(function (id, i) {
+    var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id };
+    var fila = document.createElement('div');
+    fila.className = 'p';
+    fila.innerHTML =
+      '<div class="lugar">' + (i + 1) + '°</div>' +
+      '<div class="nom">' + j.nombre + '</div>' +
+      '<input type="number" inputmode="numeric" id="pts-' + id + '" placeholder="pts">';
+    podio.appendChild(fila);
+  });
+}
+
+document.getElementById('m-guardar').onclick = function () {
+  if (seleccion.length < 2) {
+    aviso('Elige al menos dos jugadores.', 'err');
+    return;
+  }
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  var partida = {
+    juego: document.getElementById('m-juego').value,
+    fecha: document.getElementById('m-fecha').value,
+    nota:  document.getElementById('m-nota').value,
+    jugadores: seleccion.map(function (id, i) {
+      var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id };
+      var pts = (document.getElementById('pts-' + id) || {}).value;
+      return { id: id, nombre: j.nombre, posicion: i + 1, puntos: pts === '' ? '' : Number(pts) };
+    })
+  };
+
+  gas('registrarPartida', [partida])
+    .then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.message) || 'el servidor la rechazó');
+      cerrarModal();
+      aviso('✓ Partida de ' + partida.juego + ' guardada. Ganó ' +
+            partida.jugadores[0].nombre + '.', 'ok');
+      quitarAviso(6000);
+      juegoSel = partida.juego;
+      cargar();
+    })
+    .catch(function (e) { aviso('No se guardó: ' + e.message, 'err'); })
+    .then(function () { btn.disabled = false; btn.textContent = 'Guardar partida'; });
+};
+
+/* ===========================================================================
+   CARGA
+   =========================================================================== */
+function cargar() {
+  aviso('Cargando el tablero...');
+  gas('getJuegosTablero', [])
+    .then(function (r) {
+      if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
+      JUEGOS = r.juegos || [];
+      JUGADORES = r.jugadores || [];
+      PARTIDAS = r.partidas || [];
+      document.getElementById('filtro-jugador').innerHTML = '';
+      pintarTodo();
+      quitarAviso(600);
+    })
+    .catch(function (e) {
+      var msg = e.message || '';
+      if (msg.indexOf('No permitida') !== -1) {
+        aviso('Falta subir el backend de juegos: corre 5-SUBIR-TODO.bat y publica la versión nueva.', 'err');
+      } else {
+        aviso('No pude cargar el tablero: ' + msg, 'err');
+      }
+      JUEGOS = [{ juego: 'Mario Kart', icono: '🏁', modo: 'POSICION', activo: true },
+                { juego: 'Smash Bros', icono: '🥊', modo: 'POSICION', activo: true }];
+      pintarTodo();
+    });
+}
+
+cargar();
+</script>
+</body>
+</html>

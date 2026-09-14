@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tablero de checadas · Electronics México</title>
+<link rel="icon" href="favicon.ico">
+<style>
+/* ===========================================================================
+   TABLERO DE CHECADAS — Electronics México
+   Pantalla de oficina: sin PIN. Se toca el nombre, se elige el movimiento.
+   Paleta "Estilo 1 · Base" (la misma de WM_Inv y Site Sheet).
+   =========================================================================== */
+:root{
+  --deep:#010409; --base:#0d1117; --raised:#161b22; --card:#1a2029; --hover:#1f262f;
+  --bd:#30363d; --bd-sub:#21262d;
+  --t1:#e6edf3; --t2:#b1bac4; --tm:#7d8590;
+  --brand:#1f6feb; --brand-hi:#388bfd; --cyan:#39c5cf;
+  --ok:#3fb950; --ok-bg:rgba(63,185,80,.15); --ok-bd:rgba(63,185,80,.4);
+  --warn:#d29922; --warn-bg:rgba(210,153,34,.15); --warn-bd:rgba(210,153,34,.4);
+  --bad:#f85149; --bad-bg:rgba(248,81,73,.15); --bad-bd:rgba(248,81,73,.4);
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--base);color:var(--t2);font-family:var(--sans)}
+body{padding-inline:16px;padding-block:0 40px}
+.wrap{max-width:1100px;margin:0 auto}
+
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:12px;padding-block:20px 16px;border-bottom:1px solid var(--bd)}
+.marca{display:flex;align-items:center;gap:12px}
+.logo{width:38px;height:38px;border-radius:50%;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--cyan),var(--brand))}
+h1{margin:0;font-size:19px;font-weight:700;color:var(--t1);letter-spacing:-.01em}
+.sub{font-size:12px;color:var(--tm)}
+.tabs{display:flex;gap:6px}
+.tabs a{text-decoration:none;color:var(--t2);font-weight:700;font-size:14px;padding:9px 16px;border-radius:999px}
+.tabs a:hover{background:var(--hover);color:var(--t1)}
+.tabs a.on{background:var(--brand);color:#fff}
+.reloj{font-family:var(--mono);font-size:26px;color:var(--t1);font-variant-numeric:tabular-nums}
+.reloj small{display:block;font-size:11px;color:var(--tm);font-family:var(--sans);text-align:right}
+
+/* --- barra de estado --- */
+#estado{margin-top:16px;border:1px solid var(--bd);border-radius:10px;padding:10px 14px;
+  font-size:13px;background:var(--raised);color:var(--t2);display:none}
+#estado.ver{display:block}
+#estado.ok{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
+#estado.err{border-color:var(--bad-bd);background:var(--bad-bg);color:var(--bad)}
+#estado.carga{border-color:var(--bd);color:var(--tm)}
+
+/* --- rejilla de personas --- */
+.seccion{margin-top:26px}
+.titulo{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.titulo h2{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--tm);font-weight:600}
+.titulo .hint{font-size:12px;color:var(--tm)}
+
+.gente{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.persona{position:relative;display:flex;flex-direction:column;gap:10px;text-align:left;
+  background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;
+  color:var(--t1);font-family:inherit;font-size:16px;cursor:pointer;min-height:118px}
+.persona:hover{background:var(--hover);border-color:var(--brand)}
+.persona:focus-visible{outline:2px solid var(--brand-hi);outline-offset:2px}
+.persona .ini{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#243b63,#1b2942);color:var(--t1);font-weight:700;font-size:15px;
+  border:1px solid var(--bd)}
+.persona .nom{font-weight:700;line-height:1.25;font-size:16px}
+.persona .est{font-size:12px;color:var(--tm);display:flex;align-items:center;gap:6px;margin-top:auto}
+.punto{width:8px;height:8px;border-radius:50%;background:var(--tm);flex:0 0 auto}
+.punto.dentro{background:var(--ok)}
+.punto.fuera{background:var(--bad)}
+.punto.pausa{background:var(--warn)}
+
+/* --- hoja de movimientos --- */
+.fondo{position:fixed;inset:0;background:rgba(1,4,9,.78);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+.fondo.ver{display:flex}
+.hoja{width:100%;max-width:520px;max-height:90vh;overflow-y:auto;background:var(--raised);
+  border:1px solid var(--bd);border-radius:18px;padding:22px}
+.hoja h3{margin:0;font-size:20px;color:var(--t1)}
+.hoja .turno{font-size:13px;color:var(--tm);margin-top:4px}
+.hoy{margin-top:16px;border:1px solid var(--bd-sub);border-radius:10px;padding:10px 12px;
+  font-size:13px;color:var(--t2);background:var(--base)}
+.hoy ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
+.hoy .vacio{color:var(--tm)}
+.movs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.mov{padding:15px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--card);
+  color:var(--t1);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:left}
+.mov:hover{background:var(--hover);border-color:var(--brand)}
+.mov:disabled{opacity:.45;cursor:default}
+.mov small{display:block;font-weight:400;font-size:11.5px;color:var(--tm);margin-top:3px}
+.mov.entrada{border-color:var(--ok-bd)}
+.mov.salida{border-color:var(--bad-bd)}
+.cerrar{margin-top:16px;width:100%;padding:13px;border-radius:11px;border:1px solid var(--bd);
+  background:transparent;color:var(--t2);font-family:inherit;font-size:14px;cursor:pointer}
+.cerrar:hover{background:var(--hover)}
+
+/* --- registro del día --- */
+.log{margin-top:12px;border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--card)}
+.log div{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;font-size:13px;
+  border-top:1px solid var(--bd-sub)}
+.log div:first-child{border-top:0}
+.log .h{font-family:var(--mono);color:var(--tm);font-variant-numeric:tabular-nums}
+.log .vacio{color:var(--tm);justify-content:flex-start}
+
+footer{margin-top:30px;font-size:12px;color:var(--tm);display:flex;flex-wrap:wrap;gap:8px 18px}
+
+@media (max-width:520px){
+  .gente{grid-template-columns:1fr 1fr;gap:10px}
+  .persona{min-height:104px;padding:13px}
+  .movs{grid-template-columns:1fr}
+  .reloj{font-size:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="marca">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Tablero de checadas</h1>
+        <div class="sub">Electronics México · registro manual</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <a href="tablero.html" class="on" aria-current="page">Checadas</a>
+      <a href="juegos.html">Juegos</a>
+    </nav>
+    <div class="reloj"><span id="reloj">--:--</span><small id="fecha">—</small></div>
+  </header>
+
+  <div id="estado" role="status" aria-live="polite"></div>
+
+  <section class="seccion">
+    <div class="titulo">
+      <h2>Personas</h2>
+      <span class="hint">Toca un nombre para registrar su movimiento</span>
+    </div>
+    <div class="gente" id="gente"></div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo">
+      <h2>Registrado hoy desde este tablero</h2>
+      <span class="hint" id="conteo">—</span>
+    </div>
+    <div class="log" id="log"><div class="vacio">Todavía no se registra nada hoy.</div></div>
+  </section>
+
+  <footer>
+    <span>Las checadas caen en la hoja CHECADOR_CHOFERES del Checador 7.0.</span>
+    <span>Si algo falla, el aviso rojo de arriba dice por qué.</span>
+  </footer>
+</div>
+
+<div class="fondo" id="fondo" role="dialog" aria-modal="true" aria-labelledby="hoja-nombre">
+  <div class="hoja">
+    <h3 id="hoja-nombre">—</h3>
+    <div class="turno" id="hoja-turno">—</div>
+    <div class="hoy" id="hoja-hoy"></div>
+    <div class="movs" id="hoja-movs"></div>
+    <button class="cerrar" id="hoja-cerrar" type="button">Cancelar</button>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   CONFIGURACIÓN
+   =========================================================================== */
+
+// Endpoint del Apps Script del Checador 7.0. Es público a propósito: la PWA
+// de los empleados usa el mismo. Si algún día se hace un deployment NUEVO
+// (no una versión nueva del mismo), esta URL cambia y hay que actualizarla.
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
+
+// Quién sale en el tablero, y en este orden. El ID es el de TURNOS_DEFAULT.
+// Para agregar o quitar a alguien se edita SOLO esta lista.
+// (Cuando el backend nuevo esté arriba, esto se lee de la hoja TABLERO.)
+var EN_TABLERO = [
+  { id: '55', corto: 'Víctor' },
+  { id: '50', corto: 'Eric' },
+  { id: '25', corto: 'Samantha' },
+  { id: '1',  corto: 'Ximena' },
+  { id: '51', corto: 'Jasso' },
+  { id: '23', corto: 'Rodrigo Romero' },
+  { id: '54', corto: 'Emanuel' },
+  { id: '9',  corto: 'Eduardo Pérez' },
+  { id: '53', corto: 'Walter' }
+];
+
+// Los seis movimientos, en el orden del día.
+var MOVIMIENTOS = [
+  { tipo: 'ENTRADA',           etiqueta: 'Entrada',            pista: 'Llegó',                 clase: 'entrada' },
+  { tipo: 'SALIDA_DESAYUNO',   etiqueta: 'Sale a desayunar',   pista: 'Empieza el desayuno',   clase: '' },
+  { tipo: 'REGRESO_DESAYUNO',  etiqueta: 'Regresa de desayunar', pista: 'Termina el desayuno', clase: '' },
+  { tipo: 'SALIDA_COMIDA',     etiqueta: 'Sale a comer',       pista: 'Empieza la comida',     clase: '' },
+  { tipo: 'REGRESO_COMIDA',    etiqueta: 'Regresa de comer',   pista: 'Termina la comida',     clase: '' },
+  { tipo: 'SALIDA',            etiqueta: 'Salida',             pista: 'Cierra su día',         clase: 'salida' }
+];
+
+/* ===========================================================================
+   PUENTE CON APPS SCRIPT
+   Se manda text/plain a propósito: con application/json el navegador hace
+   una petición previa (preflight) que Apps Script no contesta.
+   =========================================================================== */
+function gas(fn, args) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args || [] }),
+    redirect: 'follow'
+  })
+  .then(function(r) { return r.text(); })
+  .then(function(texto) {
+    try { return JSON.parse(texto); }
+    catch (e) { throw new Error('El servidor contestó algo que no es JSON: ' + texto.slice(0, 120)); }
+  });
+}
+
+/* ===========================================================================
+   ESTADO EN MEMORIA
+   =========================================================================== */
+var empleados = {};   // id -> { id, nombre, corto, turno }
+var checadasHoy = {}; // id -> [ { hora, tipo } ]
+var registrados = []; // lo que se registró desde este tablero hoy
+var abiertoId = null;
+
+function normId(v) {
+  v = (v === null || v === undefined) ? '' : String(v).trim();
+  var n = parseInt(v, 10);
+  return (isNaN(n) || !/^\d+$/.test(v)) ? v : String(n);
+}
+
+function iniciales(nombre) {
+  var p = (nombre || '').trim().split(/\s+/);
+  return ((p[0] || '')[0] || '') + ((p[1] || '')[0] || '');
+}
+
+function hhmm(v) {
+  var m = String(v || '').match(/(\d{1,2}):(\d{2})/);
+  return m ? (m[1].length === 1 ? '0' + m[1] : m[1]) + ':' + m[2] : '';
+}
+
+function uuid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'tab-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
+/* ===========================================================================
+   AVISOS
+   =========================================================================== */
+var elEstado = document.getElementById('estado');
+function aviso(texto, clase) {
+  elEstado.className = 'ver ' + (clase || '');
+  elEstado.textContent = texto;
+}
+function limpiarAviso(tras) {
+  setTimeout(function() { elEstado.className = ''; }, tras || 4000);
+}
+
+/* ===========================================================================
+   RELOJ
+   =========================================================================== */
+var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function pintarReloj() {
+  var d = new Date();
+  document.getElementById('reloj').textContent =
+    String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  document.getElementById('fecha').textContent =
+    DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()];
+}
+pintarReloj();
+setInterval(pintarReloj, 15000);
+
+/* ===========================================================================
+   ESTADO DE CADA PERSONA (según sus checadas de hoy)
+   =========================================================================== */
+function estadoDe(id) {
+  var lista = checadasHoy[id] || [];
+  if (!lista.length) return { clase: '', texto: 'Sin checadas hoy' };
+  var ultima = lista[lista.length - 1];
+  var t = (ultima.tipo || '').toUpperCase();
+  var hora = hhmm(ultima.hora);
+  if (t === 'SALIDA')            return { clase: 'fuera',  texto: 'Se fue a las ' + hora };
+  if (t === 'SALIDA_DESAYUNO')   return { clase: 'pausa',  texto: 'Desayunando desde las ' + hora };
+  if (t === 'SALIDA_COMIDA')     return { clase: 'pausa',  texto: 'Comiendo desde las ' + hora };
+  if (t === 'ENTRADA')           return { clase: 'dentro', texto: 'Entró a las ' + hora };
+  return { clase: 'dentro', texto: 'Última: ' + hora };
+}
+
+/* ===========================================================================
+   PINTAR
+   =========================================================================== */
+function pintarGente() {
+  var cont = document.getElementById('gente');
+  cont.innerHTML = '';
+  EN_TABLERO.forEach(function(p) {
+    var emp = empleados[p.id];
+    var nombre = p.corto || (emp && emp.nombre) || ('ID ' + p.id);
+    var est = estadoDe(p.id);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'persona';
+    btn.setAttribute('aria-label', 'Registrar movimiento de ' + nombre);
+    btn.innerHTML =
+      '<div class="ini">' + iniciales((emp && emp.nombre) || nombre) + '</div>' +
+      '<div class="nom">' + nombre + '</div>' +
+      '<div class="est"><span class="punto ' + est.clase + '"></span>' + est.texto + '</div>';
+    btn.onclick = function() { abrirHoja(p.id); };
+    cont.appendChild(btn);
+  });
+}
+
+function pintarLog() {
+  var cont = document.getElementById('log');
+  document.getElementById('conteo').textContent =
+    registrados.length ? registrados.length + ' movimiento' + (registrados.length === 1 ? '' : 's') : '—';
+  if (!registrados.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no se registra nada hoy.</div>';
+    return;
+  }
+  cont.innerHTML = '';
+  registrados.slice().reverse().forEach(function(r) {
+    var fila = document.createElement('div');
+    fila.innerHTML = '<span>' + r.nombre + ' · ' + r.etiqueta + '</span><span class="h">' + r.hora + '</span>';
+    cont.appendChild(fila);
+  });
+}
+
+/* ===========================================================================
+   HOJA DE MOVIMIENTOS
+   =========================================================================== */
+var fondo = document.getElementById('fondo');
+
+function abrirHoja(id) {
+  abiertoId = id;
+  var p = EN_TABLERO.filter(function(x) { return x.id === id; })[0] || {};
+  var emp = empleados[id] || {};
+  document.getElementById('hoja-nombre').textContent = emp.nombre || p.corto || ('ID ' + id);
+  document.getElementById('hoja-turno').textContent =
+    emp.turno ? ('Turno ' + emp.turno) : 'Turno no encontrado en TURNOS_DEFAULT';
+
+  var hoy = checadasHoy[id] || [];
+  var cajaHoy = document.getElementById('hoja-hoy');
+  if (!hoy.length) {
+    cajaHoy.innerHTML = '<span class="vacio">Hoy no tiene ninguna checada registrada.</span>';
+  } else {
+    cajaHoy.innerHTML = '<strong>Hoy:</strong><ul>' + hoy.map(function(c) {
+      return '<li>' + hhmm(c.hora) + ' · ' + etiquetaDe(c.tipo) + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  var movs = document.getElementById('hoja-movs');
+  movs.innerHTML = '';
+  MOVIMIENTOS.forEach(function(m) {
+    var yaEsta = hoy.some(function(c) { return (c.tipo || '').toUpperCase() === m.tipo; });
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mov ' + m.clase;
+    b.innerHTML = m.etiqueta + '<small>' + (yaEsta ? 'Ya registrado hoy' : m.pista) + '</small>';
+    b.onclick = function() { registrar(id, m); };
+    movs.appendChild(b);
+  });
+
+  fondo.classList.add('ver');
+}
+
+function cerrarHoja() { fondo.classList.remove('ver'); abiertoId = null; }
+document.getElementById('hoja-cerrar').onclick = cerrarHoja;
+fondo.addEventListener('click', function(e) { if (e.target === fondo) cerrarHoja(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') cerrarHoja(); });
+
+function etiquetaDe(tipo) {
+  var m = MOVIMIENTOS.filter(function(x) { return x.tipo === (tipo || '').toUpperCase(); })[0];
+  return m ? m.etiqueta : (tipo || '—');
+}
+
+/* ===========================================================================
+   REGISTRAR
+   =========================================================================== */
+function registrar(id, mov) {
+  var emp = empleados[id] || {};
+  var nombre = emp.nombre || id;
+  cerrarHoja();
+  aviso('Registrando ' + mov.etiqueta.toLowerCase() + ' de ' + nombre + '...', 'carga');
+
+  gas('guardarChecadaChofer', [{
+    idUsuario: id,
+    nombre: nombre,
+    tipo: mov.tipo,
+    uuid: uuid(),
+    origen: 'TABLERO'
+  }])
+  .then(function(r) {
+    if (!r || r.error) throw new Error((r && r.message) || 'El servidor rechazó la checada');
+
+    if (r.noRegistrada) {
+      aviso('No se registró: ' + (r.message || 'el servidor no la aceptó'), 'err');
+      limpiarAviso(7000);
+      return;
+    }
+
+    var hora = hhmm(r.horaServidor) || hhmm(new Date().toTimeString());
+    // El servidor devuelve las checadas de hoy tal como quedaron en la hoja:
+    // con eso el tablero se resincroniza solo y no inventa nada.
+    if (r.checadasHoyServidor) checadasHoy[id] = r.checadasHoyServidor;
+    registrados.push({ nombre: nombre, etiqueta: etiquetaDe(r.tipo || mov.tipo), hora: hora });
+
+    aviso('✓ ' + nombre + ' · ' + etiquetaDe(r.tipo || mov.tipo) + ' a las ' + hora, 'ok');
+    limpiarAviso(5000);
+    pintarGente();
+    pintarLog();
+  })
+  .catch(function(e) {
+    aviso('No se pudo registrar: ' + e.message + '. Revisa el internet y vuelve a intentar.', 'err');
+  });
+}
+
+/* ===========================================================================
+   CARGA INICIAL
+   =========================================================================== */
+function cargar() {
+  aviso('Cargando la lista de personas...', 'carga');
+  pintarGente();
+
+  gas('getTodosLosUsuarios', [])
+    .then(function(r) {
+      if (!r || !r.usuarios) throw new Error((r && r.message) || 'sin respuesta');
+      r.usuarios.forEach(function(u) {
+        var id = normId(u.idUsuario);
+        // El tablero no usa PIN ni contraseña: de esta respuesta solo se
+        // toman el nombre y el turno.
+        if (!empleados[id]) empleados[id] = { id: id, nombre: u.nombre, pin: u.pin, turno: u.turnoHorario || '' };
+      });
+      var faltan = EN_TABLERO.filter(function(p) { return !empleados[p.id]; })
+                             .map(function(p) { return p.corto; });
+      pintarGente();
+      if (faltan.length) {
+        aviso('Ojo: no encontré en TURNOS_DEFAULT a ' + faltan.join(', ') + '.', 'err');
+      } else {
+        aviso('Listo. Toca un nombre para registrar su movimiento.', 'ok');
+        limpiarAviso(3500);
+      }
+      return refrescarChecadas();
+    })
+    .catch(function(e) {
+      aviso('No pude cargar la lista: ' + e.message, 'err');
+    });
+}
+
+// Trae lo que cada quien lleva checado hoy, para que las tarjetas digan
+// "Entró a las 8:04" desde que se abre el tablero y no solo después de
+// registrar algo. Si una persona falla, las demás se pintan igual.
+function refrescarChecadas() {
+  var peticiones = EN_TABLERO.map(function(p) {
+    var emp = empleados[p.id];
+    if (!emp || !emp.pin) return Promise.resolve(null);
+    return gas('getPerfilEmpleado', [emp.pin])
+      .then(function(r) {
+        if (r && r.ok && r.checadasHoy) checadasHoy[p.id] = r.checadasHoy;
+      })
+      .catch(function() { /* esta persona se queda sin estado, no pasa nada */ });
+  });
+  return Promise.all(peticiones).then(pintarGente);
+}
+
+cargar();
+
+// Relectura cada 3 minutos: si alguien checó desde su celular, el tablero
+// lo refleja sin que nadie recargue la página.
+setInterval(function() { if (!abiertoId) refrescarChecadas(); }, 180000);
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+# ============================================================
+#  ElectronicsChecador - .gitignore
+# ============================================================
+#
+#  REGLA DEL PROYECTO: ninguna credencial vive en un archivo.
+#  La cuenta de servicio de Firebase y cualquier password se
+#  guardan en PropertiesService de Apps Script y se capturan
+#  desde el editor (configurarFirebase), nunca pegados en un .gs.
+#
+#  Este repo es publico y git guarda el historial para siempre:
+#  borrar una credencial en un commit posterior NO la quita, hay
+#  que rotarla. Los .bat traen un seguro (_seguro.ps1) que revisa
+#  esto antes de cada commit.
+
+# -- Node / clasp --------------------------------------------
+node_modules/
+npm-debug.log
+yarn-error.log
+.clasprc.json
+
+# -- Sistema operativo ---------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -- Editores ------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -- Backups y temporales ------------------------------------
+*.bak
+*.tmp
+*~
+*.old
+_local/
+
+# -- Credenciales (nunca deben existir aqui) -----------------
+.env
+.env.local
+*.credentials.json
+*.pem
+*.key
+*firebase-adminsdk*.json
+service-account*.json
+Secrets.gs
+apps-script/Secrets.gs
+apps-script/Local.gs
+secretos.txt
