@@ -200,8 +200,37 @@ var PushNotifications = (function() {
     try { return localStorage.getItem(_LS_TOKEN) || ''; } catch(e) { return ''; }
   }
 
+  // Revalidación silenciosa al abrir la app.
+  //
+  // FCM rota el token cada tanto. Como antes solo se registraba al entrar al
+  // perfil, el token viejo moría, Firebase contestaba 404, el backend lo
+  // borraba, y el empleado desaparecía de las alertas sin que nadie lo notara.
+  // Esto lo vuelve a registrar cada vez que abre la app, sin molestarlo y sin
+  // pedir permisos nuevos: si no lo ha concedido, no hace nada.
+  function revalidar(pin) {
+    if (!pin) return Promise.resolve();
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      return Promise.resolve();
+    }
+    return solicitarYRegistrar(pin);
+  }
+
   return { solicitarYRegistrar: solicitarYRegistrar, eliminar: eliminar,
+           revalidar: revalidar,
            tokenActual: tokenActual, nombreDispositivo: _nombreDispositivo };
 })();
 
 console.log('✅ PushNotifications módulo cargado');
+
+// Al abrir la app: si este celular ya tiene sesión de perfil y el permiso
+// concedido, se revalida el token en silencio. Es lo que evita que la gente
+// se caiga de las alertas sin enterarse.
+(function () {
+  try {
+    var raw = localStorage.getItem('em_perfil_sesion');
+    if (!raw) return;
+    var sesion = JSON.parse(raw);
+    if (!sesion || !sesion.pin) return;
+    setTimeout(function () { PushNotifications.revalidar(sesion.pin); }, 2500);
+  } catch (e) {}
+})();

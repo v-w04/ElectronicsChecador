@@ -49,10 +49,11 @@ function _perfilLeerSesion() {
 }
 
 function _perfilCerrarSesion() {
-  // ⭐ Desvincular este dispositivo de las notificaciones push
-  if (typeof PushNotifications !== 'undefined') {
-    PushNotifications.eliminar();
-  }
+  // ⚠️ Antes aquí se borraba el token de notificaciones. Sonaba prudente y
+  // era el peor bug del sistema: cerrar el perfil dejaba al empleado sin
+  // alertas para siempre, sin avisarle. El dispositivo sigue vinculado; para
+  // desvincularlo está el botón de "Mis dispositivos".
+
   window._perfilSesionTemp = null;
   try { localStorage.removeItem(_PERFIL_LS_SESION); } catch(e) {}
   _perfilDetenerTimers();
@@ -853,11 +854,12 @@ function _perfilInicializarPush(sesion) {
              'border-radius:12px;padding:12px 16px;font-size:13px;color:#94A3B8;">🔔 Vinculando este dispositivo...</div>';
     PushNotifications.solicitarYRegistrar(sesion.pin).then(function(r) {
       if (!banner) return;
-      // ⭐ Si el dispositivo ya tiene token guardado, está vinculado aunque
-      // esta llamada haya fallado (p.ej. iOS respondiendo raro al revalidar).
-      var yaTieneToken = (typeof PushNotifications.tokenActual === 'function') &&
-                         !!PushNotifications.tokenActual();
-      var ok = r === true || (r && r.ok) || yaTieneToken;
+      // ⚠️ El verde SOLO cuando el servidor confirma. Antes bastaba con que el
+      // celular tuviera un token guardado, y ese token se guarda ANTES de
+      // registrarlo: si el registro fallaba, el empleado veía "vinculado" y
+      // no había fila en PUSH_TOKENS. Una luz verde mentirosa es peor que
+      // una roja.
+      var ok = r === true || (r && r.ok);
       window._pushUltimoError = (r && r.error) || '';
       if (ok) {
         banner.innerHTML =
