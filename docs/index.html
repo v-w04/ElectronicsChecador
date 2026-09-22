@@ -4,6 +4,41 @@
   <meta charset="UTF-8">
 
   <!-- ═══════════════════════════════════════════════════════════════════════
+       PUENTE A LA APP NUEVA (v700)
+       ───────────────────────────────────────────────────────────────────────
+       Esta página es el PANEL de oficina. Los empleados ya no van aquí: su
+       pantalla es checar.html (sin PIN, con alertas y cola offline).
+
+       Los celulares que ya tienen la PWA instalada siguen abriendo esta
+       página porque su acceso directo apunta al start_url viejo. En vez de
+       pedirles que borren y reinstalen, aquí se les manda solo.
+
+       Se queda en el panel si:
+         · la dirección trae ?panel   (queda recordado en este navegador)
+         · es pantalla grande y NO es la app instalada
+       =================================================================== -->
+  <script>
+  (function () {
+    try {
+      var PANEL = 'em_es_panel';
+      if (location.search.indexOf('panel') !== -1) {
+        localStorage.setItem(PANEL, '1');
+        return;
+      }
+      if (localStorage.getItem(PANEL) === '1') return;
+
+      var instalada = (window.matchMedia &&
+                       window.matchMedia('(display-mode: standalone)').matches) ||
+                      window.navigator.standalone === true;
+      var chica = Math.min(screen.width, screen.height) < 900;
+
+      if (instalada || chica) location.replace('checar.html');
+    } catch (e) {}
+  })();
+  </script>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
        SEGURIDAD: Content Security Policy + headers de privacidad
        ───────────────────────────────────────────────────────────────────────
        Restringe DESDE DÓNDE se pueden cargar recursos y bloquea inyección
