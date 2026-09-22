@@ -87,16 +87,21 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .icono.puesto{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
 .icono.activo{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
 .icono.apagado{opacity:.55}
-.estado-act{font-size:11.5px;color:var(--tm);white-space:nowrap;max-width:132px;
-  overflow:hidden;text-overflow:ellipsis}
-.estado-act.ok{color:var(--ok)} .estado-act.mal{color:var(--warn)}
+.franja{margin:0 -16px;padding:9px 16px;font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:9px;background:var(--raised);color:var(--t2);
+  border-top:1px solid var(--bd-sub)}
+.franja[hidden]{display:none}
+.franja.ok{background:var(--ok-bg);color:var(--ok)}
+.franja.mal{background:var(--warn-bg);color:var(--warn)}
+.franja .rueda{width:15px;height:15px;flex:0 0 auto;border-radius:50%;
+  border:2px solid currentColor;border-right-color:transparent;animation:giro .8s linear infinite}
 
 /* ── PANTALLAS ANGOSTAS ────────────────────────────────────────────────
    En un Samsung compacto la barra de arriba no alcanzaba: el nombre, los
    tres iconos y el botón Cambiar se montaban unos sobre otros. Aquí se
    quita lo accesorio y se aprieta lo demás, en vez de encimarse. */
 @media (max-width:430px){
-  .estado-act{display:none}
+  .franja{margin:0 -16px;font-size:12.5px}
   .icono{width:32px;height:32px;font-size:16px}
   .acciones{gap:5px}
   .cambiar{padding:7px 10px;font-size:12px}
@@ -362,12 +367,12 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
               title="Alertas" aria-label="Alertas">&#128276;</button>
       <button class="icono" id="btn-dia" type="button"
               title="Marcar el día" aria-label="Marcar el día">&#128197;</button>
-      <span class="estado-act" id="estado-act" hidden></span>
       <button class="icono" id="btn-actualizar" type="button"
               title="Buscar actualización" aria-label="Buscar actualización">&#8635;</button>
       <button class="cambiar" id="btn-cambiar" type="button">Cambiar</button>
     </div>
   </div>
+    <div class="franja" id="estado-act" hidden></div>
   </header>
 
 
@@ -407,7 +412,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v720</span></div>
+  <div class="pie"><span id="pie">v721</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -468,7 +473,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v720';
+var VERSION = 'v721';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -1037,12 +1042,14 @@ function pintar() {
   btn.onclick = sig ? function(){ registrar(sig); } : null;
   if (!sig) btn.disabled = true;
 
-  document.getElementById('btn-corregir').hidden = !(YO && HOY.checadas.length);
-  pintarDia();
-  pintarCrono();
-  pintarQuincena();
-  pintarExcepcion();
-  pintarAlertas();
+  // Cada pieza va aparte: si una truena, las demás se pintan igual. Una
+  // pantalla a medias sirve; una en blanco, no.
+  [pintarDia, pintarCrono, pintarQuincena, pintarExcepcion, pintarAlertas]
+    .forEach(function (f) { try { f(); } catch (e) {} });
+
+  try {
+    document.getElementById('btn-corregir').hidden = !(YO && HOY.checadas.length);
+  } catch (e) {}
 }
 
 // El cronómetro corre cada segundo. El contador de tiempo extra del pie se
@@ -1768,61 +1775,17 @@ function salidaRemota() {
 document.getElementById('pie').textContent = VERSION + (navigator.onLine === false ? ' · sin internet' : '');
 
 /* ===========================================================================
-   ACTUALIZACIONES
+   ARRANQUE
    ===========================================================================
-   Nadie tiene que borrar y reinstalar: la app se revisa sola al abrirse y
-   cada vez que vuelve a primer plano. Y está el botón, por si acaso. */
-var btnAct = document.getElementById('btn-actualizar');
+   PRIMERO se pinta la pantalla. Todo lo demás —actualizaciones, service
+   worker, llamadas al servidor— va después y entre redes de seguridad.
 
-var elEstadoAct = document.getElementById('estado-act');
-var _actTimer = null;
-
-/** Dice en la cabecera qué está pasando. Antes el único aviso salía abajo
- *  de todo y en el celular no se veía: parecía que el botón no servía. */
-function pintarActualizacion(estado, version) {
-  clearTimeout(_actTimer);
-  btnAct.disabled = (estado === 'buscando' || estado === 'actualizando');
-  btnAct.className = btnAct.disabled ? 'icono girando' : 'icono';
-
-  var txt = '', clase = '';
-  if (estado === 'buscando')     txt = 'Buscando...';
-  if (estado === 'actualizando') { txt = 'Actualizando a ' + (version || '') + '...'; clase = 'ok'; }
-  if (estado === 'aldia')        { txt = 'Al día · ' + (version || VERSION); clase = 'ok'; }
-  if (estado === 'sinred')       { txt = 'Sin señal'; clase = 'mal'; }
-
-  if (!txt) { elEstadoAct.hidden = true; return; }
-  elEstadoAct.hidden = false;
-  elEstadoAct.className = 'estado-act ' + clase;
-  elEstadoAct.textContent = txt;
-
-  // Los mensajes que ya no van a cambiar se borran solos.
-  if (estado === 'aldia' || estado === 'sinred') {
-    _actTimer = setTimeout(function () { elEstadoAct.hidden = true; }, 5000);
-  }
-}
-
-btnAct.onclick = function () {
-  Actualizar.revisar(pintarActualizacion, true);
-};
-
-Actualizar.iniciar(VERSION, pintarActualizacion);
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js').catch(function(){});
-  // Si el service worker mandó la cola por su cuenta (con la app cerrada),
-  // avisa y refresca en cuanto se abre.
-  navigator.serviceWorker.addEventListener('message', function(e){
-    var d = e.data || {};
-    if (d.type === 'COLA_ENVIADA' && d.enviadas) {
-      aviso('Se enviaron ' + d.enviadas + ' checada' + (d.enviadas===1?'':'s') + ' que estaban pendientes.', 'ok', 5000);
-      pintarPendientes();
-      refrescarHoy();
-    }
-  });
-}
-
-pintar();
-pintarPendientes();
+   Esto era un bug feo: si algo de eso tronaba, la ejecución se cortaba ahí
+   y `pintar()` nunca corría. La app se quedaba con el nombre "Checador", el
+   avatar en "?" y "Cargando..." para siempre, aunque el perfil SÍ estuviera
+   guardado. Parecía que se había olvidado de quién eres, y no: nada más no
+   se había dibujado.
+   =========================================================================== */
 
 /** Todo lo que se hace cuando ya se sabe quién eres. */
 function arrancarConYo() {
@@ -1838,13 +1801,14 @@ function arrancarConYo() {
 
 _diag.ls = YO ? 'sí' : 'vacío';
 
+pintar();
+pintarPendientes();
+
 if (YO) {
   _diag.idb = 'no hizo falta';
   arrancarConYo();
 } else {
-  // Antes de preguntar quién eres, se busca en el respaldo: si el navegador
-  // vació localStorage, la elección sigue guardada en IndexedDB y no hay por
-  // qué volver a molestar a nadie ni perder el enlace de las alertas.
+  // Antes de preguntar quién eres, se busca en el respaldo.
   rescatarYo().then(function (yo) {
     _diag.idb = (yo && yo.id) ? 'sí' : 'vacío';
     if (yo && yo.id) {
@@ -1855,9 +1819,76 @@ if (YO) {
     }
     bajarGente().then(function () { abrirGente(); });
     bajarConfig();
+  }).catch(function () {
+    _diag.idb = 'error';
+    bajarGente().then(function () { abrirGente(); });
   });
 }
+
 vaciarCola();
+
+/* ===========================================================================
+   DE AQUÍ PARA ABAJO, NADA PUEDE TUMBAR LA PANTALLA
+   =========================================================================== */
+var elEstadoAct = document.getElementById('estado-act');
+var _actTimer = null;
+
+/** La franja bajo la cabecera dice siempre qué está pasando: si está
+ *  buscando, si ya está al día o si está bajando la versión nueva. */
+function pintarActualizacion(estado, version) {
+  clearTimeout(_actTimer);
+  btnAct.disabled = (estado === 'buscando' || estado === 'actualizando');
+  btnAct.className = btnAct.disabled ? 'icono girando' : 'icono';
+
+  var txt = '', clase = '', rueda = false;
+  if (estado === 'buscando') {
+    txt = 'Buscando actualización...'; rueda = true;
+  }
+  if (estado === 'actualizando') {
+    txt = 'Bajando la versión ' + (version || '') + '. No cierres la app.';
+    clase = 'ok'; rueda = true;
+  }
+  if (estado === 'aldia') {
+    txt = '✓ Ya tienes la última versión (' + (version || VERSION) + ')'; clase = 'ok';
+  }
+  if (estado === 'sinred') {
+    txt = 'Sin señal: no pude revisar si hay versión nueva'; clase = 'mal';
+  }
+
+  if (!txt) { elEstadoAct.hidden = true; return; }
+  elEstadoAct.hidden = false;
+  elEstadoAct.className = 'franja ' + clase;
+  elEstadoAct.innerHTML = (rueda ? '<span class="rueda"></span>' : '') +
+                          '<span>' + txt + '</span>';
+
+  if (estado === 'aldia' || estado === 'sinred') {
+    _actTimer = setTimeout(function () { elEstadoAct.hidden = true; }, 6000);
+  }
+}
+
+btnAct.onclick = function () {
+  Actualizar.revisar(pintarActualizacion, true);
+};
+
+
+try {
+  Actualizar.iniciar(VERSION, pintarActualizacion);
+} catch (e) { /* si el actualizador falla, la app sigue funcionando */ }
+
+try {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(function(){});
+    navigator.serviceWorker.addEventListener('message', function(e){
+      var d = e.data || {};
+      if (d.type === 'COLA_ENVIADA' && d.enviadas) {
+        aviso('Se enviaron ' + d.enviadas + ' checada' + (d.enviadas===1?'':'s') +
+              ' que estaban pendientes.', 'ok', 5000);
+        pintarPendientes();
+        refrescarHoy();
+      }
+    });
+  }
+} catch (e) {}
 
 window.addEventListener('online', function(){
   document.getElementById('pie').textContent = VERSION;

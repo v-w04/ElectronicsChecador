@@ -63,7 +63,15 @@ var Actualizar = (function () {
     }
 
     return Promise.all(pasos).then(function () {
-      location.reload();
+      // OJO: location.reload() NO basta. El navegador guarda el HTML en su
+      // propia caché (aparte de la del service worker) y al recargar vuelve
+      // a servir el MISMO archivo viejo: la app se quedaba clavada en la
+      // versión anterior por más veces que se recargara.
+      //
+      // Pidiendo la página con una dirección distinta, el navegador no
+      // puede reutilizar nada y baja el archivo nuevo de verdad.
+      var limpia = location.pathname + '?v=' + Date.now();
+      location.replace(limpia);
       return true;
     });
   }
