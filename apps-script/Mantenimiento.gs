@@ -56,6 +56,8 @@ function diagnosticoCompleto() {
   } catch (e) { d.duracionesT2 = '?'; }
 
   d.horaServidor = Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM HH:mm:ss');
+  // Corrida desde el editor: sin esto no se ve nada en pantalla.
+  Logger.log(JSON.stringify(d, null, 2));
   return d;
 }
 

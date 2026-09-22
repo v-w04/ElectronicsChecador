@@ -4,80 +4,141 @@ cd /d "%~dp0"
 call _config.bat
 title Subir a GitHub
 
+REM ---- Color de marca ----
+REM CMD de Windows 10+ entiende color de 24 bits, pero necesita el
+REM caracter ESC y no hay forma de escribirlo literal en un .bat sin
+REM romper el ASCII puro. Este truco lo saca de la variable de prompt.
+REM Si falla, las variables quedan vacias y todo sale en texto normal:
+REM nunca se imprimen codigos sueltos en pantalla.
+set "ESC="
+for /f %%E in ('echo prompt $E ^| cmd') do set "ESC=%%E"
+set "AZUL="
+set "VERDE="
+set "ROJO="
+set "FIN="
+if defined ESC set "AZUL=%ESC%[38;2;31;148;249m"
+if defined ESC set "VERDE=%ESC%[38;2;63;185;80m"
+if defined ESC set "ROJO=%ESC%[38;2;248;81;73m"
+if defined ESC set "FIN=%ESC%[0m"
+
 echo.
-echo  =======================================================
-echo    SUBIENDO A GITHUB
-echo  =======================================================
+echo   SUBIR A GITHUB                     solo el frontend
+echo   %AZUL%----------------------------------------------------%FIN%
 echo.
 
-echo  [0/5] Revisando que no haya credenciales en el codigo...
+echo   %AZUL%[1/4]%FIN%  Credenciales en el codigo . . . . .
 call _seguro.bat
 if errorlevel 1 goto FUGADETECTADA
-echo        Limpio.
+echo          limpio
 echo.
 
 call :BUSCARGIT
 if errorlevel 1 goto NOGIT
+if exist ".git\index.lock" del /f /q ".git\index.lock" >nul 2>&1
 
-echo  [1/5] Estado del repositorio
-if not exist ".git" goto NOTREPO
+echo   %AZUL%[2/4]%FIN%  Cambios . . . . . . . . . . . . . .
+"!GIT!" status --porcelain > "%TEMP%\chk_st.txt" 2>nul
+set CAMBIOS=0
+for /f %%C in ('find /c /v "" ^< "%TEMP%\chk_st.txt"') do set CAMBIOS=%%C
+del "%TEMP%\chk_st.txt" >nul 2>&1
+if "!CAMBIOS!"=="0" goto SINCAMBIOS
+echo          !CAMBIOS! archivos
+echo.
 "!GIT!" status --short
-REM El repo local existe, pero eso no basta: para hacer push tiene que
-REM haber un remoto. Sin esto el push truena con un mensaje ilegible.
-"!GIT!" remote get-url origin >nul 2>&1
-if errorlevel 1 goto NOORIGIN
 echo.
 
-REM Contar cambios sin meter un pipe dentro del for.
-REM Cuando git vive en GitHub Desktop la ruta trae espacios, y cmd se come
-REM la comilla del inicio y la del final de la linea del for: la orden queda
-REM partida y truena con "el nombre de archivo... no son correctos".
-REM Con archivo temporal no hay comillas que romper.
-set "TMPST=%TEMP%\checador_status.txt"
-"!GIT!" status --porcelain > "!TMPST!" 2>nul
-set CAMBIOS=0
-for /f %%C in ('find /c /v "" ^< "!TMPST!"') do set CAMBIOS=%%C
-del "!TMPST!" >nul 2>&1
-if "!CAMBIOS!"=="0" (
-    echo  No hay cambios que subir. Todo esta al dia.
-    echo.
-    pause
-    exit /b 0
-)
-
-echo  [2/5] Archivos con cambios: !CAMBIOS!
+echo   %AZUL%[3/4]%FIN%  Commit
 echo.
 set "MSG="
-set /p "MSG=  Mensaje del commit [Enter para uno automatico]: "
+set /p "MSG=   Mensaje [Enter = automatico]: "
 if "!MSG!"=="" set "MSG=%MSG_DEFAULT%"
 echo.
-
-echo  [3/5] Agregando archivos
 "!GIT!" add -A
 if errorlevel 1 goto FAIL
-
-echo  [4/5] Creando commit
 "!GIT!" commit -m "!MSG!"
 if errorlevel 1 goto FAIL
+echo.
 
-echo  [5/5] Subiendo a origin
+echo   %AZUL%[4/4]%FIN%  Subiendo a origin . . . . . . . . .
+echo.
 "!GIT!" push origin %GH_BRANCH%
 if errorlevel 1 goto PUSHFAIL
 
 echo.
-echo  =======================================================
-echo    SUBIDO A GITHUB
-echo  =======================================================
+echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-echo  Repo:      https://github.com/%GH_USER%/%GH_REPO%
-echo  Checador:  https://%GH_USER%.github.io/%GH_REPO%/
+echo   Repo        github.com/%GH_USER%/%GH_REPO%
+echo   Checador    %GH_USER%.github.io/%GH_REPO%/
+echo   Tablero     %GH_USER%.github.io/%GH_REPO%/tablero.html
+echo   Juegos      %GH_USER%.github.io/%GH_REPO%/juegos.html
 echo.
-echo  GitHub Pages tarda 1-2 minutos en publicar.
+echo %VERDE%  Subido. GitHub Pages tarda 1-2 min en publicar.%FIN%
 echo.
-pause
+call :LOGO
 exit /b 0
 
+:SINCAMBIOS
+echo          ninguno
+echo.
+echo   %AZUL%----------------------------------------------------%FIN%
+echo.
+echo %VERDE%  Todo esta al dia. Nada que subir.%FIN%
+echo.
+call :LOGO
+exit /b 0
+
+:NOGIT
+echo   %ROJO%x  NO ENCUENTRO GIT%FIN%
+echo.
+echo      Instalalo de git-scm.com/download/win
+echo      o usa GitHub Desktop.
+echo.
+pause
+exit /b 1
+
+:PUSHFAIL
+echo.
+echo   %AZUL%----------------------------------------------------%FIN%
+echo.
+echo   %ROJO%x  FALLO EL PUSH%FIN%
+echo.
+echo      "Authentication failed"
+echo         abre GitHub Desktop una vez para renovar sesion
+echo      "rejected - non-fast-forward"
+echo         hay cambios de otra PC: corre 0-ACTUALIZAR.bat
+echo.
+pause
+exit /b 1
+
+:FAIL
+echo.
+echo   %ROJO%x  Revisa el mensaje de arriba.%FIN%
+echo.
+pause
+exit /b 1
+
+:FUGADETECTADA
+echo          ALERTA
+echo.
+echo   %AZUL%----------------------------------------------------%FIN%
+echo.
+echo   %ROJO%x  DETENIDO - POSIBLE CREDENCIAL EN EL CODIGO%FIN%
+echo.
+echo      No se subio nada. Arriba dice que archivo y que linea.
+echo.
+echo      En este proyecto ninguna credencial vive en un
+echo      archivo: la llave de Firebase y los passwords estan
+echo      en PropertiesService. Quita el valor y vuelve a correr.
+echo.
+echo      Si ese valor YA se subio antes, borrarlo no lo saca del
+echo      historial. En Firebase: Configuracion, Cuentas de
+echo      servicio, genera llave nueva y borra la vieja.
+echo.
+pause
+exit /b 1
+
 :BUSCARGIT
+REM git normal, o el que trae GitHub Desktop, o el de Program Files.
 set "GIT=git"
 where git >nul 2>&1
 if not errorlevel 1 exit /b 0
@@ -88,90 +149,24 @@ if exist "%ProgramFiles%\Git\cmd\git.exe" set "GIT=%ProgramFiles%\Git\cmd\git.ex
 if "!GIT!"=="git" exit /b 1
 exit /b 0
 
-:FUGADETECTADA
-echo.
-echo  =======================================================
-echo    DETENIDO - POSIBLE CREDENCIAL EN EL CODIGO
-echo  =======================================================
-echo.
-echo  No se hizo commit de nada.
-echo.
-echo  En este proyecto ninguna credencial deberia vivir en un
-echo  archivo: la llave de Firebase y los passwords quedan en
-echo  PropertiesService de Google.
-echo.
-echo  Quita el valor del codigo y vuelve a correr esto.
-echo.
-echo  Si el valor YA se subio antes, borrarlo ahora no lo saca
-echo  del historial: hay que rotar la credencial. En Firebase:
-echo  consola - Cuentas de servicio - generar llave nueva y
-echo  borrar la vieja.
-echo.
-pause
-exit /b 1
+:LOGO
+REM --- Logo animado ---
+REM Va ANTES del pause: se dibuja solo, al terminar el trabajo.
+REM La tecla queda libre para cerrar la ventana.
+REM Solo en salidas exitosas.
+REM Si falta node o el .js, no pasa nada: se salta en silencio.
+where node >nul 2>&1
+if errorlevel 1 goto SINLOGO
+if not exist "%~dp0logo-animado.js" goto SINLOGO
+REM SIN cls: el logo se dibuja DEBAJO del reporte, no encima.
+REM Argumentos: movimiento color segundos alto-en-filas
+REM   segundos 0 = gira hasta que se presione una tecla.
+REM   El propio .js imprime el aviso y espera la tecla, por eso
+REM   aqui ya NO hay pause: haria falta presionar dos veces.
+node "%~dp0logo-animado.js" giro marca 0 12
+goto :eof
 
-:NOORIGIN
-echo.
-echo  =======================================================
-echo    FALTA PUBLICAR EL REPO EN GITHUB
-echo  =======================================================
-echo.
-echo  Esta carpeta YA es repositorio de git, pero todavia no
-echo  apunta a ningun repo en GitHub, asi que no hay a donde subir.
-echo.
-echo  Hazlo una sola vez con GitHub Desktop:
-echo.
-echo    1. File - Add local repository
-echo    2. Elige esta carpeta
-echo    3. Publish repository
-echo.
-echo  Ahi decides si lo dejas privado o publico. El codigo no trae
-echo  credenciales, pero esa decision es tuya.
-echo.
-echo  Despues pon tu usuario y el nombre del repo en _config.bat
-echo  y vuelve a correr esto.
-echo.
+:SINLOGO
+REM Sin node o sin el .js, el pause de siempre.
 pause
-exit /b 1
-
-:NOGIT
-echo  ERROR: No encuentro git.
-echo  Instalalo de https://git-scm.com/download/win o usa GitHub Desktop.
-echo.
-pause
-exit /b 1
-
-:NOTREPO
-echo  Esta carpeta todavia no es un repositorio de git.
-echo.
-echo  Abre GitHub Desktop:
-echo    File - Add local repository - elige esta carpeta
-echo    Te va a ofrecer crear el repositorio aqui: acepta
-echo    Luego Publish repository
-echo.
-echo  Marca o desmarca "Keep this code private" segun quieras.
-echo  El codigo no trae credenciales, pero eso lo decides tu.
-echo.
-pause
-exit /b 1
-
-:PUSHFAIL
-echo.
-echo  ERROR: fallo el push.
-echo.
-echo  - "Authentication failed"
-echo      Abre GitHub Desktop una vez para renovar la sesion
-echo  - "rejected - non-fast-forward"
-echo      Alguien subio cambios. Corre 0-ACTUALIZAR.bat primero
-echo  - "src refspec main does not match any"
-echo      Tu rama quiza se llama master. Cambialo en _config.bat
-echo.
-pause
-exit /b 1
-
-:FAIL
-echo.
-echo  ERROR: revisa el mensaje de arriba.
-echo.
-pause
-exit /b 1
+goto :eof

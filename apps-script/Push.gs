@@ -276,24 +276,30 @@ function _enviarPushFCM(token, titulo, cuerpo, urlAccion, meta) {
   return codigo >= 200 && codigo < 300;
 }
 
-function _enviarPushFCMDetallado(token, titulo, cuerpo, urlAccion) {
-  const saRaw = _firebaseSA_();
+function _enviarPushFCMDetallado(token, titulo, cuerpo, urlAccion, meta) {
+  var saRaw = _firebaseSA_();
   if (!saRaw) return { ok: false, code: 0, body: 'Firebase sin configurar' };
+  var idEnvio = 'E' + Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd-HHmmss') +
+                '-' + Math.floor(Math.random() * 1000);
   try {
-    const sa = JSON.parse(saRaw);
-    const url = 'https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send';
-    const resp = UrlFetchApp.fetch(url, {
+    var sa = JSON.parse(saRaw);
+    var url = 'https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send';
+    var resp = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + _obtenerAccessTokenFCM() },
       muteHttpExceptions: true,
-      payload: _payloadFCM_(sa, token, titulo, cuerpo, urlAccion)
+      payload: _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio)
     });
-    const code = resp.getResponseCode();
+    var code = resp.getResponseCode();
+    var body = resp.getContentText().substring(0, 300);
     if (code === 404 || code === 410) eliminarPushToken(token);
-    return { ok: code >= 200 && code < 300, code: code, body: resp.getContentText().substring(0, 300) };
+    _logPush_(idEnvio, meta || { alerta: 'prueba' }, titulo, code,
+              (code >= 200 && code < 300) ? '' : body.substring(0, 180), token);
+    return { ok: code >= 200 && code < 300, code: code, body: body, envio: idEnvio };
   } catch (e) {
-    return { ok: false, code: 0, body: e.message };
+    _logPush_(idEnvio, meta || { alerta: 'prueba' }, titulo, 0, e.message, token);
+    return { ok: false, code: 0, body: e.message, envio: idEnvio };
   }
 }
 
@@ -387,4 +393,66 @@ function resumenEntregasHoy() {
   });
   Logger.log(JSON.stringify(res, null, 2));
   return res;
+}
+
+// ============================================================================
+// PRUEBAS DESDE EL EDITOR
+// ============================================================================
+//
+// Estas dos se corren con el botón ▶ del editor. No regresan nada a la
+// pantalla: TODO lo que dicen sale en el "Registro de ejecución" de abajo.
+
+/**
+ * ¿Está bien puesta la llave de Firebase? Contesta con una sola línea.
+ *
+ * La llave se guarda en Configuración del proyecto → Propiedades de la
+ * secuencia de comandos → FIREBASE_SERVICE_ACCOUNT = el JSON completo.
+ * (configurarFirebase() hace lo mismo pero necesita abrirse desde el Sheet,
+ * y este proyecto no tiene menú: por eso casi seguro nunca se corrió.)
+ */
+function verificarFirebase() {
+  var raw = _firebaseSA_();
+  if (!raw) {
+    Logger.log('❌ NO HAY LLAVE DE FIREBASE. Sin ella no sale ni una alerta.');
+    Logger.log('   Configuración del proyecto → Propiedades de la secuencia de comandos →');
+    Logger.log('   Agregar: FIREBASE_SERVICE_ACCOUNT = el JSON completo de la cuenta de servicio.');
+    return false;
+  }
+  var sa;
+  try { sa = JSON.parse(raw); } catch (e) {
+    Logger.log('❌ La llave guardada no es JSON válido: ' + e.message);
+    Logger.log('   Pega el archivo completo, desde la primera { hasta la última }.');
+    return false;
+  }
+  if (!sa.private_key || !sa.client_email || !sa.project_id) {
+    Logger.log('❌ Al JSON le falta private_key, client_email o project_id.');
+    return false;
+  }
+  Logger.log('Proyecto: ' + sa.project_id + '   Cuenta: ' + sa.client_email);
+
+  // Se tira el token en caché para probar la llave de verdad, no uno viejo.
+  CacheService.getScriptCache().remove('fcm_access_token');
+  try {
+    _obtenerAccessTokenFCM();
+    Logger.log('✅ LLAVE VÁLIDA. Firebase acepta esta cuenta de servicio.');
+    return true;
+  } catch (e) {
+    Logger.log('❌ GOOGLE RECHAZÓ LA LLAVE: ' + e.message);
+    Logger.log('   Si dice invalid_grant, la llave fue revocada: genera una nueva en');
+    Logger.log('   Firebase → Configuración → Cuentas de servicio y reemplázala.');
+    return false;
+  }
+}
+
+/**
+ * Manda una notificación de prueba a TU celular (PIN 0055) y deja el
+ * resultado en el registro. Luego abre la hoja PUSH_LOG: si la fila tiene
+ * código 200 y Entregada = SÍ, el circuito completo funciona.
+ */
+function probarMiCelular() {
+  if (!verificarFirebase()) return;
+  var r = testPushEmpleado('0055');
+  Logger.log(r.message || JSON.stringify(r));
+  Logger.log('Ahora revisa la hoja PUSH_LOG: Código FCM 200 = Google lo aceptó;');
+  Logger.log('Entregada = SÍ (en unos segundos) = tu celular lo mostró.');
 }

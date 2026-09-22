@@ -2,125 +2,221 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 call _config.bat
-title Subir todo - Apps Script + GitHub
+title Subir todo
+
+REM ---- Color de marca ----
+REM CMD de Windows 10+ entiende color de 24 bits, pero necesita el
+REM caracter ESC y no hay forma de escribirlo literal en un .bat sin
+REM romper el ASCII puro. Este truco lo saca de la variable de prompt.
+REM Si falla, las variables quedan vacias y todo sale en texto normal:
+REM nunca se imprimen codigos sueltos en pantalla.
+set "ESC="
+for /f %%E in ('echo prompt $E ^| cmd') do set "ESC=%%E"
+set "AZUL="
+set "VERDE="
+set "ROJO="
+set "FIN="
+if defined ESC set "AZUL=%ESC%[38;2;31;148;249m"
+if defined ESC set "VERDE=%ESC%[38;2;63;185;80m"
+if defined ESC set "ROJO=%ESC%[38;2;248;81;73m"
+if defined ESC set "FIN=%ESC%[0m"
 
 echo.
-echo  =======================================================
-echo    SUBIR TODO
-echo    Apps Script  +  GitHub
-echo  =======================================================
+echo   SUBIR TODO                    Apps Script + GitHub
+echo   %AZUL%----------------------------------------------------%FIN%
 echo.
 
-echo  Revisando que no haya credenciales en el codigo...
+echo   %AZUL%[1/3]%FIN%  Credenciales en el codigo . . . . .
 call _seguro.bat
 if errorlevel 1 goto FUGADETECTADA
-echo  Limpio.
+echo          limpio
 echo.
 
 REM ================= PARTE 1: APPS SCRIPT =================
-echo  ###  PARTE 1 de 2 - APPS SCRIPT  ###
-echo.
-
+echo   %AZUL%[2/3]%FIN%  Apps Script . . . . . . . . . . . .
+set "CLASPOK="
 if not exist ".clasp.json" (
-    echo  Saltando: no hay .clasp.json
+    echo          sin .clasp.json - saltado
     goto GITPART
 )
-
 if not exist "apps-script\appsscript.json" (
-    echo  Saltando: la carpeta apps-script esta vacia.
-    echo  Subir asi borraria el codigo en linea.
-    echo  Corre primero UNA-VEZ-1-BAJAR-DE-APPSCRIPT.bat
-    echo.
+    echo          apps-script vacia - saltado para no borrar
+    echo          el codigo en linea
     goto GITPART
 )
-dir /b "apps-script\*.gs" >nul 2>&1
-if errorlevel 1 (
-    echo  Saltando: no hay ningun .gs en apps-script.
-    echo.
-    goto GITPART
-)
-
+echo.
 call clasp push --force
-if errorlevel 1 (
-    echo.
-    echo  ADVERTENCIA: fallo el push a Apps Script.
-    echo  Continuo con GitHub de todos modos.
-    echo.
-    pause
-) else (
-    echo.
-    echo  Apps Script actualizado.
-)
+if errorlevel 1 goto CLASPFAIL
+set "CLASPOK=1"
+echo.
+echo          subido
+echo.
+goto GITPART
+
+:CLASPFAIL
+echo.
+echo   %ROJO%^^!  FALLO EL PUSH A APPS SCRIPT%FIN%
+echo.
+echo      "User has not enabled the Apps Script API"
+echo         script.google.com/home/usersettings
+echo         prende "Google Apps Script API"
+echo.
+echo      "Invalid credentials" o "not logged in"
+echo         corre 1-INSTALAR-CLASP.bat
+echo.
+echo      "access_token" o "invalid_grant" - caduco tu sesion:
+echo         borra %%USERPROFILE%%\.clasprc.json
+echo         corre 1-INSTALAR-CLASP.bat
+echo         entra con la cuenta victor.walmart.04
+echo.
+echo      "Requested entity was not found"
+echo         clasp esta con otra cuenta: mismo remedio de arriba
+echo.
+echo      Tus archivos NO se perdieron. Arregla eso y corre
+echo      2-SUBIR-A-APPSCRIPT.bat. Sigo con GitHub.
+echo.
+pause
 echo.
 
 REM ================= PARTE 2: GITHUB =================
 :GITPART
-echo  ###  PARTE 2 de 2 - GITHUB  ###
-echo.
-
+echo   %AZUL%[3/3]%FIN%  GitHub . . . . . . . . . . . . . .
 call :BUSCARGIT
 if errorlevel 1 goto NOGIT
-if not exist ".git" goto NOTREPO
-REM El repo local existe, pero eso no basta: para hacer push tiene que
-REM haber un remoto. Sin esto el push truena con un mensaje ilegible.
-"!GIT!" remote get-url origin >nul 2>&1
-if errorlevel 1 goto NOORIGIN
+if exist ".git\index.lock" del /f /q ".git\index.lock" >nul 2>&1
 
-REM Contar cambios sin meter un pipe dentro del for.
-REM Cuando git vive en GitHub Desktop la ruta trae espacios, y cmd se come
-REM la comilla del inicio y la del final de la linea del for: la orden queda
-REM partida y truena con "el nombre de archivo... no son correctos".
-REM Con archivo temporal no hay comillas que romper.
-set "TMPST=%TEMP%\checador_status.txt"
-"!GIT!" status --porcelain > "!TMPST!" 2>nul
+REM Se revisa QUE cambio antes del commit, para decidir si hay que
+REM publicar version. Despues del commit git ya no lo diria.
+REM El Web App corre la version PUBLICADA; el trigger de alertas corre
+REM el ultimo codigo subido. En este proyecto el Web App usa casi todo
+REM el backend: lo unico que usa SOLO el trigger es Mensajes.gs.
+REM Asi que: cualquier cambio en apps-script, salvo Mensajes.gs, obliga
+REM a publicar version.
+set "PUBLICAR="
+"!GIT!" status --porcelain > "%TEMP%\chk_cambios.txt" 2>nul
+if exist "%TEMP%\chk_cambios.txt" (
+    findstr /I /C:"apps-script/" "%TEMP%\chk_cambios.txt" | findstr /V /I /C:"Mensajes.gs" >nul 2>&1 && set "PUBLICAR=1"
+)
+del "%TEMP%\chk_cambios.txt" >nul 2>&1
+
+"!GIT!" status --porcelain > "%TEMP%\chk_st.txt" 2>nul
 set CAMBIOS=0
-for /f %%C in ('find /c /v "" ^< "!TMPST!"') do set CAMBIOS=%%C
-del "!TMPST!" >nul 2>&1
+for /f %%C in ('find /c /v "" ^< "%TEMP%\chk_st.txt"') do set CAMBIOS=%%C
+del "%TEMP%\chk_st.txt" >nul 2>&1
 if "!CAMBIOS!"=="0" (
-    echo  No hay cambios para GitHub.
+    echo          sin cambios
     goto FIN
 )
-
-echo  Archivos con cambios: !CAMBIOS!
+echo.
+echo.
 "!GIT!" status --short
 echo.
 
 set "MSG="
-set /p "MSG=  Mensaje del commit [Enter para uno automatico]: "
+set /p "MSG=   Mensaje del commit [Enter = automatico]: "
 if "!MSG!"=="" set "MSG=%MSG_DEFAULT%"
 echo.
 
 "!GIT!" add -A
 "!GIT!" commit -m "!MSG!"
 "!GIT!" push origin %GH_BRANCH%
-if errorlevel 1 (
-    echo.
-    echo  ERROR en el push a GitHub. Revisa el mensaje de arriba.
-    echo  Si dice Authentication failed, abre GitHub Desktop una vez.
-    echo.
-    pause
-    exit /b 1
-)
+if errorlevel 1 goto PUSHFAIL
+echo.
+echo          subido
 
 :FIN
 echo.
-echo  =======================================================
-echo    TODO LISTO
-echo  =======================================================
+echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-echo  Apps Script: codigo actualizado
-echo  Repo:        https://github.com/%GH_USER%/%GH_REPO%
-echo  Checador:    https://%GH_USER%.github.io/%GH_REPO%/
+echo   Repo        github.com/%GH_USER%/%GH_REPO%
+echo   Checador    %GH_USER%.github.io/%GH_REPO%/
+echo   Tablero     %GH_USER%.github.io/%GH_REPO%/tablero.html
+echo   Juegos      %GH_USER%.github.io/%GH_REPO%/juegos.html
 echo.
-echo  RECORDATORIO: si cambiaste el backend y quieres que la URL
-echo  del checador lo use, publica una version nueva:
-echo  Implementar - Administrar implementaciones - lapiz -
-echo  Version: Nueva version - Implementar
+echo %VERDE%  Subido. GitHub Pages tarda 1-2 min en publicar.%FIN%
 echo.
-pause
+
+REM Si el push a Apps Script fallo, no tiene caso hablar de publicar:
+REM el aviso rojo de arriba ya dice que falta.
+if not defined CLASPOK goto SINCLASP
+if defined PUBLICAR goto SIPUBLICAR
+
+echo %VERDE%  No hace falta publicar version.%FIN%
+echo.
+call :LOGO
 exit /b 0
 
+:SINCLASP
+echo   %ROJO%^^!  APPS SCRIPT NO SE ACTUALIZO%FIN%
+echo      Arregla el error de arriba y corre 2-SUBIR-A-APPSCRIPT.bat
+echo.
+pause
+exit /b 1
+
+:SIPUBLICAR
+echo   %ROJO%^^!  FALTA PUBLICAR VERSION%FIN%
+echo.
+echo      Cambiaste codigo que usan los celulares, el tablero
+echo      y los juegos. Mientras no publiques, la URL sirve
+echo      el codigo viejo.
+echo.
+echo      En el editor de Apps Script:
+echo      Implementar
+echo      Administrar implementaciones
+echo      icono de lapiz
+echo      Version: Nueva version
+echo      Implementar
+echo.
+echo      Edita la que YA existe. "Nueva implementacion"
+echo      genera otra URL y deja huerfanos a los celulares.
+echo.
+call :LOGO
+exit /b 0
+
+:NOGIT
+echo          NO encuentro git
+echo.
+echo   %ROJO%x  Usa GitHub Desktop para esta parte.%FIN%
+echo.
+pause
+exit /b 1
+
+:PUSHFAIL
+echo.
+echo   %AZUL%----------------------------------------------------%FIN%
+echo.
+echo   %ROJO%x  FALLO EL PUSH A GITHUB%FIN%
+echo.
+echo      "Authentication failed"
+echo         abre GitHub Desktop una vez para renovar sesion
+echo      "rejected - non-fast-forward"
+echo         hay cambios de otra PC: corre 0-ACTUALIZAR.bat
+echo.
+pause
+exit /b 1
+
+:FUGADETECTADA
+echo          ALERTA
+echo.
+echo   %AZUL%----------------------------------------------------%FIN%
+echo.
+echo   %ROJO%x  DETENIDO - POSIBLE CREDENCIAL EN EL CODIGO%FIN%
+echo.
+echo      No se subio nada. Arriba dice que archivo y que linea.
+echo.
+echo      En este proyecto ninguna credencial vive en un
+echo      archivo: la llave de Firebase y los passwords estan
+echo      en PropertiesService. Quita el valor y vuelve a correr.
+echo.
+echo      Si ese valor YA se subio antes, borrarlo no lo saca del
+echo      historial. En Firebase: Configuracion, Cuentas de
+echo      servicio, genera llave nueva y borra la vieja.
+echo.
+pause
+exit /b 1
+
 :BUSCARGIT
+REM git normal, o el que trae GitHub Desktop, o el de Program Files.
 set "GIT=git"
 where git >nul 2>&1
 if not errorlevel 1 exit /b 0
@@ -131,54 +227,24 @@ if exist "%ProgramFiles%\Git\cmd\git.exe" set "GIT=%ProgramFiles%\Git\cmd\git.ex
 if "!GIT!"=="git" exit /b 1
 exit /b 0
 
-:FUGADETECTADA
-echo.
-echo  =======================================================
-echo    DETENIDO - POSIBLE CREDENCIAL EN EL CODIGO
-echo  =======================================================
-echo.
-echo  No se subio nada, ni a Apps Script ni a GitHub.
-echo.
-echo  La llave de Firebase y cualquier password viven en
-echo  PropertiesService de Apps Script. No tienen por que
-echo  estar en un archivo.
-echo.
-pause
-exit /b 1
+:LOGO
+REM --- Logo animado ---
+REM Va ANTES del pause: se dibuja solo, al terminar el trabajo.
+REM La tecla queda libre para cerrar la ventana.
+REM Solo en salidas exitosas.
+REM Si falta node o el .js, no pasa nada: se salta en silencio.
+where node >nul 2>&1
+if errorlevel 1 goto SINLOGO
+if not exist "%~dp0logo-animado.js" goto SINLOGO
+REM SIN cls: el logo se dibuja DEBAJO del reporte, no encima.
+REM Argumentos: movimiento color segundos alto-en-filas
+REM   segundos 0 = gira hasta que se presione una tecla.
+REM   El propio .js imprime el aviso y espera la tecla, por eso
+REM   aqui ya NO hay pause: haria falta presionar dos veces.
+node "%~dp0logo-animado.js" giro marca 0 12
+goto :eof
 
-:NOORIGIN
-echo.
-echo  =======================================================
-echo    FALTA PUBLICAR EL REPO EN GITHUB
-echo  =======================================================
-echo.
-echo  Esta carpeta YA es repositorio de git, pero todavia no
-echo  apunta a ningun repo en GitHub, asi que no hay a donde subir.
-echo.
-echo  Hazlo una sola vez con GitHub Desktop:
-echo.
-echo    1. File - Add local repository
-echo    2. Elige esta carpeta
-echo    3. Publish repository
-echo.
-echo  Ahi decides si lo dejas privado o publico. El codigo no trae
-echo  credenciales, pero esa decision es tuya.
-echo.
-echo  Despues pon tu usuario y el nombre del repo en _config.bat
-echo  y vuelve a correr esto.
-echo.
+:SINLOGO
+REM Sin node o sin el .js, el pause de siempre.
 pause
-exit /b 1
-
-:NOGIT
-echo  ERROR: no encuentro git. Usa GitHub Desktop para esta parte.
-echo.
-pause
-exit /b 1
-
-:NOTREPO
-echo  Esta carpeta todavia no es repositorio de git.
-echo  Abre GitHub Desktop - File - Add local repository - esta carpeta.
-echo.
-pause
-exit /b 1
+goto :eof
