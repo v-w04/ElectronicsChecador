@@ -14,7 +14,7 @@ function diagnosticoCompleto() {
   try {
     const saRaw = _firebaseSA_();
     if (!saRaw) {
-      d.firebase = '❌ SIN CONFIGURAR — ejecuta configurarFirebase()';
+      d.firebase = '❌ SIN CONFIGURAR — menú Checador › Configurar Firebase';
     } else {
       const sa = JSON.parse(saRaw);
       d.firebase = '✅ ' + sa.client_email;
@@ -25,7 +25,7 @@ function diagnosticoCompleto() {
     const n = ScriptApp.getProjectTriggers().filter(function(t) {
       return t.getHandlerFunction() === 'revisarAlertas';
     }).length;
-    d.trigger = n > 0 ? ('✅ activo (' + n + ')') : '❌ NO INSTALADO — ejecuta instalarTriggerAlertas';
+    d.trigger = n > 0 ? ('✅ activo (' + n + ')') : '❌ apagadas — menú Checador › Activar alertas';
     d.ventanaMotor = ALERTAS_HORA_INICIO + ':00 a ' + ALERTAS_HORA_FIN + ':00, días hábiles';
   } catch (e) { d.trigger = '❌ ' + e.message; }
 

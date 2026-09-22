@@ -458,7 +458,7 @@ function testPushEmpleado(pin) {
     const saRaw = _firebaseSA_();
     if (!saRaw) {
       return { ok: false, paso: 'CONFIG',
-               message: '❌ Firebase no está configurado en este proyecto. Ejecuta configurarFirebase() desde el editor y pega el JSON del service account.' };
+               message: '❌ Firebase no está configurado en este proyecto. Usa el menú Checador › Configurar Firebase.' };
     }
     try { JSON.parse(saRaw); } catch (e) {
       return { ok: false, paso: 'CONFIG', message: '❌ El JSON del service account guardado está corrupto: ' + e.message };
@@ -524,10 +524,10 @@ function diagnosticoAlertas(pin) {
            ALERTAS_HORA_FIN + ':00): ' + (dentroVentana ? 'dentro' : 'FUERA, el motor no revisa a esta hora'));
 
     const nT = ScriptApp.getProjectTriggers().filter(function(t) { return t.getHandlerFunction() === 'revisarAlertas'; }).length;
-    d.push((nT ? '✅' : '❌') + ' Motor corriendo cada minuto: ' + (nT ? 'sí' : 'NO — ejecuta instalarTriggerAlertas'));
+    d.push((nT ? '✅' : '❌') + ' Motor corriendo cada minuto: ' + (nT ? 'sí' : 'NO — menú Checador › Activar alertas'));
 
     d.push((_firebaseSA_() ? '✅' : '❌') + ' Firebase configurado: ' +
-           (_firebaseSA_() ? 'sí' : 'NO — ejecuta configurarFirebase()'));
+           (_firebaseSA_() ? 'sí' : 'NO — menú Checador › Configurar Firebase'));
 
     const dow = parseInt(Utilities.formatDate(ahora, TIMEZONE, 'u'), 10);
     d.push((dow >= 6 ? '❌' : '✅') + ' Día hábil: ' + (dow >= 6 ? 'NO (fin de semana, sin alertas)' : 'sí'));

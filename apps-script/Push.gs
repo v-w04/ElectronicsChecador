@@ -396,63 +396,25 @@ function resumenEntregasHoy() {
 }
 
 // ============================================================================
-// PRUEBAS DESDE EL EDITOR
+// CHEQUEO DE LA LLAVE (lo usa el menú Checador)
 // ============================================================================
-//
-// Estas dos se corren con el botón ▶ del editor. No regresan nada a la
-// pantalla: TODO lo que dicen sale en el "Registro de ejecución" de abajo.
 
-/**
- * ¿Está bien puesta la llave de Firebase? Contesta con una sola línea.
- *
- * La llave se guarda en Configuración del proyecto → Propiedades de la
- * secuencia de comandos → FIREBASE_SERVICE_ACCOUNT = el JSON completo.
- * (configurarFirebase() hace lo mismo pero necesita abrirse desde el Sheet,
- * y este proyecto no tiene menú: por eso casi seguro nunca se corrió.)
- */
-function verificarFirebase() {
+/** Revisa la llave de Firebase y contesta en una línea. */
+function chequeoFirebase_() {
   var raw = _firebaseSA_();
-  if (!raw) {
-    Logger.log('❌ NO HAY LLAVE DE FIREBASE. Sin ella no sale ni una alerta.');
-    Logger.log('   Configuración del proyecto → Propiedades de la secuencia de comandos →');
-    Logger.log('   Agregar: FIREBASE_SERVICE_ACCOUNT = el JSON completo de la cuenta de servicio.');
-    return false;
-  }
+  if (!raw) return { ok: false, msg: 'No hay llave de Firebase. Sin ella no sale ninguna alerta.' };
   var sa;
   try { sa = JSON.parse(raw); } catch (e) {
-    Logger.log('❌ La llave guardada no es JSON válido: ' + e.message);
-    Logger.log('   Pega el archivo completo, desde la primera { hasta la última }.');
-    return false;
+    return { ok: false, msg: 'La llave guardada no es JSON válido.' };
   }
   if (!sa.private_key || !sa.client_email || !sa.project_id) {
-    Logger.log('❌ Al JSON le falta private_key, client_email o project_id.');
-    return false;
+    return { ok: false, msg: 'A la llave le falta private_key, client_email o project_id.' };
   }
-  Logger.log('Proyecto: ' + sa.project_id + '   Cuenta: ' + sa.client_email);
-
-  // Se tira el token en caché para probar la llave de verdad, no uno viejo.
   CacheService.getScriptCache().remove('fcm_access_token');
   try {
     _obtenerAccessTokenFCM();
-    Logger.log('✅ LLAVE VÁLIDA. Firebase acepta esta cuenta de servicio.');
-    return true;
+    return { ok: true, msg: 'Llave válida · ' + sa.project_id };
   } catch (e) {
-    Logger.log('❌ GOOGLE RECHAZÓ LA LLAVE: ' + e.message);
-    Logger.log('   Si dice invalid_grant, la llave fue revocada: genera una nueva en');
-    Logger.log('   Firebase → Configuración → Cuentas de servicio y reemplázala.');
-    return false;
+    return { ok: false, msg: 'Google rechazó la llave (revocada o vencida). Genera otra en Firebase.' };
   }
-}
-
-/**
- * Manda una notificación de prueba a TU celular (PIN 0055) y deja el
- * resultado en el registro. Luego abre la hoja PUSH_LOG: si la fila tiene
- * código 200 y Entregada = SÍ, el circuito completo funciona.
- */
-function probarMiCelular() {
-  if (!verificarFirebase()) return;
-  var r = testPushEmpleado('0055');
-  Logger.log(r.message || JSON.stringify(r));
-  Logger.log('Ahora revisa la hoja PUSH_LOG: Código FCM 200 = Google lo aceptó;');
-  Logger.log('Entregada = SÍ (en unos segundos) = tu celular lo mostró.');
 }
