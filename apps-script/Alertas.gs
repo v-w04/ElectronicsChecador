@@ -2,6 +2,24 @@
 // CONFIG_ALERTAS
 // ============================================================================
 
+/**
+ * Los parámetros del motor de alertas, con su valor de arranque.
+ * Si se agrega uno nuevo aquí, se le agrega solo a la hoja de quien ya la
+ * tenía creada (ver _completarConfigAlertas_).
+ */
+var CONFIG_ALERTAS_DEF = [
+  ['duracion_desayuno_min',          20, 'Minutos permitidos de desayuno'],
+  ['duracion_comida_min',            60, 'Minutos permitidos de comida'],
+  ['aviso_entrada_min_antes',        15, 'Avisar X min antes de la hora de entrada'],
+  ['aviso_desayuno_min_antes',        5, 'Avisar X min antes del exceso de desayuno'],
+  ['aviso_comida_min_antes',         10, 'Avisar X min antes del exceso de comida'],
+  ['aviso_salida_min_antes',          5, 'Avisar X min antes de la hora de salida'],
+  ['alertas_no_checo_cantidad',       2, 'Cuántos recordatorios si no registra su checada'],
+  ['alertas_no_checo_intervalo_min',  5, 'Minutos entre esos recordatorios'],
+  ['alertas_salida_insistir_min',    30, 'Cuántos minutos seguir recordando la salida si no la registra'],
+  ['alertas_activas',              'SI', 'Interruptor general de alertas (SI/NO)']
+];
+
 function crearHojaConfigAlertas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName('CONFIG_ALERTAS');
@@ -9,33 +27,47 @@ function crearHojaConfigAlertas() {
 
   sheet = ss.insertSheet('CONFIG_ALERTAS');
 
-  const filas = [
-    ['Parámetro', 'Valor', 'Descripción'],
-    ['duracion_desayuno_min',        20, 'Minutos permitidos de desayuno'],
-    ['duracion_comida_min',          60, 'Minutos permitidos de comida'],
-    ['aviso_desayuno_min_antes',      5, 'Avisar X min antes del exceso de desayuno'],
-    ['aviso_comida_min_antes',       10, 'Avisar X min antes del exceso de comida'],
-    ['aviso_salida_min_antes',        5, 'Avisar X min antes de la hora de salida'],
-    ['alertas_no_checo_cantidad',     2, 'Cuántos recordatorios si no registra su checada'],
-    ['alertas_no_checo_intervalo_min',5, 'Minutos entre esos recordatorios'],
-    ['alertas_activas',            'SI', 'Interruptor general de alertas (SI/NO)']
-  ];
+  const filas = [['Parámetro', 'Valor', 'Descripción']].concat(CONFIG_ALERTAS_DEF);
 
   sheet.getRange(1, 1, filas.length, 3).setValues(filas);
   sheet.getRange(1, 1, 1, 3)
     .setBackground('#3f51b5').setFontColor('#ffffff').setFontWeight('bold');
-  sheet.setColumnWidth(1, 240);
+  sheet.setColumnWidth(1, 260);
   sheet.setColumnWidth(2, 90);
-  sheet.setColumnWidth(3, 380);
+  sheet.setColumnWidth(3, 460);
   sheet.setFrozenRows(1);
 
   Logger.log('✅ Hoja CONFIG_ALERTAS creada con valores por defecto');
   return sheet;
 }
 
+/**
+ * Le agrega a la hoja los parámetros que todavía no tenga. Así, cuando el
+ * motor aprende algo nuevo, no hay que rehacer la hoja a mano ni se pierde
+ * lo que ya estaba ajustado.
+ */
+function _completarConfigAlertas_(sheet) {
+  try {
+    const data = sheet.getDataRange().getValues();
+    const hay = {};
+    for (let i = 1; i < data.length; i++) {
+      const k = (data[i][0] || '').toString().trim();
+      if (k) hay[k] = true;
+    }
+    const faltan = CONFIG_ALERTAS_DEF.filter(function (f) { return !hay[f[0]]; });
+    if (!faltan.length) return;
+
+    sheet.getRange(sheet.getLastRow() + 1, 1, faltan.length, 3).setValues(faltan);
+    Logger.log('✅ CONFIG_ALERTAS: agregué ' + faltan.length + ' parámetro(s) nuevo(s)');
+  } catch (e) {
+    Logger.log('⚠️ _completarConfigAlertas_: ' + e.message);
+  }
+}
+
 function getConfigAlertas() {
   try {
     const sheet = crearHojaConfigAlertas();
+    _completarConfigAlertas_(sheet);
     const data = sheet.getDataRange().getValues();
     const config = {};
     for (let i = 1; i < data.length; i++) {
@@ -233,6 +265,11 @@ function revisarAlertas() {
     var avSal  = cfg.aviso_salida_min_antes || 5;
     var nRec   = cfg.alertas_no_checo_cantidad || 2;
     var intRec = cfg.alertas_no_checo_intervalo_min || 5;
+    // Cuánto tiempo seguir insistiendo con la salida. Con 30 min y avisos
+    // cada 5, son seis recordatorios y se acabó: ni uno solo ni toda la
+    // noche.
+    var insisteMin = cfg.alertas_salida_insistir_min;
+    if (insisteMin === undefined || insisteMin === '') insisteMin = 30;
     var avEnt  = cfg.aviso_entrada_min_antes || 15;
 
     var URL_SALIDA_REMOTA = 'https://v-w04.github.io/ElectronicsChecador/checar.html?salidaRemota=';
@@ -356,7 +393,10 @@ function revisarAlertas() {
         }
         if (minAhora > turno.finMin) {
           var extra = minAhora - turno.finMin;
-          var nAct = Math.min(nRec, Math.floor(extra / intRec));
+          // Se recuerda cada intRec minutos, pero solo durante los primeros
+          // insisteMin. Pasado eso, ya no se manda nada más.
+          var dentro = Math.min(extra, insisteMin);
+          var nAct = Math.floor(dentro / intRec);
           if (nAct >= 1) {
             for (var q = 1; q < nAct; q++) {
               _marcarEnviada(hoy + '|' + id + '|salida_no_checo@' + turno.finMin + '_' + q);

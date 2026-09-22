@@ -39,8 +39,10 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+/* El hueco de arriba NO va en el body: lo pone la barra fija, que es opaca.
+   Si el hueco fuera del body, al hacer scroll el contenido se metería
+   igual debajo del reloj y la pila del teléfono. */
 body{padding-inline:max(16px, env(safe-area-inset-left));
-  padding-top:env(safe-area-inset-top);
   padding-bottom:calc(48px + env(safe-area-inset-bottom))}
 .wrap{max-width:1040px;margin:0 auto}
 h1,h2,h3{margin:0;letter-spacing:-.02em}
@@ -257,7 +259,18 @@ button{font-family:inherit}
    La barra de arriba en renglones y las pestañas deslizables: apretadas se
    encimaban con la hora y la señal del teléfono. */
 @media (max-width:700px){
-  .barra{flex-direction:column;align-items:stretch;gap:10px}
+  /* Barra fija arriba: se queda pegada al desplazar y tapa por completo la
+     franja del reloj, la señal y la pila. El contenido pasa por DETRÁS de
+     ella, nunca por debajo de la barra de estado del sistema. */
+  .barra{position:sticky;top:0;z-index:40;flex-direction:column;align-items:stretch;gap:10px;
+    background:var(--fondo);
+    margin-left:calc(-1 * max(16px, env(safe-area-inset-left)));
+    margin-right:calc(-1 * max(16px, env(safe-area-inset-right)));
+    padding-left:max(16px, env(safe-area-inset-left));
+    padding-right:max(16px, env(safe-area-inset-right));
+    padding-top:calc(env(safe-area-inset-top) + 10px);
+    padding-bottom:10px;
+    border-bottom:1px solid var(--linea)}
   .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
   .tabs::-webkit-scrollbar{display:none}
   .tabs a{flex:0 0 auto;font-size:13.5px;padding:8px 14px}
@@ -1146,7 +1159,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v709');
+Actualizar.iniciar('v712');
 </script>
 </body>
 </html>

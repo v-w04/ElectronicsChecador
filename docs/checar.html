@@ -35,12 +35,23 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--base);color:var(--t2);font-family:var(--sans);
   min-height:100%;overscroll-behavior-y:contain}
-body{padding:0 16px calc(24px + env(safe-area-inset-bottom));
-  padding-top:env(safe-area-inset-top)}
+/* Arriba no lleva relleno: el hueco de la barra de estado lo pone la
+   cabecera fija, que es opaca. Si lo pusiera el body, al desplazar el
+   contenido se metería igual debajo del reloj y la pila del teléfono. */
+body{padding:0 16px calc(24px + env(safe-area-inset-bottom))}
 .wrap{max-width:560px;margin:0 auto}
 
 /* pestanas: siempre a la vista, para saltar entre las pantallas */
-.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:14px 0 0}
+/* Cabecera fija: se queda pegada arriba y tapa por completo la franja del
+   sistema. El contenido pasa por DETRÁS, nunca por debajo. */
+.fijo{position:sticky;top:0;z-index:40;background:var(--base);
+  margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px;
+  padding-top:env(safe-area-inset-top);
+  border-bottom:1px solid var(--bd-sub)}
+.tabs{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding:12px 0 0;
+  -webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{flex:0 0 auto}
 .tabs a{text-decoration:none;color:var(--t2);font-weight:700;font-size:13.5px;
   padding:9px 15px;border-radius:999px;border:1px solid transparent}
 .tabs a:hover{background:var(--hover);color:var(--t1)}
@@ -55,7 +66,7 @@ button{font-family:inherit}
 h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
 /* barra */
-.barra{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0 14px}
+.barra{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
 .yo{display:flex;align-items:center;gap:10px;min-width:0}
 .ini{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;
   justify-content:center;font-weight:700;color:#fff;font-size:14px;
@@ -246,6 +257,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    laptop bajita se encoge solo para que quepa sin tener que hacer scroll. */
 @media (min-width:760px){
   body{padding-left:28px;padding-right:28px}
+  .fijo{margin-left:-28px;margin-right:-28px;padding-left:28px;padding-right:28px}
   .wrap{max-width:720px}
 
   .tabs{font-size:15px;padding-top:clamp(8px,1.6vh,16px)}
@@ -309,6 +321,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 <body>
 <div class="wrap">
 
+  <header class="fijo">
   <nav class="tabs">
     <a href="checar.html" class="on" aria-current="page">Mi checador</a>
     <a href="juegos.html">Juegos</a>
@@ -334,6 +347,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
       <button class="cambiar" id="btn-cambiar" type="button">Cambiar</button>
     </div>
   </div>
+  </header>
 
 
   <div class="cols">
@@ -372,7 +386,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v709</span></div>
+  <div class="pie"><span id="pie">v712</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -433,7 +447,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v709';
+var VERSION = 'v712';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -595,6 +609,70 @@ function vaciarCola() {
 }
 
 /* ===========================================================================
+   QUIÉN SOY — con respaldo
+   ===========================================================================
+   El nombre elegido vivía SOLO en localStorage, y ese almacén lo puede
+   vaciar el navegador: Safari lo purga cuando anda apretado de espacio o
+   después de días sin usar el sitio. Cuando eso pasaba, la app volvía a
+   preguntar quién eres y además se perdía el enlace con las notificaciones,
+   porque el token va amarrado al PIN.
+
+   Ahora la elección se guarda en DOS lados: localStorage (rápido) y una
+   base IndexedDB aparte (la que sobrevive). Si el primero aparece vacío, se
+   rescata del segundo.
+
+   La base es SUYA, distinta de la de la cola de checadas: si compartieran
+   base, subirle la versión a una rompería a la otra.
+   =========================================================================== */
+var PDB_NAME = 'em_checar_perfil';
+var PDB_STORE = 'perfil';
+var _pdb = null;
+
+function pdb() {
+  if (_pdb) return Promise.resolve(_pdb);
+  return new Promise(function (res, rej) {
+    if (!('indexedDB' in window)) { rej(new Error('sin IndexedDB')); return; }
+    var req = indexedDB.open(PDB_NAME, 1);
+    req.onupgradeneeded = function (e) {
+      var d = e.target.result;
+      if (!d.objectStoreNames.contains(PDB_STORE)) d.createObjectStore(PDB_STORE);
+    };
+    req.onsuccess = function (e) { _pdb = e.target.result; res(_pdb); };
+    req.onerror = function (e) { rej(e.target.error); };
+  });
+}
+
+function guardarYo(yo) {
+  ls(LS_YO, yo);
+  return pdb().then(function (d) {
+    return new Promise(function (res) {
+      var r = d.transaction([PDB_STORE], 'readwrite').objectStore(PDB_STORE).put(yo, 'yo');
+      r.onsuccess = r.onerror = function () { res(); };
+    });
+  }).catch(function () {});
+}
+
+function rescatarYo() {
+  return pdb().then(function (d) {
+    return new Promise(function (res) {
+      var r = d.transaction([PDB_STORE], 'readonly').objectStore(PDB_STORE).get('yo');
+      r.onsuccess = function (e) { res(e.target.result || null); };
+      r.onerror = function () { res(null); };
+    });
+  }).catch(function () { return null; });
+}
+
+function olvidarYo() {
+  ls(LS_YO, null);
+  return pdb().then(function (d) {
+    return new Promise(function (res) {
+      var r = d.transaction([PDB_STORE], 'readwrite').objectStore(PDB_STORE).delete('yo');
+      r.onsuccess = r.onerror = function () { res(); };
+    });
+  }).catch(function () {});
+}
+
+/* ===========================================================================
    ESTADO
    =========================================================================== */
 var YO = ls(LS_YO);              // { id, pin, nombre, turno }
@@ -688,38 +766,97 @@ function primera(tipo) {
      · Nada de eso → se esconde. */
 function pintarCrono() {
   var caja = document.getElementById('crono');
-  if (!YO || !HOY.checadas.length) { caja.hidden = true; return; }
+  if (!YO) { caja.hidden = true; return; }
 
   var ahora = segAhora();
+  var t = turnoSeg();
   var u = descansoAbierto();
 
+  // 1) Desayuno o comida abierto: cuenta regresiva. Al pasarse, en rojo y
+  //    en negativo.
   if (u) {
     var esDes = u.tipo === 'SALIDA_DESAYUNO';
     var lim = (esDes ? durDesayuno() : durComida());
     var ini = segDe(u.hora);
-    if (ini === null) { caja.hidden = true; return; }
-
-    var resta = lim * 60 - (ahora - ini);
-    var pasado = resta < 0;
-    caja.hidden = false;
-    caja.className = 'crono ' + (pasado ? 'bad' : (resta <= 300 ? 'warn' : 'ok'));
-    caja.innerHTML =
-      '<div class="que">' + (esDes ? '🥐 Desayuno en curso' : '🍽️ Comida en curso') + '</div>' +
-      '<div class="num">' + (pasado ? '−' : '') + fmtHMS(Math.abs(resta)) + '</div>' +
-      '<div class="sub">' + (pasado
-        ? 'Te pasaste. Registra tu regreso.'
-        : 'de ' + lim + ' min · regresa a las ' + hmDe(ini + lim * 60)) + '</div>';
-    return;
+    if (ini !== null) {
+      var resta = lim * 60 - (ahora - ini);
+      var pasado = resta < 0;
+      caja.hidden = false;
+      caja.className = 'crono ' + (pasado ? 'bad' : (resta <= 300 ? 'warn' : 'ok'));
+      caja.innerHTML =
+        '<div class="que">' + (esDes ? '🥐 Desayuno en curso' : '🍽️ Comida en curso') + '</div>' +
+        '<div class="num">' + (pasado ? '−' : '') + fmtHMS(Math.abs(resta)) + '</div>' +
+        '<div class="sub">' + (pasado
+          ? 'Te pasaste por ' + Math.ceil(Math.abs(resta) / 60) + ' min. ' +
+            'El exceso se descuenta por hora completa: registra tu regreso.'
+          : 'de ' + lim + ' min · regresa a las ' + hmDe(ini + lim * 60)) + '</div>';
+      return;
+    }
   }
 
-  var t = turnoSeg();
-  if (t && !primera('SALIDA') && ahora > t.fin) {
+  var yaSalio = !!primera('SALIDA');
+  var yaEntro = !!primera('ENTRADA');
+
+  // 2) Ya pasó la hora de salida y sigue aquí: cuenta hacia arriba.
+  if (t && yaEntro && !yaSalio && ahora > t.fin) {
     caja.hidden = false;
     caja.className = 'crono warn';
     caja.innerHTML =
-      '<div class="que">⏱️ Tiempo extra · no se paga</div>' +
-      '<div class="num">' + fmtHMS(ahora - t.fin) + '</div>' +
-      '<div class="sub">Tu turno terminó a las ' + hmDe(t.fin) + '. Checa tu salida.</div>';
+      '<div class="que">⏱️ Ya deberías haber salido</div>' +
+      '<div class="num">+' + fmtHMS(ahora - t.fin) + '</div>' +
+      '<div class="sub">Tu turno terminó a las ' + hmDe(t.fin) +
+        '. Este tiempo no se paga: checa tu salida.</div>';
+    return;
+  }
+
+  // 3) Trabajando: cuánto falta para la salida.
+  if (t && yaEntro && !yaSalio && ahora <= t.fin) {
+    var faltan = t.fin - ahora;
+    caja.hidden = false;
+    caja.className = 'crono ' + (faltan <= 300 ? 'warn' : '');
+    caja.innerHTML =
+      '<div class="que">Para tu salida</div>' +
+      '<div class="num">' + fmtHMS(faltan) + '</div>' +
+      '<div class="sub">Sales a las ' + hmDe(t.fin) + '</div>';
+    return;
+  }
+
+  // 4) Ya cerró su día.
+  if (yaSalio) {
+    caja.hidden = false;
+    caja.className = 'crono ok';
+    caja.innerHTML =
+      '<div class="que">Día cerrado</div>' +
+      '<div class="num">' + hhmm(primera('SALIDA').hora) + '</div>' +
+      '<div class="sub">Ya checaste tu salida. Nos vemos mañana.</div>';
+    return;
+  }
+
+  // 5) Sin horario no hay nada que contar, y hay que decirlo: antes esto se
+  //    escondía en silencio y parecía que el contador estaba roto.
+  if (!t) {
+    caja.hidden = false;
+    caja.className = 'crono warn';
+    caja.innerHTML =
+      '<div class="que">Sin horario</div>' +
+      '<div class="num">--:--</div>' +
+      '<div class="sub">No tengo tu turno en TURNOS_DEFAULT, por eso no puedo ' +
+        'contarte la salida. Avísale a Víctor.</div>';
+    return;
+  }
+
+  // 6) Todavía no entra: cuánto falta para su hora de entrada.
+  if (!yaEntro) {
+    var paraEntrar = t.ini - ahora;
+    caja.hidden = false;
+    caja.className = 'crono ' + (paraEntrar < 0 ? 'bad' : (paraEntrar <= 600 ? 'warn' : ''));
+    caja.innerHTML = paraEntrar >= 0
+      ? '<div class="que">Para tu entrada</div>' +
+        '<div class="num">' + fmtHMS(paraEntrar) + '</div>' +
+        '<div class="sub">Entras a las ' + hmDe(t.ini) + '</div>'
+      : '<div class="que">Vas tarde</div>' +
+        '<div class="num">+' + fmtHMS(-paraEntrar) + '</div>' +
+        '<div class="sub">Entrabas a las ' + hmDe(t.ini) + '. Checa tu entrada.</div>';
     return;
   }
 
@@ -735,6 +872,16 @@ function bloqueDia(emoji, etiqueta, horas, chip, claseChip) {
     '<div class="txt"><div class="et">' + etiqueta + '</div><div class="hr">' + horas + '</div></div>' +
     (chip ? '<span class="chip ' + (claseChip || '') + '">' + chip + '</span>' : '') +
   '</div>';
+}
+
+/** Lo que dice la etiqueta de un descanso. Si se pasó, no basta el número:
+ *  tiene que decir qué cuesta, que es de lo que se trata el checador. */
+function chipDescanso(minutos, limite) {
+  if (minutos === null) return 'en curso';
+  if (minutos <= limite) return minutos + ' min';
+  var exceso = minutos - limite;
+  var horas = Math.ceil(exceso / 60);
+  return '+' + exceso + ' min · −' + horas + ' h';
 }
 
 function pintarDia() {
@@ -755,7 +902,7 @@ function pintarDia() {
     var dD = rd ? Math.round((segDe(rd.hora) - segDe(sd.hora)) / 60) : null;
     html += bloqueDia('🥐', 'Desayuno',
       hhmm(sd.hora) + '  →  ' + (rd ? hhmm(rd.hora) : '…'),
-      dD === null ? 'en curso' : dD + ' min',
+      chipDescanso(dD, durDesayuno()),
       dD === null ? 'vivo' : (dD > durDesayuno() ? 'bad' : 'ok'));
   }
 
@@ -763,7 +910,7 @@ function pintarDia() {
     var dC = rc ? Math.round((segDe(rc.hora) - segDe(sc.hora)) / 60) : null;
     html += bloqueDia('🍽️', 'Comida',
       hhmm(sc.hora) + '  →  ' + (rc ? hhmm(rc.hora) : '…'),
-      dC === null ? 'en curso' : dC + ' min',
+      chipDescanso(dC, durComida()),
       dC === null ? 'vivo' : (dC > durComida() ? 'bad' : 'ok'));
   }
 
@@ -787,7 +934,7 @@ function pintarDia() {
   if (t) {
     if (sal && segDe(sal.hora) !== null) {
       var exF = Math.max(0, segDe(sal.hora) - t.fin);
-      if (exF > 0) der = '<span class="extra">⏱️ ' + fmtHMS(exF) + '</span> extra sin pago';
+      if (exF > 0) der = '<span class="extra">⏱️ ' + fmtHMS(exF) + '</span> extra · no se paga';
     } else if (segAhora() > t.fin) {
       _extraVivoDesde = t.fin;
       der = '<span class="extra" id="extra-vivo">⏱️ ' + fmtHMS(segAhora() - t.fin) + '</span> extra · en curso';
@@ -1169,7 +1316,7 @@ function pintarGente(filtro) {
 
 function elegir(g) {
   YO = g;
-  ls(LS_YO, YO);
+  guardarYo(YO);
   HOY = { fecha: hoyStr(), checadas: [] };
   ls(LS_HOY, HOY);
   QUINCENA = null;
@@ -1317,7 +1464,7 @@ function bajarGente() {
     ls(LS_AVATARES, AVATARES);
     if (YO) {
       var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
-      if (mio) { YO = mio; ls(LS_YO, YO); pintar(); }
+      if (mio) { YO = mio; guardarYo(YO); pintar(); }
     }
   }).catch(function(){});
 }
@@ -1554,19 +1701,36 @@ if ('serviceWorker' in navigator) {
 pintar();
 pintarPendientes();
 
-if (!YO) {
-  bajarGente().then(function(){ abrirGente(); });
-  bajarConfig();
-} else {
+/** Todo lo que se hace cuando ya se sabe quién eres. */
+function arrancarConYo() {
+  pintar();
   bajarGente();
   bajarConfig();
   refrescarHoy();
   bajarQuincena();
   bajarExcepcion();
   setTimeout(revalidarToken, 2000);
+  salidaRemota();
+}
+
+if (YO) {
+  arrancarConYo();
+} else {
+  // Antes de preguntar quién eres, se busca en el respaldo: si el navegador
+  // vació localStorage, la elección sigue guardada en IndexedDB y no hay por
+  // qué volver a molestar a nadie ni perder el enlace de las alertas.
+  rescatarYo().then(function (yo) {
+    if (yo && yo.id) {
+      YO = yo;
+      ls(LS_YO, YO);
+      arrancarConYo();
+      return;
+    }
+    bajarGente().then(function () { abrirGente(); });
+    bajarConfig();
+  });
 }
 vaciarCola();
-salidaRemota();
 
 window.addEventListener('online', function(){
   document.getElementById('pie').textContent = VERSION;
