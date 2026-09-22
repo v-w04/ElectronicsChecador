@@ -66,8 +66,9 @@ button{font-family:inherit}
 h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
 /* barra */
-.barra{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
-.yo{display:flex;align-items:center;gap:10px;min-width:0}
+.barra{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;
+  flex-wrap:nowrap;min-width:0}
+.yo{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto;overflow:hidden}
 .ini{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;
   justify-content:center;font-weight:700;color:#fff;font-size:14px;
   background:linear-gradient(135deg,var(--cyan),var(--brand))}
@@ -76,7 +77,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .yo .turno{font-size:12px;color:var(--tm)}
 .cambiar{background:transparent;border:1px solid var(--bd);color:var(--t2);
   border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto}
-.acciones{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.acciones{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .icono{width:34px;height:34px;border-radius:50%;border:1px solid var(--bd);background:transparent;
   color:var(--t2);font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;
   justify-content:center;flex:0 0 auto}
@@ -89,6 +90,25 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .estado-act{font-size:11.5px;color:var(--tm);white-space:nowrap;max-width:132px;
   overflow:hidden;text-overflow:ellipsis}
 .estado-act.ok{color:var(--ok)} .estado-act.mal{color:var(--warn)}
+
+/* ── PANTALLAS ANGOSTAS ────────────────────────────────────────────────
+   En un Samsung compacto la barra de arriba no alcanzaba: el nombre, los
+   tres iconos y el botón Cambiar se montaban unos sobre otros. Aquí se
+   quita lo accesorio y se aprieta lo demás, en vez de encimarse. */
+@media (max-width:430px){
+  .estado-act{display:none}
+  .icono{width:32px;height:32px;font-size:16px}
+  .acciones{gap:5px}
+  .cambiar{padding:7px 10px;font-size:12px}
+  .ini{width:34px;height:34px;font-size:13px}
+  .yo .nom{font-size:14px}
+  .yo .turno{font-size:11.5px}
+  .tabs a{font-size:12.5px;padding:8px 13px}
+}
+@media (max-width:360px){
+  .cambiar{padding:7px 9px;font-size:11.5px}
+  .yo .turno{display:none}
+}
 .nota{margin:-8px 0 14px;font-size:13px;color:var(--tm);line-height:1.45}
 .opcion .em{margin-right:9px}
 .opcion.quitar{color:var(--bad);border-color:var(--bad-bd);background:var(--bad-bg)}
@@ -387,7 +407,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v718</span></div>
+  <div class="pie"><span id="pie">v720</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -448,7 +468,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v718';
+var VERSION = 'v720';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -625,6 +645,8 @@ function vaciarCola() {
    La base es SUYA, distinta de la de la cola de checadas: si compartieran
    base, subirle la versión a una rompería a la otra.
    =========================================================================== */
+var _diag = { ls: '?', idb: '?' };   // qué se encontró al arrancar
+
 var PDB_NAME = 'em_checar_perfil';
 var PDB_STORE = 'perfil';
 var _pdb = null;
@@ -1301,10 +1323,16 @@ function abrirGente() {
   pintarGente();
   var n = document.getElementById('nota-gente');
   if (n) {
-    n.textContent = almacenSirve()
-      ? 'Tu teléfono te va a recordar: esto se pregunta una sola vez.'
-      : '⚠️ Este navegador no está guardando datos del sitio (¿pestaña privada?). ' +
-        'Mientras siga así, va a preguntarte cada vez.';
+    if (!almacenSirve()) {
+      n.textContent = '⚠️ Este navegador no está guardando datos del sitio ' +
+        '(¿pestaña privada?). Mientras siga así, va a preguntarte cada vez.';
+    } else {
+      // Deja ver qué encontró al abrir. Si dice que ambos venían vacíos, el
+      // navegador los está borrando; si dice que traía algo, el problema es
+      // otro. Es un dato, no un adorno.
+      n.textContent = 'Tu teléfono te va a recordar: esto se pregunta una vez. ' +
+                      '(al abrir · guardado: ' + _diag.ls + ' · respaldo: ' + _diag.idb + ')';
+    }
   }
   fondoGente.classList.add('ver');
 }
@@ -1808,13 +1836,17 @@ function arrancarConYo() {
   salidaRemota();
 }
 
+_diag.ls = YO ? 'sí' : 'vacío';
+
 if (YO) {
+  _diag.idb = 'no hizo falta';
   arrancarConYo();
 } else {
   // Antes de preguntar quién eres, se busca en el respaldo: si el navegador
   // vació localStorage, la elección sigue guardada en IndexedDB y no hay por
   // qué volver a molestar a nadie ni perder el enlace de las alertas.
   rescatarYo().then(function (yo) {
+    _diag.idb = (yo && yo.id) ? 'sí' : 'vacío';
     if (yo && yo.id) {
       YO = yo;
       ls(LS_YO, YO);

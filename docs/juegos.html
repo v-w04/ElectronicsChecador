@@ -252,6 +252,8 @@ button{font-family:inherit}
 .podio .p .lugar{font-weight:800;text-align:center;color:var(--tinta-3)}
 .podio .p .nom{font-weight:700;font-size:14px}
 .podio .p input{padding:9px 10px;font-size:14px;border:1px solid var(--linea);border-radius:8px;width:100%}
+.nota-retomado{margin:14px 0 0;padding:10px 12px;border-radius:12px;font-size:12.5px;
+  background:rgba(0,195,227,.12);color:#0a7c93;font-weight:600}
 .acciones{display:flex;gap:10px;margin-top:22px;position:sticky;bottom:0;z-index:2;
   background:var(--papel);padding:14px 0 6px;border-top:1px solid var(--linea)}
 .acciones .btn{flex:1}
@@ -290,6 +292,16 @@ button{font-family:inherit}
   .corredor .n{font-size:10px}
   .ronda{padding:10px}
 }
+/* Pantallas angostas: que nada se monte. */
+@media (max-width:430px){
+  .marca b{font-size:14.5px}
+  .marca span{font-size:11px}
+  .tabs a{font-size:12.5px;padding:8px 12px}
+  .acciones-cab .btn{font-size:13.5px;padding:12px 14px}
+  .chips{grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px}
+  .chip .cara{width:50px;height:50px}
+  .chip{padding:9px 4px 8px;font-size:11.5px}
+}
 @media (max-width:620px){
   .encabezado h1{font-size:27px}
   .juego,.juego .caja{width:126px}
@@ -299,6 +311,85 @@ button{font-family:inherit}
   .fila .quien .avat{width:26px;height:26px}
   .leyenda{text-align:center;font-size:11.5px}
 }
+/* ── TABLET Y COMPUTADORA ───────────────────────────────────────────────
+   En la tablet todo se veía diminuto: esta pantalla nació pensada para
+   monitor y nunca creció. Aquí sube de tamaño de forma pareja, igual que
+   Mi checador: las fichas, los marcadores, la ventana de registrar y las
+   caras de los corredores. */
+@media (min-width:760px){
+  body{font-size:16.5px}
+  .wrap{max-width:1080px}
+
+  .barra{padding-block:18px 14px}
+  .marca .bolita{width:42px;height:42px}
+  .marca b{font-size:17px}
+  .tabs a{font-size:16px;padding:11px 19px}
+
+  .encabezado{padding-block:30px 8px}
+  .encabezado h1{font-size:42px}
+  .encabezado p{font-size:16px}
+  .btn{font-size:16px;padding:14px 22px}
+
+  /* Las fichas de los juegos, grandes: son lo primero que se toca. */
+  .juego,.juego .caja{width:186px}
+  .juego .caja{height:186px;font-size:62px}
+  .juego .nombre{font-size:17px}
+  .juego .dato{font-size:13.5px}
+
+  .panel{padding:24px}
+  .panel h2{font-size:22px}
+  .panel .sub{font-size:14px}
+  .filtro{font-size:14.5px;padding:10px 18px}
+
+  /* Marcadores */
+  .tabla{grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+  .tarjeta{padding:20px;border-radius:22px}
+  .tarjeta .avat{width:56px;height:56px}
+  .tarjeta .quien .nm{font-size:19px}
+  .tarjeta .quien .pos{font-size:13.5px}
+  .tarjeta .racha{font-size:14px;padding:6px 12px}
+  .tarjeta .cif{padding:12px 6px;border-radius:15px}
+  .tarjeta .cif b{font-size:34px}
+  .tarjeta .cif span{font-size:11.5px}
+
+  /* Histórico */
+  .partida{padding:18px 20px;gap:16px}
+  .partida .ico{width:52px;height:52px;font-size:26px}
+  .partida .juego-n{font-size:17px}
+  .partida .cuando,.partida .nota{font-size:13.5px}
+  .partida ol{font-size:15px}
+  .partida .tirar{width:38px;height:38px;font-size:23px}
+
+  /* La ventana de registrar: en tablet cabe mucho más, que se aproveche. */
+  .modal{max-width:760px;padding-left:30px;padding-right:30px}
+  .modal .cab-modal{padding:26px 0 14px}
+  .modal h3{font-size:26px}
+  .equis{width:46px;height:46px;font-size:26px}
+  .campo{margin-top:20px}
+  .campo label{font-size:13px}
+  .campo input,.campo select{font-size:17px;padding:14px 16px}
+  .nota-retomado{font-size:14px;padding:12px 14px}
+
+  .chips{grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:14px}
+  .chip{padding:15px 8px 12px;font-size:14px;border-radius:22px}
+  .chip .cara{width:74px;height:74px}
+
+  .ronda{padding:16px;border-radius:20px;margin-top:14px}
+  .ronda .cab-r b{font-size:16px}
+  .ronda .cab-r .pista{font-size:13.5px}
+  .ronda .pista-caras{gap:12px}
+  .corredor{width:92px;padding:11px 8px 9px;border-radius:18px}
+  .corredor .c{width:58px;height:58px}
+  .corredor .n{font-size:12.5px}
+  .corredor .lug{min-width:26px;height:26px;font-size:13px}
+}
+
+@media (min-width:1280px){
+  .wrap{max-width:1180px}
+  .juego,.juego .caja{width:210px}
+  .juego .caja{height:210px}
+}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -362,6 +453,10 @@ button{font-family:inherit}
       <button class="equis" id="m-equis" type="button" title="Cerrar" aria-label="Cerrar">&times;</button>
     </div>
 
+    <p class="nota-retomado" id="m-retomado" hidden>
+      Seguimos donde la dejaste. Puedes cerrar y volver cuando quieras.
+    </p>
+
     <div class="campo">
       <label for="m-juego">Juego</label>
       <select id="m-juego"></select>
@@ -393,7 +488,7 @@ button{font-family:inherit}
     </div>
 
     <div class="acciones">
-      <button class="btn claro" id="m-cancelar" type="button">Cancelar</button>
+      <button class="btn claro" id="m-descartar" type="button">Descartar</button>
       <button class="btn rojo" id="m-guardar" type="button">Guardar partida</button>
     </div>
   </div>
@@ -461,6 +556,49 @@ var periodo = 'hoy';    // 'hoy' | 'mes' | 'todo'
 var tableroDesde = '';  // corte manual del tablero (lo pone "Limpiar tablero")
 var filtroJugador = '';
 var seleccion = [];     // ids elegidos en el modal, en orden
+
+/* ===========================================================================
+   BORRADOR
+   ===========================================================================
+   Nada de quedarse congelado en la ventana. Todo lo que se va capturando se
+   guarda al instante: puedes cerrarla, irte a ver el marcador, salirte de la
+   app y al volver sigue ahí, tal cual la dejaste.
+
+   Y los jugadores quedan como "los de siempre": la próxima vez ya vienen
+   marcados y solo se ajusta quién faltó. */
+var LS_BORRADOR = 'em_juegos_borrador';
+var LS_ACTIVOS  = 'em_juegos_activos';
+
+function guardarBorrador() {
+  try {
+    localStorage.setItem(LS_BORRADOR, JSON.stringify({
+      juego: (document.getElementById('m-juego') || {}).value || '',
+      fecha: (document.getElementById('m-fecha') || {}).value || '',
+      nota:  (document.getElementById('m-nota')  || {}).value || '',
+      seleccion: seleccion,
+      nRondas: nRondas,
+      ordenes: ordenes
+    }));
+    localStorage.setItem(LS_ACTIVOS, JSON.stringify(seleccion));
+  } catch (e) {}
+}
+
+function leerBorrador() {
+  try { return JSON.parse(localStorage.getItem(LS_BORRADOR)) || null; }
+  catch (e) { return null; }
+}
+
+function tirarBorrador() {
+  try { localStorage.removeItem(LS_BORRADOR); } catch (e) {}
+  seleccion = [];
+  nRondas = 1;
+  ordenes = [];
+}
+
+function jugadoresDeSiempre() {
+  try { return JSON.parse(localStorage.getItem(LS_ACTIVOS)) || []; }
+  catch (e) { return []; }
+}
 
 var elAviso = document.getElementById('aviso');
 function aviso(t, clase) { elAviso.className = 'ver ' + (clase || ''); elAviso.textContent = t; }
@@ -675,6 +813,13 @@ function pintarTabla() {
   document.getElementById('sub-tabla').textContent =
     (periodo === 'hoy' ? 'Hoy' : periodo === 'mes' ? 'Este mes' : 'Desde el principio') +
     (juegoSel ? '' : ' · todos los juegos');
+
+  var bn = document.getElementById('btn-nueva');
+  if (bn) {
+    var b0 = leerBorrador();
+    var aMedias = b0 && (b0.seleccion || []).length;
+    bn.textContent = aMedias ? 'Continuar partida' : 'Registrar partida';
+  }
 
   var bl = document.getElementById('btn-limpiar');
   if (bl) bl.textContent = corteDeHoy() ? 'Reabrir tablero' : 'Limpiar tablero';
@@ -908,8 +1053,20 @@ document.getElementById('btn-limpiar').onclick = function () {
     aviso('No se pudo limpiar: ' + e.message, 'err');
   }).then(function () { btn.disabled = false; });
 };
-document.getElementById('m-cancelar').onclick = cerrarModal;
+/* Cerrar NO pierde nada: el borrador se queda. Para tirarlo de verdad está
+   Descartar. */
+document.getElementById('m-descartar').onclick = function () {
+  if (!confirm('¿Descartar esta partida a medias?')) return;
+  tirarBorrador();
+  cerrarModal();
+  aviso('Partida descartada.', 'ok');
+  quitarAviso(2500);
+};
 document.getElementById('m-equis').onclick = cerrarModal;
+['m-juego','m-fecha','m-nota'].forEach(function (id) {
+  var el = document.getElementById(id);
+  if (el) { el.onchange = guardarBorrador; el.oninput = guardarBorrador; }
+});
 
 // Tocar el fondo oscuro cierra. Tocar dentro del recuadro, no.
 fondo.onclick = function (e) { if (e.target === fondo) cerrarModal(); };
@@ -921,7 +1078,20 @@ fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrarMod
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModal(); });
 
 function abrirModal() {
-  seleccion = [];
+  var b = leerBorrador();
+
+  // Si hay algo a medias, se retoma. Si no, se arranca con los jugadores de
+  // siempre ya marcados.
+  seleccion = (b && b.seleccion) ? b.seleccion.slice() : jugadoresDeSiempre().slice();
+  nRondas   = (b && b.nRondas) ? b.nRondas : 1;
+  ordenes   = (b && b.ordenes) ? b.ordenes.map(function (o) { return o.slice(); }) : [];
+
+  // Los que ya no están en la lista de la app se caen solos.
+  var validos = JUGADORES.map(function (j) { return j.id; });
+  seleccion = seleccion.filter(function (id) { return validos.indexOf(id) !== -1; });
+  ordenes = ordenes.map(function (o) {
+    return o.filter(function (id) { return seleccion.indexOf(id) !== -1; });
+  });
 
   var selJ = document.getElementById('m-juego');
   selJ.innerHTML = JUEGOS.filter(function (j) { return j.activo; }).map(function (j) {
@@ -933,10 +1103,12 @@ function abrirModal() {
   document.getElementById('m-fecha').value =
     hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
     String(hoy.getDate()).padStart(2, '0');
-  document.getElementById('m-nota').value = '';
+  if (b && b.juego) selJ.value = b.juego;
+  if (b && b.fecha) document.getElementById('m-fecha').value = b.fecha;
+  document.getElementById('m-nota').value = (b && b.nota) || '';
 
-  nRondas = 1;
-  ordenes = [];
+  var aviso1 = document.getElementById('m-retomado');
+  if (aviso1) aviso1.hidden = !(b && (b.seleccion || []).length);
 
   var chips = document.getElementById('m-chips');
   chips.innerHTML = '';
@@ -945,7 +1117,7 @@ function abrirModal() {
   JUGADORES.forEach(function (j) {
     var c = document.createElement('button');
     c.type = 'button';
-    c.className = 'chip';
+    c.className = 'chip' + (seleccion.indexOf(j.id) !== -1 ? ' on' : '');
     c.innerHTML =
       '<span class="cara"><img alt="" loading="lazy" src="' +
         avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) + '"' +
@@ -962,6 +1134,7 @@ function abrirModal() {
         });
       }
       pintarPodio();
+      guardarBorrador();
     };
     chips.appendChild(c);
   });
@@ -970,7 +1143,7 @@ function abrirModal() {
   fondo.classList.add('ver');
 }
 
-function cerrarModal() { fondo.classList.remove('ver'); }
+function cerrarModal() { guardarBorrador(); fondo.classList.remove('ver'); }
 
 /* ===========================================================================
    CARRERAS
@@ -1014,6 +1187,7 @@ function pintarPodio() {
       nRondas = n;
       ordenes = ordenes.slice(0, n);
       pintarPodio();
+      guardarBorrador();
     };
     cr.appendChild(b);
   });
@@ -1044,7 +1218,7 @@ function bloqueRonda(i) {
     var limpiar = document.createElement('button');
     limpiar.type = 'button';
     limpiar.textContent = 'limpiar';
-    limpiar.onclick = function () { ordenes[i] = []; pintarPodio(); };
+    limpiar.onclick = function () { ordenes[i] = []; pintarPodio(); guardarBorrador(); };
     cab.appendChild(limpiar);
   }
   d.appendChild(cab);
@@ -1069,6 +1243,7 @@ function bloqueRonda(i) {
       var k = orden.indexOf(id);
       if (k === -1) orden.push(id); else orden.splice(k, 1);
       pintarPodio();
+      guardarBorrador();
     };
     pista.appendChild(b);
   });
@@ -1127,7 +1302,8 @@ document.getElementById('m-guardar').onclick = function () {
     });
   }, Promise.resolve())
   .then(function () {
-    cerrarModal();
+    tirarBorrador();
+    fondo.classList.remove('ver');
     aviso('✓ ' + guardadas + ' ' + (guardadas === 1 ? una.toLowerCase() : palabraRonda(true)) +
           ' de ' + juego + ' guardada' + (guardadas === 1 ? '' : 's') + '.', 'ok');
     quitarAviso(6000);
@@ -1180,7 +1356,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v717');
+Actualizar.iniciar('v720');
 </script>
 </body>
 </html>
