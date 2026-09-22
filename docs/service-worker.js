@@ -1,139 +1,270 @@
 // ============================================================================
-// SERVICE WORKER — Checador Electronics México
+// SERVICE WORKER — Checador Electronics México · v700
 // ============================================================================
-// Estrategia:
-//   - App shell (HTML/CSS/JS/íconos) cacheada al instalar → arranque offline
-//   - Cache-first para assets del repo → velocidad
-//   - Network-only para llamadas a GAS (script.google.com) → datos frescos
-//   - Auto-update: cuando sube nueva versión, los dispositivos la reciben al reabrir
+// Objetivo de esta versión: que la app ABRA Y SIRVA SIN INTERNET.
+//
+//   1. Al instalarse guarda las pantallas nuevas (checar, tablero, juegos) y
+//      los íconos. Son archivos chicos: se guardan completos y de inmediato.
+//   2. Las navegaciones se sirven del caché PRIMERO (la app abre al instante,
+//      con o sin señal) y en segundo plano se refresca la copia guardada.
+//   3. El respaldo es por página: si se abre tablero.html sin señal contesta
+//      tablero.html, no index.html. Ese era el 404.
+//   4. Las llamadas al servidor (Apps Script) nunca se cachean.
+//   5. Background Sync: si el celular se queda sin señal con checadas
+//      pendientes, el navegador despierta este archivo cuando vuelve la red
+//      y las manda solo, aunque la app esté cerrada.
 // ============================================================================
 
-const CACHE_VERSION = 'em-checador-v623';
-const CACHE_NAME    = CACHE_VERSION;
+var CACHE_NAME = 'em-checador-v700';
 
-const APP_SHELL = [
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
+
+// Lo indispensable para que la app funcione sin señal. Chico a propósito.
+var NUCLEO = [
   './',
+  './checar.html',
+  './tablero.html',
+  './juegos.html',
+  './manifest.webmanifest',
+  './favicon.ico',
+  './favicon-32.png',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png',
+  './logo-electronics.png'
+];
+
+// El panel viejo (index.html y sus módulos). Se intenta guardar, pero si
+// falla no se cae la instalación: son archivos pesados y solo los usa la
+// computadora de oficina.
+var EXTRAS = [
   './index.html',
   './Styles.css',
   './WebApp.js',
   './api.js',
+  './PushNotifications.js',
+  './Perfil.js',
+  './OfflineQueue.js',
   './Avatares.js',
   './ChecadorChoferes.js',
-  './OfflineQueue.js',
-  './Perfil.js',
-  './Dashboard.js',
-  './Filtros.js',
-  './Girly.js',
-  './Inyectar.js',
-  './KPIGauges.js',
-  './Mapa.js',
   './Module.js',
-  './Productividad.js',
-  './RenderModule.js',
-  './Sidebar.js',
-  './Tablas.js',
-  './TooltipsGauges.js',
-  './logo-electronics.png',
-  './icon-192.png',
-  './icon-512.png',
-  './apple-touch-icon.png',
-  './favicon-32.png',
-  './manifest.webmanifest'
+  './Sidebar.js'
 ];
 
-self.addEventListener('install', event => {
-  console.log('[SW] Instalando ' + CACHE_VERSION);
+var HOSTS_SIN_CACHE = [
+  'script.google.com',
+  'googleapis.com',
+  'gstatic.com',
+  'googleusercontent.com',
+  'nominatim.openstreetmap.org',
+  'cdnjs.cloudflare.com',
+  'cdn.jsdelivr.net',
+  'imgur.com'
+];
+
+/* ===========================================================================
+   INSTALAR / ACTIVAR
+   =========================================================================== */
+self.addEventListener('install', function (event) {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => 
-      Promise.all(
-        APP_SHELL.map(url =>
-          cache.add(url).catch(err => console.warn('[SW] No se pudo cachear ' + url + ': ' + err.message))
-        )
-      )
-    ).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(function (cache) {
+      // El núcleo sí debe quedar completo.
+      return cache.addAll(NUCLEO).catch(function () {
+        return Promise.all(NUCLEO.map(function (u) {
+          return cache.add(u).catch(function () {});
+        }));
+      }).then(function () {
+        // Los extras van aparte y sin bloquear.
+        return Promise.all(EXTRAS.map(function (u) {
+          return cache.add(u).catch(function () {});
+        }));
+      });
+    }).then(function () { return self.skipWaiting(); })
   );
 });
 
-self.addEventListener('activate', event => {
-  console.log('[SW] Activando ' + CACHE_VERSION);
+self.addEventListener('activate', function (event) {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => {
-          console.log('[SW] Borrando cache viejo: ' + k);
-          return caches.delete(k);
-        })
-      )
-    ).then(() => self.clients.claim())
+    caches.keys().then(function (llaves) {
+      return Promise.all(llaves.map(function (k) {
+        return k === CACHE_NAME ? null : caches.delete(k);
+      }));
+    }).then(function () { return self.clients.claim(); })
   );
 });
 
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+/* ===========================================================================
+   FETCH
+   =========================================================================== */
+function esExterno(url) {
+  for (var i = 0; i < HOSTS_SIN_CACHE.length; i++) {
+    if (url.host.indexOf(HOSTS_SIN_CACHE[i]) !== -1) return true;
+  }
+  return false;
+}
+
+/** Guarda una respuesta buena en el caché, sin estorbar. */
+function guardar(request, respuesta) {
+  if (!respuesta || !respuesta.ok) return;
+  var copia = respuesta.clone();
+  caches.open(CACHE_NAME).then(function (c) { c.put(request, copia); }).catch(function () {});
+}
+
+self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') return;
 
-  // ⭐ NAVEGACIONES (cuando se abre la PWA): SIEMPRE intentar cache primero
-  // si la red falla. Esto garantiza que la app abra sin internet aunque sea
-  // la primera vez del día.
+  var url;
+  try { url = new URL(event.request.url); } catch (e) { return; }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  if (esExterno(url)) return;              // servidor y CDNs: siempre red
+  if (url.origin !== self.location.origin) return;
+
+  // ---- NAVEGACIONES (abrir la app o tocar una notificación) ----------------
+  // Caché primero: abre al instante con o sin señal. La copia se refresca
+  // atrás para la próxima vez.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then(fresh => {
-          // Si la red funciona, actualizar cache en background
-          if (fresh && fresh.ok) {
-            const clone = fresh.clone();
-            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-          }
-          return fresh;
-        })
-        .catch(() => {
-          // Red falla → servir index.html del cache
-          return caches.match('./index.html').then(c => c || caches.match('./'));
-        })
+      caches.match(event.request, { ignoreSearch: true }).then(function (guardada) {
+        var red = fetch(event.request).then(function (fresca) {
+          guardar(event.request, fresca);
+          return fresca;
+        });
+
+        if (guardada) { red.catch(function () {}); return guardada; }
+
+        return red.catch(function () {
+          // Sin copia y sin señal: se contesta la página pedida si está en
+          // caché con otro nombre, y si no, la pantalla del empleado.
+          var nombre = url.pathname.split('/').pop() || 'checar.html';
+          return caches.match('./' + nombre, { ignoreSearch: true })
+            .then(function (r) { return r || caches.match('./checar.html'); })
+            .then(function (r) { return r || caches.match('./index.html'); })
+            .then(function (r) {
+              return r || new Response(
+                '<!doctype html><meta charset="utf-8"><title>Sin conexión</title>' +
+                '<body style="background:#0d1117;color:#c9d1d9;font:16px system-ui;padding:2rem">' +
+                '<h2>Sin conexión</h2><p>Abre la app una vez con señal para que quede ' +
+                'guardada en el teléfono.</p></body>',
+                { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+              );
+            });
+        });
+      })
     );
     return;
   }
 
-  // No cachear llamadas a GAS y CDNs externos
-  if (
-    url.host.includes('script.google.com') ||
-    url.host.includes('googleapis.com') ||
-    url.host.includes('googleusercontent.com') ||
-    url.host.includes('nominatim.openstreetmap.org') ||
-    url.host.includes('cdnjs.cloudflare.com') ||
-    url.host.includes('cdn.jsdelivr.net') ||
-    url.host.includes('imgur.com') ||
-    url.host.includes('i.imgur.com')
-  ) {
-    return;
-  }
-
+  // ---- RESTO DE ARCHIVOS: caché primero, refresco atrás --------------------
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) {
-        // Stale-while-revalidate: devuelve cache, actualiza en background
-        fetch(event.request).then(fresh => {
-          if (fresh && fresh.ok) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, fresh));
-          }
-        }).catch(() => {});
-        return cached;
+    caches.match(event.request).then(function (guardada) {
+      if (guardada) {
+        fetch(event.request).then(function (fresca) {
+          guardar(event.request, fresca);
+        }).catch(function () {});
+        return guardada;
       }
-      return fetch(event.request).then(fresh => {
-        if (fresh && fresh.ok && fresh.type === 'basic') {
-          const clone = fresh.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-        }
-        return fresh;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') return caches.match('./index.html');
+      return fetch(event.request).then(function (fresca) {
+        if (fresca && fresca.type === 'basic') guardar(event.request, fresca);
+        return fresca;
       });
     })
   );
 });
 
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+/* ===========================================================================
+   COLA OFFLINE — la misma base que usa checar.html
+   =========================================================================== */
+var DB_NAME = 'em_checador_offline';
+var DB_STORE = 'checadas_pendientes';
+
+function abrirDB() {
+  return new Promise(function (res, rej) {
+    var req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = function (e) {
+      var d = e.target.result;
+      if (!d.objectStoreNames.contains(DB_STORE)) {
+        d.createObjectStore(DB_STORE, { keyPath: 'uuid' })
+         .createIndex('timestamp', 'createdAt', { unique: false });
+      }
+    };
+    req.onsuccess = function (e) { res(e.target.result); };
+    req.onerror = function (e) { rej(e.target.error); };
+  });
+}
+
+function leerPendientes() {
+  return abrirDB().then(function (d) {
+    return new Promise(function (res) {
+      var r = d.transaction([DB_STORE], 'readonly').objectStore(DB_STORE).getAll();
+      r.onsuccess = function (e) {
+        var l = e.target.result || [];
+        l.sort(function (a, b) { return a.createdAt - b.createdAt; });
+        res(l);
+      };
+      r.onerror = function () { res([]); };
+    });
+  }).catch(function () { return []; });
+}
+
+function borrarPendiente(uuid) {
+  return abrirDB().then(function (d) {
+    return new Promise(function (res) {
+      var r = d.transaction([DB_STORE], 'readwrite').objectStore(DB_STORE).delete(uuid);
+      r.onsuccess = r.onerror = function () { res(); };
+    });
+  }).catch(function () {});
+}
+
+/** Manda las checadas guardadas, una por una y en orden.
+ *  Si alguna falla se queda pendiente y se reintenta después. */
+function mandarPendientes() {
+  return leerPendientes().then(function (lista) {
+    if (!lista.length) return 0;
+    var enviadas = 0;
+    return lista.reduce(function (cadena, item) {
+      return cadena.then(function () {
+        return fetch(GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ fn: 'guardarChecadaChofer', args: [item] }),
+          redirect: 'follow'
+        }).then(function (r) { return r.json(); }).then(function (r) {
+          if (r && !r.error) { enviadas++; return borrarPendiente(item.uuid); }
+        }).catch(function () {});
+      });
+    }, Promise.resolve()).then(function () {
+      if (enviadas) avisarClientes({ type: 'COLA_ENVIADA', enviadas: enviadas });
+      return enviadas;
+    });
+  });
+}
+
+function avisarClientes(msg) {
+  return self.clients.matchAll({ includeUncontrolled: true }).then(function (l) {
+    l.forEach(function (c) { c.postMessage(msg); });
+  }).catch(function () {});
+}
+
+// El navegador despierta esto cuando vuelve la señal, aunque la app esté
+// cerrada. Si el celular no lo soporta (iPhone), checar.html vacía la cola
+// al abrirse.
+self.addEventListener('sync', function (event) {
+  if (event.tag === 'checadas-pendientes') {
+    event.waitUntil(mandarPendientes());
   }
+});
+
+self.addEventListener('periodicsync', function (event) {
+  if (event.tag === 'checadas-pendientes') {
+    event.waitUntil(mandarPendientes());
+  }
+});
+
+/* ===========================================================================
+   MENSAJES DE LA APP
+   =========================================================================== */
+self.addEventListener('message', function (event) {
+  var d = event.data || {};
+  if (d.type === 'SKIP_WAITING') self.skipWaiting();
+  if (d.type === 'VACIAR_COLA') event.waitUntil(mandarPendientes());
 });

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Checador">
+<title>Checador Electronics México</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* ===========================================================================
+   CHECADOR — app del empleado
+   Una sola pantalla, sin PIN, y funciona sin internet: la lista de gente y
+   las checadas del día viven en el celular, y lo que se chequé sin señal se
+   guarda y se manda solo cuando vuelve.
+   =========================================================================== */
+:root{
+  --base:#0d1117; --raised:#161b22; --card:#1a2029; --hover:#1f262f;
+  --bd:#30363d; --bd-sub:#21262d;
+  --t1:#e6edf3; --t2:#b1bac4; --tm:#7d8590;
+  --brand:#1f6feb; --brand-hi:#388bfd; --cyan:#39c5cf;
+  --ok:#3fb950; --ok-bg:rgba(63,185,80,.14); --ok-bd:rgba(63,185,80,.4);
+  --warn:#d29922; --warn-bg:rgba(210,153,34,.14); --warn-bd:rgba(210,153,34,.4);
+  --bad:#f85149; --bad-bg:rgba(248,81,73,.14); --bad-bd:rgba(248,81,73,.4);
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--base);color:var(--t2);font-family:var(--sans);
+  min-height:100%;overscroll-behavior-y:contain}
+body{padding:0 16px calc(28px + env(safe-area-inset-bottom));
+  padding-top:env(safe-area-inset-top)}
+.wrap{max-width:520px;margin:0 auto}
+button{font-family:inherit}
+h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
+
+/* barra */
+.barra{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0 14px}
+.yo{display:flex;align-items:center;gap:10px;min-width:0}
+.ini{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;
+  justify-content:center;font-weight:700;color:#fff;font-size:14px;
+  background:linear-gradient(135deg,var(--cyan),var(--brand))}
+.yo .nom{font-weight:700;color:var(--t1);font-size:15px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yo .turno{font-size:12px;color:var(--tm)}
+.cambiar{background:transparent;border:1px solid var(--bd);color:var(--t2);
+  border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto}
+
+/* reloj */
+.reloj{text-align:center;padding:10px 0 4px}
+.reloj .hora{font-family:var(--mono);font-size:54px;line-height:1;color:var(--t1);
+  font-variant-numeric:tabular-nums;font-weight:600}
+.reloj .fecha{font-size:13px;color:var(--tm);margin-top:6px}
+
+/* estado */
+.estado{margin-top:16px;border:1px solid var(--bd);border-radius:14px;background:var(--card);
+  padding:14px 16px;display:flex;align-items:center;gap:10px;font-size:14px}
+.punto{width:10px;height:10px;border-radius:50%;background:var(--tm);flex:0 0 auto}
+.punto.dentro{background:var(--ok)} .punto.fuera{background:var(--bad)} .punto.pausa{background:var(--warn)}
+
+/* boton principal */
+.checar{margin-top:18px;width:100%;border:0;border-radius:20px;padding:26px 20px;
+  background:linear-gradient(135deg,#1b4fa8,var(--brand));color:#fff;cursor:pointer;
+  display:flex;flex-direction:column;gap:6px;align-items:center;
+  box-shadow:0 10px 30px rgba(31,111,235,.25)}
+.checar:active{transform:scale(.99)}
+.checar .que{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.checar .pista{font-size:13px;opacity:.85}
+.checar:disabled{opacity:.55;box-shadow:none}
+.checar.salida{background:linear-gradient(135deg,#8c2b26,#c93c34)}
+
+.otros{margin-top:10px;width:100%;background:transparent;border:1px solid var(--bd);
+  color:var(--t2);border-radius:14px;padding:13px;font-size:14px;font-weight:600;cursor:pointer}
+.otros:hover{background:var(--hover)}
+
+/* avisos */
+#aviso{margin-top:14px;border-radius:14px;padding:13px 16px;font-size:13.5px;
+  border:1px solid var(--bd);background:var(--raised);display:none;line-height:1.45}
+#aviso.ver{display:block}
+#aviso.ok{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
+#aviso.err{border-color:var(--bad-bd);background:var(--bad-bg);color:var(--bad)}
+#aviso.warn{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
+
+/* lista del dia */
+.seccion{margin-top:24px}
+.tit{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tm);
+  font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline}
+.hoy{border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--card)}
+.hoy .fila{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;
+  border-top:1px solid var(--bd-sub);font-size:14px}
+.hoy .fila:first-child{border-top:0}
+.hoy .h{font-family:var(--mono);color:var(--t1);font-variant-numeric:tabular-nums}
+.hoy .vacio{padding:18px 16px;color:var(--tm);font-size:13.5px;text-align:center}
+.pend{color:var(--warn);font-size:12px}
+
+/* alertas */
+.alertas{margin-top:14px;border:1px solid var(--bd);border-radius:14px;background:var(--card);
+  padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.alertas .txt{font-size:13.5px}
+.alertas .txt b{color:var(--t1);display:block;font-size:14px;margin-bottom:2px}
+.alertas button{background:var(--brand);border:0;color:#fff;border-radius:999px;
+  padding:10px 16px;font-size:13.5px;font-weight:700;cursor:pointer;flex:0 0 auto}
+
+/* hojas */
+.fondo{position:fixed;inset:0;background:rgba(1,4,9,.8);backdrop-filter:blur(4px);
+  display:none;align-items:flex-end;justify-content:center;z-index:50}
+.fondo.ver{display:flex}
+.hoja{width:100%;max-width:520px;background:var(--raised);border:1px solid var(--bd);
+  border-radius:22px 22px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));
+  max-height:86vh;overflow-y:auto}
+.hoja h2{font-size:19px;margin-bottom:14px}
+.buscar{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--bd);
+  background:var(--base);color:var(--t1);font-size:16px;margin-bottom:12px}
+.opcion{width:100%;text-align:left;background:var(--card);border:1px solid var(--bd);
+  border-radius:12px;padding:14px 16px;color:var(--t1);font-size:15.5px;font-weight:600;
+  cursor:pointer;margin-bottom:8px}
+.opcion:hover{background:var(--hover)}
+.opcion small{display:block;font-weight:400;font-size:12.5px;color:var(--tm);margin-top:2px}
+.cerrar{width:100%;background:transparent;border:1px solid var(--bd);color:var(--t2);
+  border-radius:12px;padding:13px;font-size:14px;cursor:pointer;margin-top:4px}
+
+.pie{margin-top:26px;text-align:center;font-size:11.5px;color:var(--tm);font-family:var(--mono)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="barra">
+    <div class="yo">
+      <div class="ini" id="ini">?</div>
+      <div>
+        <div class="nom" id="nombre">Checador</div>
+        <div class="turno" id="turno">&nbsp;</div>
+      </div>
+    </div>
+    <button class="cambiar" id="btn-cambiar" type="button">Cambiar</button>
+  </div>
+
+  <div class="reloj">
+    <div class="hora" id="hora">--:--</div>
+    <div class="fecha" id="fecha">&nbsp;</div>
+  </div>
+
+  <div class="estado"><span class="punto" id="punto"></span><span id="estado">Cargando...</span></div>
+
+  <button class="checar" id="btn-checar" type="button" disabled>
+    <span class="que" id="checar-que">Checar</span>
+    <span class="pista" id="checar-pista">&nbsp;</span>
+  </button>
+  <button class="otros" id="btn-otros" type="button">Registrar otro movimiento</button>
+
+  <div id="aviso" role="status" aria-live="polite"></div>
+
+  <div class="alertas" id="caja-alertas" hidden>
+    <div class="txt"><b id="alertas-tit">Alertas en este celular</b><span id="alertas-sub">—</span></div>
+    <button id="btn-alertas" type="button">Activar</button>
+  </div>
+
+  <section class="seccion">
+    <div class="tit"><span>Hoy</span><span id="cuenta-pend"></span></div>
+    <div class="hoy" id="lista-hoy"><div class="vacio">Sin checadas hoy.</div></div>
+  </section>
+
+  <div class="pie" id="pie">v700</div>
+</div>
+
+<div class="fondo" id="fondo-gente">
+  <div class="hoja">
+    <h2>¿Quién eres?</h2>
+    <input class="buscar" id="buscar" type="search" placeholder="Escribe tu nombre" autocomplete="off">
+    <div id="lista-gente"></div>
+    <button class="cerrar" id="cerrar-gente" type="button">Cancelar</button>
+  </div>
+</div>
+
+<div class="fondo" id="fondo-movs">
+  <div class="hoja">
+    <h2>¿Qué vas a registrar?</h2>
+    <div id="lista-movs"></div>
+    <button class="cerrar" id="cerrar-movs" type="button">Cancelar</button>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   CONFIGURACIÓN
+   =========================================================================== */
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
+var VERSION = 'v700';
+
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
+  authDomain: "checador-electronics.firebaseapp.com",
+  projectId: "checador-electronics",
+  storageBucket: "checador-electronics.firebasestorage.app",
+  messagingSenderId: "888222391494",
+  appId: "1:888222391494:web:3b310692d7aab6e76d8bc7"
+};
+var VAPID_KEY = 'BHyfFo8jnvNKeIuXlAEqsXmfTLCaJqKEVkfWHSl8Lk4W155rGgA9LSlP_a4zF1vviWXtHY6QpikDcnrm9flaUo4';
+
+var MOVS = [
+  { tipo:'ENTRADA',          nom:'Entrada',               pista:'Llegaste' },
+  { tipo:'SALIDA_DESAYUNO',  nom:'Salgo a desayunar',     pista:'Empieza tu desayuno' },
+  { tipo:'REGRESO_DESAYUNO', nom:'Regreso de desayunar',  pista:'Cierra tu desayuno' },
+  { tipo:'SALIDA_COMIDA',    nom:'Salgo a comer',         pista:'Empieza tu comida' },
+  { tipo:'REGRESO_COMIDA',   nom:'Regreso de comer',      pista:'Cierra tu comida' },
+  { tipo:'SALIDA',           nom:'Salida',                pista:'Cierras tu día' }
+];
+
+var LS_YO       = 'em_checar_yo';
+var LS_GENTE    = 'em_checar_gente';
+var LS_HOY      = 'em_checar_hoy';
+var LS_TOKEN    = 'em_push_token';
+var DB_NAME     = 'em_checador_offline';   // la misma cola de siempre
+var DB_STORE    = 'checadas_pendientes';
+
+/* ===========================================================================
+   UTILIDADES
+   =========================================================================== */
+function ls(k, v) {
+  try {
+    if (v === undefined) { var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; }
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch (e) { return null; }
+}
+function normId(v) {
+  v = (v === null || v === undefined) ? '' : String(v).trim();
+  var n = parseInt(v, 10);
+  return (isNaN(n) || !/^\d+$/.test(v)) ? v : String(n);
+}
+function dosDig(n) { return (n < 10 ? '0' : '') + n; }
+function hoyStr(d) { d = d || new Date(); return d.getFullYear() + '-' + dosDig(d.getMonth()+1) + '-' + dosDig(d.getDate()); }
+function horaStr(d) { d = d || new Date(); return dosDig(d.getHours()) + ':' + dosDig(d.getMinutes()) + ':' + dosDig(d.getSeconds()); }
+function hhmm(v) { var m = String(v || '').match(/(\d{1,2}):(\d{2})/); return m ? dosDig(+m[1]) + ':' + m[2] : ''; }
+function uuid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0; return (c === 'x' ? r : (r&0x3|0x8)).toString(16);
+  });
+}
+function iniciales(n) {
+  var p = (n || '').trim().split(/\s+/);
+  return ((p[0]||'')[0]||'') + ((p[1]||'')[0]||'');
+}
+function nombreCorto(n) {
+  var p = (n || '').trim().split(/\s+/);
+  return p.slice(0, 2).join(' ');
+}
+
+function gas(fn, args) {
+  return fetch(GAS_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args || [] }),
+    redirect:'follow'
+  }).then(function(r){ return r.text(); }).then(function(t){
+    try { return JSON.parse(t); } catch (e) { throw new Error('Respuesta inválida del servidor'); }
+  });
+}
+
+var elAviso = document.getElementById('aviso');
+var _avisoTimer = null;
+function aviso(txt, clase, ms) {
+  clearTimeout(_avisoTimer);
+  elAviso.className = 'ver ' + (clase || '');
+  elAviso.textContent = txt;
+  if (ms) _avisoTimer = setTimeout(function(){ elAviso.className = ''; }, ms);
+}
+
+/* ===========================================================================
+   COLA OFFLINE (IndexedDB, la misma que ya usaba la app)
+   =========================================================================== */
+var _db = null;
+function db() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise(function(res, rej) {
+    if (!('indexedDB' in window)) { rej(new Error('sin IndexedDB')); return; }
+    var req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = function(e) {
+      var d = e.target.result;
+      if (!d.objectStoreNames.contains(DB_STORE)) {
+        d.createObjectStore(DB_STORE, { keyPath:'uuid' }).createIndex('timestamp','createdAt',{unique:false});
+      }
+    };
+    req.onsuccess = function(e){ _db = e.target.result; res(_db); };
+    req.onerror   = function(e){ rej(e.target.error); };
+  });
+}
+function encolar(item) {
+  return db().then(function(d){
+    return new Promise(function(res, rej){
+      var tx = d.transaction([DB_STORE],'readwrite');
+      var r = tx.objectStore(DB_STORE).put(Object.assign({}, item, { createdAt: Date.now(), intentos: 0 }));
+      r.onsuccess = function(){ res(); };
+      r.onerror = function(e){ rej(e.target.error); };
+    });
+  });
+}
+function pendientes() {
+  return db().then(function(d){
+    return new Promise(function(res){
+      var r = d.transaction([DB_STORE],'readonly').objectStore(DB_STORE).getAll();
+      r.onsuccess = function(e){
+        var l = e.target.result || [];
+        l.sort(function(a,b){ return a.createdAt - b.createdAt; });
+        res(l);
+      };
+      r.onerror = function(){ res([]); };
+    });
+  }).catch(function(){ return []; });
+}
+function desencolar(id) {
+  return db().then(function(d){
+    return new Promise(function(res){
+      var r = d.transaction([DB_STORE],'readwrite').objectStore(DB_STORE).delete(id);
+      r.onsuccess = r.onerror = function(){ res(); };
+    });
+  });
+}
+
+/** Manda lo pendiente, en orden. Si una falla, se queda para el próximo intento. */
+var _enviando = false;
+function vaciarCola() {
+  if (_enviando || navigator.onLine === false) return Promise.resolve(0);
+  _enviando = true;
+  return pendientes().then(function(lista){
+    if (!lista.length) return 0;
+    var enviadas = 0;
+    return lista.reduce(function(cadena, item){
+      return cadena.then(function(){
+        return gas('guardarChecadaChofer', [item]).then(function(r){
+          if (r && !r.error) { enviadas++; return desencolar(item.uuid); }
+        }).catch(function(){ /* sigue pendiente */ });
+      });
+    }, Promise.resolve()).then(function(){ return enviadas; });
+  }).then(function(n){
+    _enviando = false;
+    if (n) { aviso('Se enviaron ' + n + ' checada' + (n===1?'':'s') + ' que estaban pendientes.', 'ok', 5000); refrescarHoy(); }
+    pintarPendientes();
+    return n;
+  }).catch(function(){ _enviando = false; return 0; });
+}
+
+/* ===========================================================================
+   ESTADO
+   =========================================================================== */
+var YO = ls(LS_YO);              // { id, pin, nombre, turno }
+var GENTE = ls(LS_GENTE) || [];  // [{ id, pin, nombre, turno }]
+var HOY = ls(LS_HOY) || { fecha:'', checadas:[] };
+if (HOY.fecha !== hoyStr()) HOY = { fecha: hoyStr(), checadas: [] };
+
+/* ===========================================================================
+   RELOJ
+   =========================================================================== */
+var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function pintarReloj() {
+  var d = new Date();
+  document.getElementById('hora').textContent = dosDig(d.getHours()) + ':' + dosDig(d.getMinutes());
+  document.getElementById('fecha').textContent = DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()];
+  if (HOY.fecha !== hoyStr(d)) { HOY = { fecha: hoyStr(d), checadas: [] }; ls(LS_HOY, HOY); pintar(); }
+}
+pintarReloj();
+setInterval(pintarReloj, 10000);
+
+/* ===========================================================================
+   PINTAR
+   =========================================================================== */
+function hechas() { return HOY.checadas.map(function(c){ return c.tipo; }); }
+
+function siguienteMov() {
+  var ya = hechas();
+  for (var i = 0; i < MOVS.length; i++) if (ya.indexOf(MOVS[i].tipo) === -1) return MOVS[i];
+  return null;
+}
+
+function estadoTexto() {
+  if (!HOY.checadas.length) return { clase:'', txt:'Todavía no checas hoy' };
+  var u = HOY.checadas[HOY.checadas.length - 1];
+  var h = hhmm(u.hora);
+  if (u.tipo === 'SALIDA')           return { clase:'fuera',  txt:'Saliste a las ' + h };
+  if (u.tipo === 'SALIDA_DESAYUNO')  return { clase:'pausa',  txt:'Desayunando desde las ' + h };
+  if (u.tipo === 'SALIDA_COMIDA')    return { clase:'pausa',  txt:'Comiendo desde las ' + h };
+  if (u.tipo === 'ENTRADA')          return { clase:'dentro', txt:'Entraste a las ' + h };
+  return { clase:'dentro', txt:'Última checada: ' + h };
+}
+
+function pintar() {
+  document.getElementById('ini').textContent = YO ? iniciales(YO.nombre) : '?';
+  document.getElementById('nombre').textContent = YO ? nombreCorto(YO.nombre) : 'Elige tu nombre';
+  document.getElementById('turno').textContent = YO && YO.turno ? YO.turno : '';
+
+  var e = estadoTexto();
+  document.getElementById('punto').className = 'punto ' + e.clase;
+  document.getElementById('estado').textContent = YO ? e.txt : 'Toca Cambiar y elige tu nombre';
+
+  var btn = document.getElementById('btn-checar');
+  var sig = siguienteMov();
+  btn.disabled = !YO;
+  btn.className = 'checar' + (sig && sig.tipo === 'SALIDA' ? ' salida' : '');
+  document.getElementById('checar-que').textContent = sig ? sig.nom : 'Día completo';
+  document.getElementById('checar-pista').textContent = sig ? sig.pista : 'Ya registraste todos tus movimientos';
+  btn.onclick = sig ? function(){ registrar(sig); } : null;
+  if (!sig) btn.disabled = true;
+
+  var cont = document.getElementById('lista-hoy');
+  if (!HOY.checadas.length) {
+    cont.innerHTML = '<div class="vacio">Sin checadas hoy.</div>';
+  } else {
+    cont.innerHTML = HOY.checadas.map(function(c){
+      var m = MOVS.filter(function(x){ return x.tipo === c.tipo; })[0];
+      return '<div class="fila"><span>' + (m ? m.nom : c.tipo) +
+             (c.pendiente ? ' <span class="pend">· por enviar</span>' : '') +
+             '</span><span class="h">' + hhmm(c.hora) + '</span></div>';
+    }).join('');
+  }
+  pintarAlertas();
+}
+
+function pintarPendientes() {
+  pendientes().then(function(l){
+    document.getElementById('cuenta-pend').textContent =
+      l.length ? l.length + ' por enviar' : '';
+  });
+}
+
+/* ===========================================================================
+   ELEGIR PERSONA
+   =========================================================================== */
+var fondoGente = document.getElementById('fondo-gente');
+document.getElementById('btn-cambiar').onclick = abrirGente;
+document.getElementById('cerrar-gente').onclick = function(){ fondoGente.classList.remove('ver'); };
+
+function abrirGente() {
+  pintarGente('');
+  fondoGente.classList.add('ver');
+  setTimeout(function(){ document.getElementById('buscar').focus(); }, 120);
+}
+document.getElementById('buscar').oninput = function(){ pintarGente(this.value); };
+
+function pintarGente(filtro) {
+  var f = (filtro || '').toLowerCase().trim();
+  var lista = GENTE.filter(function(g){ return !f || g.nombre.toLowerCase().indexOf(f) !== -1; });
+  var cont = document.getElementById('lista-gente');
+  if (!lista.length) {
+    cont.innerHTML = '<div class="vacio" style="color:var(--tm);padding:16px 4px;font-size:13.5px">' +
+      (GENTE.length ? 'Nadie con ese nombre.' : 'Sin lista todavía: conéctate una vez para descargarla.') + '</div>';
+    return;
+  }
+  cont.innerHTML = '';
+  lista.slice(0, 60).forEach(function(g){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opcion';
+    b.innerHTML = g.nombre + (g.turno ? '<small>' + g.turno + '</small>' : '');
+    b.onclick = function(){ elegir(g); };
+    cont.appendChild(b);
+  });
+}
+
+function elegir(g) {
+  YO = g;
+  ls(LS_YO, YO);
+  HOY = { fecha: hoyStr(), checadas: [] };
+  ls(LS_HOY, HOY);
+  fondoGente.classList.remove('ver');
+  pintar();
+  refrescarHoy();
+  aviso('Listo, ' + nombreCorto(g.nombre) + '. Este celular ya te recuerda.', 'ok', 4000);
+}
+
+/* ===========================================================================
+   OTROS MOVIMIENTOS
+   =========================================================================== */
+var fondoMovs = document.getElementById('fondo-movs');
+document.getElementById('btn-otros').onclick = function(){
+  if (!YO) { abrirGente(); return; }
+  var cont = document.getElementById('lista-movs');
+  cont.innerHTML = '';
+  var ya = hechas();
+  MOVS.forEach(function(m){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opcion';
+    b.innerHTML = m.nom + '<small>' + (ya.indexOf(m.tipo) !== -1 ? 'Ya lo registraste hoy' : m.pista) + '</small>';
+    b.onclick = function(){ fondoMovs.classList.remove('ver'); registrar(m); };
+    cont.appendChild(b);
+  });
+  fondoMovs.classList.add('ver');
+};
+document.getElementById('cerrar-movs').onclick = function(){ fondoMovs.classList.remove('ver'); };
+[fondoGente, fondoMovs].forEach(function(f){
+  f.addEventListener('click', function(e){ if (e.target === f) f.classList.remove('ver'); });
+});
+
+/* ===========================================================================
+   REGISTRAR CHECADA
+   =========================================================================== */
+function registrar(mov) {
+  if (!YO) { abrirGente(); return; }
+  var ahora = new Date();
+  var datos = {
+    idUsuario: YO.id,
+    nombre: YO.nombre,
+    tipo: mov.tipo,
+    uuid: uuid(),
+    origen: 'APP',
+    esOffline: navigator.onLine === false,
+    clienteTimestamp: ahora.toISOString()
+  };
+
+  // Se pinta de inmediato: la pantalla no espera a la red.
+  HOY.checadas.push({ tipo: mov.tipo, hora: horaStr(ahora), pendiente: true });
+  ls(LS_HOY, HOY);
+  pintar();
+
+  if (navigator.onLine === false) {
+    encolar(datos).then(function(){
+      aviso('Sin internet: tu ' + mov.nom.toLowerCase() + ' quedó guardada y se manda sola cuando haya señal.', 'warn', 7000);
+      pintarPendientes();
+      pedirSyncFondo();
+    });
+    return;
+  }
+
+  aviso('Registrando...', '', 0);
+  gas('guardarChecadaChofer', [datos]).then(function(r){
+    if (!r || r.error) throw new Error((r && r.message) || 'el servidor no la aceptó');
+
+    if (r.noRegistrada) {
+      HOY.checadas = HOY.checadas.filter(function(c){ return !c.pendiente; });
+      ls(LS_HOY, HOY); pintar();
+      aviso(r.message || 'No se registró', 'warn', 8000);
+      return;
+    }
+    if (r.checadasHoyServidor) {
+      HOY = { fecha: hoyStr(), checadas: r.checadasHoyServidor.map(function(c){
+        return { tipo:(c.tipo||'').toUpperCase(), hora:c.hora };
+      }) };
+      ls(LS_HOY, HOY);
+    }
+    pintar();
+    var v = r.veredicto || {};
+    aviso('✓ ' + mov.nom + ' · ' + hhmm(r.horaServidor) + (v.texto ? '\n' + v.texto : ''), 'ok', 7000);
+  }).catch(function(){
+    // La red falló a media llamada: se encola en vez de perderse.
+    encolar(datos).then(function(){
+      aviso('No se pudo mandar ahorita. Quedó guardada y se envía sola.', 'warn', 7000);
+      pintarPendientes();
+      pedirSyncFondo();
+    });
+  });
+}
+
+/** Le pide al service worker que la mande aunque se cierre la app (Android). */
+function pedirSyncFondo() {
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    navigator.serviceWorker.ready.then(function(reg){
+      return reg.sync.register('checadas-pendientes');
+    }).catch(function(){});
+  }
+}
+
+/* ===========================================================================
+   DATOS DEL SERVIDOR
+   =========================================================================== */
+function bajarGente() {
+  if (navigator.onLine === false) return Promise.resolve();
+  return gas('getTodosLosUsuarios', []).then(function(r){
+    if (!r || !r.usuarios) return;
+    GENTE = r.usuarios.filter(function(u){ return u.idUsuario !== 'ADMIN' && u.nombre; })
+      .map(function(u){
+        // Del servidor solo se guarda nombre, id, pin y turno. La contraseña
+        // que viene en la respuesta NO se guarda: aquí ya no se usa.
+        return { id: normId(u.idUsuario), pin: u.pin, nombre: u.nombre, turno: u.turnoHorario || '' };
+      })
+      .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+    ls(LS_GENTE, GENTE);
+    if (YO) {
+      var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
+      if (mio) { YO = mio; ls(LS_YO, YO); pintar(); }
+    }
+  }).catch(function(){});
+}
+
+function refrescarHoy() {
+  if (!YO || !YO.pin || navigator.onLine === false) return Promise.resolve();
+  return gas('getPerfilEmpleado', [YO.pin]).then(function(r){
+    if (!r || !r.ok) return;
+    HOY = { fecha: hoyStr(), checadas: (r.checadasHoy || []).map(function(c){
+      return { tipo:(c.tipo||'').toUpperCase(), hora:c.hora };
+    }) };
+    ls(LS_HOY, HOY);
+    pintar();
+  }).catch(function(){});
+}
+
+/* ===========================================================================
+   ALERTAS (notificaciones)
+   =========================================================================== */
+var _sdk = false;
+function cargarScript(u) {
+  return new Promise(function(res, rej){
+    var s = document.createElement('script');
+    s.src = u; s.onload = res; s.onerror = function(){ rej(new Error('no cargó')); };
+    document.head.appendChild(s);
+  });
+}
+function sdkFirebase() {
+  if (_sdk) return Promise.resolve();
+  return cargarScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
+    .then(function(){ return cargarScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js'); })
+    .then(function(){
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      _sdk = true;
+    });
+}
+
+function soportaPush() {
+  return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+}
+function instalada() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+         window.navigator.standalone === true;
+}
+function esIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+
+function pintarAlertas() {
+  var caja = document.getElementById('caja-alertas');
+  if (!YO) { caja.hidden = true; return; }
+  caja.hidden = false;
+  var tit = document.getElementById('alertas-tit');
+  var sub = document.getElementById('alertas-sub');
+  var btn = document.getElementById('btn-alertas');
+
+  if (!soportaPush()) {
+    tit.textContent = 'Alertas en este celular';
+    sub.textContent = esIOS() && !instalada()
+      ? 'Comparte › Agregar a pantalla de inicio, y ábrela desde el ícono'
+      : 'Este navegador no las soporta';
+    btn.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  var token = ls(LS_TOKEN);
+  if (Notification.permission === 'granted' && token) {
+    tit.textContent = 'Alertas activas';
+    sub.textContent = 'Este celular recibe tus avisos';
+    btn.textContent = 'Probar';
+    btn.onclick = probarAlerta;
+  } else if (Notification.permission === 'denied') {
+    tit.textContent = 'Alertas bloqueadas';
+    sub.textContent = esIOS() ? 'Ajustes › Notificaciones › Checador' : 'Ajustes del sitio › Notificaciones';
+    btn.hidden = true;
+  } else {
+    tit.textContent = 'Alertas apagadas';
+    sub.textContent = 'Avisos de entrada, comida y salida';
+    btn.textContent = 'Activar';
+    btn.onclick = activarAlertas;
+  }
+}
+
+function activarAlertas() {
+  var btn = document.getElementById('btn-alertas');
+  btn.disabled = true;
+  var permiso = Notification.permission === 'granted'
+    ? Promise.resolve('granted') : Notification.requestPermission();
+
+  permiso.then(function(p){
+    if (p !== 'granted') { pintarAlertas(); btn.disabled = false; return; }
+    return sdkFirebase()
+      .then(function(){ return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope:'./fcm-push/' }); })
+      .then(function(reg){
+        return firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+      })
+      .then(function(token){
+        if (!token) throw new Error('Firebase no dio token');
+        var anterior = ls(LS_TOKEN);
+        // El token se guarda SOLO cuando el servidor lo acepta: un ✅ que
+        // miente es peor que un ✗.
+        return gas('registrarPushToken', [YO.pin, token, anterior || '', dispositivo()])
+          .then(function(r){
+            if (!r || r.ok === false) throw new Error((r && r.message) || 'el servidor lo rechazó');
+            ls(LS_TOKEN, token);
+            aviso('Alertas activadas en este celular.', 'ok', 4000);
+          });
+      })
+      .catch(function(e){ aviso('No se pudieron activar: ' + e.message, 'err', 7000); });
+  }).then(function(){ btn.disabled = false; pintarAlertas(); });
+}
+
+function probarAlerta() {
+  aviso('Pídele a Víctor que mande la prueba desde el menú Checador del Sheet.', '', 6000);
+}
+
+function dispositivo() {
+  var ua = navigator.userAgent || '';
+  var so = /iPhone/i.test(ua) ? 'iPhone' : /iPad/i.test(ua) ? 'iPad'
+         : /Android/i.test(ua) ? 'Android' : /Windows/i.test(ua) ? 'Windows'
+         : /Macintosh/i.test(ua) ? 'Mac' : 'Dispositivo';
+  return so + (instalada() ? ' (app)' : '');
+}
+
+/** Revalida el token cada vez que se abre: FCM los rota y si nadie lo renueva
+ *  el empleado se cae de las alertas sin enterarse. */
+function revalidarToken() {
+  if (!YO || !soportaPush() || Notification.permission !== 'granted') return;
+  if (navigator.onLine === false) return;
+  sdkFirebase()
+    .then(function(){ return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope:'./fcm-push/' }); })
+    .then(function(reg){ return firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg }); })
+    .then(function(token){
+      if (!token) return;
+      var anterior = ls(LS_TOKEN);
+      if (token === anterior) return;
+      return gas('registrarPushToken', [YO.pin, token, anterior || '', dispositivo()])
+        .then(function(){ ls(LS_TOKEN, token); pintarAlertas(); });
+    })
+    .catch(function(){});
+}
+
+/* ===========================================================================
+   SALIDA REMOTA (al tocar la notificación de salida)
+   =========================================================================== */
+function salidaRemota() {
+  var m = location.search.match(/salidaRemota=([^&]+)/);
+  if (!m) return;
+  history.replaceState({}, '', location.pathname);
+  var id = normId(decodeURIComponent(m[1]));
+  if (!YO || YO.id !== id) return;
+  registrar(MOVS[MOVS.length - 1]);   // SALIDA
+}
+
+/* ===========================================================================
+   ARRANQUE
+   =========================================================================== */
+document.getElementById('pie').textContent = VERSION + (navigator.onLine === false ? ' · sin internet' : '');
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js').catch(function(){});
+  // Si el service worker mandó la cola por su cuenta (con la app cerrada),
+  // avisa y refresca en cuanto se abre.
+  navigator.serviceWorker.addEventListener('message', function(e){
+    var d = e.data || {};
+    if (d.type === 'COLA_ENVIADA' && d.enviadas) {
+      aviso('Se enviaron ' + d.enviadas + ' checada' + (d.enviadas===1?'':'s') + ' que estaban pendientes.', 'ok', 5000);
+      pintarPendientes();
+      refrescarHoy();
+    }
+  });
+}
+
+pintar();
+pintarPendientes();
+
+if (!YO) {
+  bajarGente().then(function(){ abrirGente(); });
+} else {
+  bajarGente();
+  refrescarHoy();
+  setTimeout(revalidarToken, 2000);
+}
+vaciarCola();
+salidaRemota();
+
+window.addEventListener('online', function(){
+  document.getElementById('pie').textContent = VERSION;
+  vaciarCola();
+  refrescarHoy();
+});
+window.addEventListener('offline', function(){
+  document.getElementById('pie').textContent = VERSION + ' · sin internet';
+});
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden) { vaciarCola(); refrescarHoy(); }
+});
+</script>
+</body>
+</html>

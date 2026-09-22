@@ -1,15 +1,21 @@
 {
   "name": "Checador Electronics México",
   "short_name": "Checador EM",
-  "description": "Sistema de control de asistencia — Electronics México",
-  "start_url": "./",
+  "description": "Control de asistencia — Electronics México",
+  "start_url": "./checar.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0F1A2E",
-  "theme_color": "#0F1A2E",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
   "lang": "es-MX",
   "categories": ["business", "productivity"],
+  "shortcuts": [
+    { "name": "Checar",  "url": "./checar.html",  "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Tablero", "url": "./tablero.html", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Juegos",  "url": "./juegos.html",  "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Panel",   "url": "./index.html",   "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ],
   "icons": [
     { "src": "favicon-32.png",         "sizes": "32x32",   "type": "image/png" },
     { "src": "apple-touch-icon.png",   "sizes": "180x180", "type": "image/png", "purpose": "any" },

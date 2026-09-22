@@ -29,6 +29,15 @@ firebase.initializeApp({
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
 
+// A dónde va el toque de la notificación.
+//
+// ⚠️ Aquí estaba el 404. Este service worker se registra con scope
+// ./fcm-push/, una carpeta que NO existe en el sitio, y al tocar el aviso se
+// abría self.registration.scope: .../ElectronicsChecador/fcm-push/ → 404.
+// El destino se calcula quitando ese scope: la carpeta de la app.
+var APP_URL = self.registration.scope.replace(/fcm-push\/?$/, '');
+var APP_CHECAR = APP_URL + 'checar.html';
+
 var messaging = firebase.messaging();
 
 /** Avisa al backend que esta notificación sí llegó. Si falla, ni modo:
@@ -73,8 +82,7 @@ messaging.onBackgroundMessage(function (payload) {
 // ⚠️ UN SOLO listener. Antes había dos y un toque podía abrir dos ventanas.
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var destino = (event.notification.data && event.notification.data.url) ||
-                self.registration.scope;
+  var destino = (event.notification.data && event.notification.data.url) || APP_CHECAR;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (lista) {
@@ -82,7 +90,7 @@ self.addEventListener('notificationclick', function (event) {
       if (destino.indexOf('salidaRemota') !== -1) return clients.openWindow(destino);
 
       for (var i = 0; i < lista.length; i++) {
-        if (lista[i].url.indexOf(self.registration.scope) === 0 && 'focus' in lista[i]) {
+        if (lista[i].url.indexOf(APP_URL) === 0 && 'focus' in lista[i]) {
           return lista[i].focus();
         }
       }

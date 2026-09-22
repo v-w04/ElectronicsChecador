@@ -235,7 +235,7 @@ function revisarAlertas() {
     var intRec = cfg.alertas_no_checo_intervalo_min || 5;
     var avEnt  = cfg.aviso_entrada_min_antes || 15;
 
-    var URL_SALIDA_REMOTA = 'https://v-w04.github.io/ElectronicsChecador/?salidaRemota=';
+    var URL_SALIDA_REMOTA = 'https://v-w04.github.io/ElectronicsChecador/checar.html?salidaRemota=';
 
     // ── Uno por uno, con turno y que hoy trabaje ──────────────────────────
     (usuarios.usuarios || []).forEach(function (u) {
