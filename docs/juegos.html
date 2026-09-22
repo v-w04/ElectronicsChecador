@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tablero de juegos · Electronics México</title>
 <link rel="icon" href="favicon.ico">
+<script src="actualizar.js"></script>
+<script src="ui.js"></script>
 <style>
 /* ===========================================================================
    TABLERO DE JUEGOS — Electronics México
@@ -13,16 +15,21 @@
    distinguen por su inicial y su color, no por arte de nadie más.
    =========================================================================== */
 :root{
+  /* Los colores del menu del Switch y de la eShop: fondo gris claro,
+     tarjetas blancas, tinta casi negra y los dos neones de los Joy-Con.
+     Solo el color: nada de logos ni personajes. */
   --papel:#ffffff;
-  --fondo:#f2f3f5;
+  --fondo:#ebebeb;
   --panel:#ffffff;
-  --linea:#e3e5e8;
-  --tinta:#1a1a1c;
+  --linea:#dcdcdc;
+  --tinta:#2d2d2d;
   --tinta-2:#5a5f66;
   --tinta-3:#8b9198;
-  --rojo:#e4002b;
-  --rojo-hi:#ff2a4f;
-  --azul:#0a7cff;
+  --rojo:#e60012;        /* el rojo de la marca */
+  --rojo-hi:#ff3c28;     /* neon rojo del Joy-Con */
+  --azul:#00c3e3;        /* neon azul del Joy-Con */
+  --azul-hondo:#0a7cff;
+  --naranja:#ff7d00;     /* el naranja de la eShop */
   --verde:#0f9d58;
   --oro:#e8a800;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
@@ -55,6 +62,7 @@ button{font-family:inherit}
   justify-content:space-between;gap:16px;flex-wrap:wrap}
 .encabezado h1{font-size:34px;font-weight:800}
 .encabezado p{margin:6px 0 0;color:var(--tinta-2);font-size:14px}
+.acciones-cab{display:flex;gap:10px;flex-wrap:wrap}
 
 /* --- avisos --- */
 #aviso{margin-top:14px;border-radius:var(--r);padding:12px 16px;font-size:13.5px;
@@ -70,7 +78,8 @@ button{font-family:inherit}
 .juego .caja{width:150px;height:150px;border-radius:var(--r-grande);display:flex;
   align-items:center;justify-content:center;font-size:56px;color:#fff;
   box-shadow:0 2px 0 rgba(0,0,0,.06);transition:transform .12s ease}
-.juego:hover .caja{transform:translateY(-3px)}
+.juego:hover .caja{transform:translateY(-3px);box-shadow:0 0 0 4px var(--azul)}
+.juego:focus-visible .caja{outline:0;box-shadow:0 0 0 4px var(--azul)}
 .juego.sel .caja{outline:4px solid var(--rojo);outline-offset:3px}
 .juego .nombre{margin-top:10px;font-weight:800;font-size:14px;line-height:1.25}
 .juego .dato{font-size:12px;color:var(--tinta-3);font-weight:600}
@@ -170,8 +179,10 @@ button{font-family:inherit}
       <div><b>Electronics México</b><span>Tablero interno</span></div>
     </div>
     <nav class="tabs">
-      <a href="tablero.html">Checadas</a>
+      <a href="checar.html">Mi checador</a>
+      <a href="tablero.html">Tablero</a>
       <a href="juegos.html" class="on" aria-current="page">Juegos</a>
+      <a href="index.html?panel">Panel</a>
     </nav>
   </div>
 
@@ -180,7 +191,10 @@ button{font-family:inherit}
       <h1>Tablero de juegos</h1>
       <p>Quién gana qué en la oficina. Cada partida queda guardada.</p>
     </div>
-    <button class="btn rojo" id="btn-nueva" type="button">Registrar partida</button>
+    <div class="acciones-cab">
+      <button class="btn claro" id="btn-limpiar" type="button">Limpiar tablero</button>
+      <button class="btn rojo" id="btn-nueva" type="button">Registrar partida</button>
+    </div>
   </div>
 
   <div id="aviso" role="status" aria-live="polite"></div>
@@ -282,7 +296,8 @@ var JUEGOS = [];
 var JUGADORES = [];
 var PARTIDAS = [];      // una fila por jugador
 var juegoSel = null;
-var periodo = 'mes';    // 'mes' | 'todo'
+var periodo = 'hoy';    // 'hoy' | 'mes' | 'todo'
+var tableroDesde = '';  // corte manual del tablero (lo pone "Limpiar tablero")
 var filtroJugador = '';
 var seleccion = [];     // ids elegidos en el modal, en orden
 
@@ -299,6 +314,16 @@ function iconoDe(nombre) {
   return j ? j.icono : '🎮';
 }
 function mesDe(fecha) { return (fecha || '').slice(0, 7); }
+function hoyJuegos() {
+  var d = new Date(), z = function(n){ return (n<10?'0':'') + n; };
+  return d.getFullYear() + '-' + z(d.getMonth()+1) + '-' + z(d.getDate());
+}
+/** Hora del corte si el corte es de hoy; si es de otro dia, ya no aplica. */
+function corteDeHoy() {
+  if (!tableroDesde) return '';
+  var p = String(tableroDesde).split(' ');
+  return (p[0] === hoyJuegos()) ? (p[1] || '') : '';
+}
 function mesActual() {
   var d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
@@ -384,12 +409,15 @@ function pintarTabla() {
   document.getElementById('titulo-tabla').textContent =
     juegoSel ? 'Posiciones · ' + juegoSel : 'Posiciones';
   document.getElementById('sub-tabla').textContent =
-    (periodo === 'mes' ? 'Este mes' : 'Desde el principio') +
+    (periodo === 'hoy' ? 'Hoy' : periodo === 'mes' ? 'Este mes' : 'Desde el principio') +
     (juegoSel ? '' : ' · todos los juegos');
+
+  var bl = document.getElementById('btn-limpiar');
+  if (bl) bl.textContent = corteDeHoy() ? 'Reabrir tablero' : 'Limpiar tablero';
 
   var pers = document.getElementById('filtros-periodo');
   pers.innerHTML = '';
-  [['mes', 'Este mes'], ['todo', 'Todo']].forEach(function (op) {
+  [['hoy', 'Hoy'], ['mes', 'Este mes'], ['todo', 'Todo']].forEach(function (op) {
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'filtro' + (periodo === op[0] ? ' on' : '');
@@ -411,6 +439,11 @@ function pintarTabla() {
   partidasAgrupadas(function (p) {
     if (juegoSel && p.juego !== juegoSel) return false;
     if (periodo === 'mes' && mesDe(p.fecha) !== mes) return false;
+    if (periodo === 'hoy') {
+      if (p.fecha !== hoyJuegos()) return false;
+      // Si hoy se limpio el tablero, solo cuenta lo de despues del corte.
+      if (corteDeHoy() && (p.hora || '') < corteDeHoy()) return false;
+    }
     return true;
   }).forEach(function (par) {
     par.jugadores.forEach(function (j, idx) {
@@ -520,6 +553,38 @@ function pintarTodo() { pintarJuegos(); pintarTabla(); pintarHistorico(); }
 var fondo = document.getElementById('fondo');
 
 document.getElementById('btn-nueva').onclick = abrirModal;
+
+/* El tablero es del día que va corriendo: al día siguiente empieza en cero
+   solo. Este botón hace el corte a media jornada. No borra nada: las
+   partidas se quedan en el histórico. */
+document.getElementById('btn-limpiar').onclick = function () {
+  var btn = this;
+  if (corteDeHoy()) {
+    btn.disabled = true;
+    gas('reabrirTableroJuegos', []).then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+      tableroDesde = '';
+      pintarTodo();
+      aviso('Tablero reabierto: cuenta todo el día otra vez.', 'ok');
+      quitarAviso(3500);
+    }).catch(function (e) {
+      aviso('No se pudo reabrir: ' + e.message, 'err');
+    }).then(function () { btn.disabled = false; });
+    return;
+  }
+
+  btn.disabled = true;
+  gas('limpiarTableroJuegos', []).then(function (r) {
+    if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+    tableroDesde = r.tableroDesde || '';
+    periodo = 'hoy';
+    pintarTodo();
+    aviso('Tablero limpio. Las partidas siguen en el histórico.', 'ok');
+    quitarAviso(4000);
+  }).catch(function (e) {
+    aviso('No se pudo limpiar: ' + e.message, 'err');
+  }).then(function () { btn.disabled = false; });
+};
 document.getElementById('m-cancelar').onclick = cerrarModal;
 fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrarModal(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModal(); });
@@ -623,6 +688,7 @@ function cargar() {
       JUEGOS = r.juegos || [];
       JUGADORES = r.jugadores || [];
       PARTIDAS = r.partidas || [];
+      tableroDesde = r.tableroDesde || '';
       document.getElementById('filtro-jugador').innerHTML = '';
       pintarTodo();
       quitarAviso(600);
@@ -641,6 +707,10 @@ function cargar() {
 }
 
 cargar();
+</script>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
+Actualizar.iniciar('v701');
 </script>
 </body>
 </html>

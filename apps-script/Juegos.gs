@@ -138,11 +138,13 @@ function getJuegosTablero(limite) {
       });
     }
 
-    return { ok: true, juegos: juegos, jugadores: jugadores, partidas: partidas };
+    return { ok: true, juegos: juegos, jugadores: jugadores, partidas: partidas,
+             tableroDesde: _tableroDesde_() };
 
   } catch (e) {
     Logger.log('❌ getJuegosTablero: ' + e.message);
-    return { ok: false, message: e.message, juegos: [], jugadores: [], partidas: [] };
+    return { ok: false, message: e.message, juegos: [], jugadores: [], partidas: [],
+             tableroDesde: '' };
   }
 }
 
@@ -251,6 +253,44 @@ function agregarJuego(nombre, icono, modo) {
 
     sheet.appendRow([nombre, (icono || '🎮').toString(), modo, 'SÍ']);
     return { ok: true, message: nombre + ' agregado' };
+  } catch (e) {
+    return { ok: false, message: e.message };
+  }
+}
+
+/* ===========================================================================
+   LIMPIAR EL TABLERO
+   ===========================================================================
+   El tablero es del día que va corriendo: al día siguiente arranca en cero
+   solo. Y si quieren empezar de nuevo a media jornada, este corte lo hace.
+
+   No se borra NADA: las partidas se quedan en JUEGOS_PARTIDAS y siguen
+   saliendo en el histórico. Lo único que se guarda es la hora del corte, y
+   el tablero cuenta a partir de ahí.
+   =========================================================================== */
+
+var _JUEGOS_CORTE = 'juegos_tablero_desde';
+
+function _tableroDesde_() {
+  return PropertiesService.getScriptProperties().getProperty(_JUEGOS_CORTE) || '';
+}
+
+function limpiarTableroJuegos() {
+  try {
+    var ahora = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+    PropertiesService.getScriptProperties().setProperty(_JUEGOS_CORTE, ahora);
+    return { ok: true, tableroDesde: ahora,
+             message: 'Tablero limpio. Las partidas siguen en el histórico.' };
+  } catch (e) {
+    return { ok: false, message: e.message };
+  }
+}
+
+/** Deshace el corte: el tablero vuelve a contar todo el día. */
+function reabrirTableroJuegos() {
+  try {
+    PropertiesService.getScriptProperties().deleteProperty(_JUEGOS_CORTE);
+    return { ok: true, tableroDesde: '' };
   } catch (e) {
     return { ok: false, message: e.message };
   }

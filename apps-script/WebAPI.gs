@@ -86,6 +86,8 @@ function _funcionesExpuestas() {
     registrarPartida:         registrarPartida,
     borrarPartida:            borrarPartida,
     agregarJuego:             agregarJuego,
+    limpiarTableroJuegos:     limpiarTableroJuegos,
+    reabrirTableroJuegos:     reabrirTableroJuegos,
 
     // Acuse de recibo de las notificaciones (lo llama el service worker)
     confirmarEntregaPush:     confirmarEntregaPush,

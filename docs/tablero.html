@@ -7,6 +7,7 @@
 <link rel="icon" href="favicon.ico">
 <script src="avatar.js"></script>
 <script src="actualizar.js"></script>
+<script src="ui.js"></script>
 <style>
 /* ===========================================================================
    TABLERO DE CHECADAS — Electronics México
@@ -129,8 +130,10 @@ footer{margin-top:30px;font-size:12px;color:var(--tm);display:flex;flex-wrap:wra
       </div>
     </div>
     <nav class="tabs">
-      <a href="tablero.html" class="on" aria-current="page">Checadas</a>
+      <a href="checar.html">Mi checador</a>
+      <a href="tablero.html" class="on" aria-current="page">Tablero</a>
       <a href="juegos.html">Juegos</a>
+      <a href="index.html?panel">Panel</a>
     </nav>
     <div class="reloj"><span id="reloj">--:--</span><small id="fecha">—</small></div>
   </header>
@@ -480,7 +483,7 @@ cargar();
 
 // La tablet también se actualiza sola cuando se publica una versión nueva.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v700');
+Actualizar.iniciar('v701');
 
 // Relectura cada 3 minutos: si alguien checó desde su celular, el tablero
 // lo refleja sin que nadie recargue la página.
