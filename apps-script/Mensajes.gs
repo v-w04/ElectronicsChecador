@@ -94,6 +94,26 @@ function msgEntradaToleranciaVencida(horaRetardo, semilla) {
 // ============================================================================
 
 /** Falta poco para que se acabe el descanso. nombre = 'desayuno' | 'comida'. */
+/**
+ * Al empezar el descanso. Esta es la que se queda en la pantalla bloqueada
+ * del celular: dice a qué hora hay que estar de vuelta, para consultarla de
+ * un vistazo sin abrir nada.
+ */
+function msgDescansoEmpezo(nombre, duracionMin, horaLimite) {
+  return {
+    titulo: '⏱️ ' + duracionMin + ' min de ' + nombre,
+    cuerpo: 'Termina a las ' + horaLimite + '. Deja este aviso en tu pantalla para verlo rápido.'
+  };
+}
+
+/** A media hora del descanso, para refrescar la tarjeta. */
+function msgDescansoMitad(nombre, minutosRestantes, horaLimite) {
+  return {
+    titulo: '⏱️ Te quedan ' + minutosRestantes + ' min de ' + nombre,
+    cuerpo: 'Termina a las ' + horaLimite + '.'
+  };
+}
+
 function msgDescansoPorTerminar(nombre, minutosRestantes, horaLimite, semilla) {
   return {
     titulo: '⏰ Te quedan ' + minutosRestantes + ' min de ' + nombre,

@@ -54,6 +54,7 @@ function _funcionesExpuestas() {
     // Checadas
     guardarChecadaChofer:     guardarChecadaChofer,
     checadaSalidaRemota:      checadaSalidaRemota,
+    borrarChecadaPropia:      borrarChecadaPropia,
 
     // Perfil del empleado
     getPerfilEmpleado:        getPerfilEmpleado,

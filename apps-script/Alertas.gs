@@ -289,6 +289,24 @@ function revisarAlertas() {
         // tiene sus propias alertas.
         var marca = hoy + '|' + id + '|' + nom + '@' + ultima.min;
 
+        // Apenas empieza: deja una tarjeta en la pantalla bloqueada con la
+        // hora de regreso. Todas las alertas del descanso comparten el mismo
+        // aviso en el celular, así que esta se va reemplazando sola y
+        // siempre hay UNA tarjeta con el dato de ahorita.
+        if (trans <= 1) {
+          alertar(id, nom, marca + '|inicio',
+                  msgDescansoEmpezo(nom, dur, _minAHora(limite)),
+                  nom + ' empezó');
+        }
+
+        // A la mitad, para que la tarjeta no se quede vieja.
+        var mitad = Math.floor(dur / 2);
+        if (mitad > 1 && mitad < dur - aviso && trans >= mitad && trans < dur - aviso) {
+          alertar(id, nom, marca + '|mitad',
+                  msgDescansoMitad(nom, dur - trans, _minAHora(limite)),
+                  nom + ' a la mitad');
+        }
+
         if (trans >= dur - aviso && trans < dur) {
           alertar(id, nom, marca + '|aviso',
                   msgDescansoPorTerminar(nom, dur - trans, _minAHora(limite), semilla),

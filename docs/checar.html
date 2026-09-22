@@ -155,6 +155,14 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);
   letter-spacing:0;text-transform:none}
 .verq:hover{background:var(--hover);color:var(--t1)}
+.corregible{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;
+  border:1px solid var(--bd);border-radius:12px;background:var(--card)}
+.corregible .e{flex:1;min-width:0;font-size:14.5px;font-weight:600;color:var(--t1)}
+.corregible .h{font-family:var(--mono);font-size:14px;color:var(--t2)}
+.corregible .tache{width:32px;height:32px;flex:0 0 auto;border:0;border-radius:50%;cursor:pointer;
+  background:transparent;color:var(--tm);font-size:20px;line-height:1;font-family:inherit;
+  display:flex;align-items:center;justify-content:center}
+.corregible .tache:hover{background:var(--bad-bg);color:var(--bad)}
 .hoja h2 small{display:block;font-size:12.5px;color:var(--tm);font-weight:400;margin-top:3px}
 #fondo-quincena #q-dias{max-height:46vh;overflow-y:auto;margin-bottom:12px}
 .hoy .fila{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;
@@ -355,6 +363,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <div class="tit">
       <span>Hoy</span>
       <span class="der"><span id="cuenta-pend"></span>
+        <button class="verq" id="btn-corregir" type="button" hidden>Corregir</button>
         <button class="verq" id="btn-quincena" type="button" hidden>Ver quincena</button></span>
     </div>
     <div class="hoy" id="lista-hoy"><div class="vacio">Sin checadas hoy.</div></div>
@@ -363,7 +372,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v708</span></div>
+  <div class="pie"><span id="pie">v709</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -372,6 +381,15 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <input class="buscar" id="buscar" type="search" placeholder="Escribe tu nombre" autocomplete="off">
     <div id="lista-gente"></div>
     <button class="cerrar" id="cerrar-gente" type="button">Cancelar</button>
+  </div>
+</div>
+
+<div class="fondo" id="fondo-corregir">
+  <div class="hoja">
+    <h2>Corregir lo de hoy</h2>
+    <p class="nota">Borra una checada que quedó mal. Solo las de hoy, y queda registro.</p>
+    <div id="lista-corregir"></div>
+    <button class="cerrar" id="cerrar-corregir" type="button">Cerrar</button>
   </div>
 </div>
 
@@ -415,7 +433,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v708';
+var VERSION = 'v709';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -636,6 +654,27 @@ function turnoSeg() {
   var m = String((YO && YO.turno) || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
   return m ? { ini: (+m[1])*3600 + (+m[2])*60, fin: (+m[3])*3600 + (+m[4])*60 } : null;
 }
+/** Deja las checadas del día en orden de reloj. Si llegan desordenadas del
+ *  servidor, el cronómetro no encuentra el descanso abierto. */
+function ordenarHoy() {
+  HOY.checadas.sort(function (a, b) {
+    return (segDe(a.hora) || 0) - (segDe(b.hora) || 0);
+  });
+}
+
+/** El descanso que sigue abierto: el último que se abrió y no se ha cerrado.
+ *  Antes se miraba solo la última checada de la lista y bastaba una fuera de
+ *  orden para que el contador desapareciera. */
+function descansoAbierto() {
+  var abierto = null;
+  HOY.checadas.forEach(function (c) {
+    if (c.tipo === 'SALIDA_DESAYUNO' || c.tipo === 'SALIDA_COMIDA') abierto = c;
+    else if (c.tipo === 'REGRESO_DESAYUNO' || c.tipo === 'REGRESO_COMIDA' ||
+             c.tipo === 'SALIDA') abierto = null;
+  });
+  return abierto;
+}
+
 function primera(tipo) {
   for (var i = 0; i < HOY.checadas.length; i++) if (HOY.checadas[i].tipo === tipo) return HOY.checadas[i];
   return null;
@@ -651,10 +690,10 @@ function pintarCrono() {
   var caja = document.getElementById('crono');
   if (!YO || !HOY.checadas.length) { caja.hidden = true; return; }
 
-  var u = HOY.checadas[HOY.checadas.length - 1];
   var ahora = segAhora();
+  var u = descansoAbierto();
 
-  if (u.tipo === 'SALIDA_DESAYUNO' || u.tipo === 'SALIDA_COMIDA') {
+  if (u) {
     var esDes = u.tipo === 'SALIDA_DESAYUNO';
     var lim = (esDes ? durDesayuno() : durComida());
     var ini = segDe(u.hora);
@@ -773,11 +812,17 @@ function estadoTexto() {
     return { clase:'pausa', txt: t.em + ' ' + t.nom + (EXC.global ? ' — toda la empresa' : '') };
   }
   if (!HOY.checadas.length) return { clase:'', txt:'Todavía no checas hoy' };
+
+  var abierto = descansoAbierto();
+  if (abierto) {
+    return { clase:'pausa',
+             txt:(abierto.tipo === 'SALIDA_DESAYUNO' ? 'Desayunando' : 'Comiendo') +
+                 ' desde las ' + hhmm(abierto.hora) };
+  }
+
   var u = HOY.checadas[HOY.checadas.length - 1];
   var h = hhmm(u.hora);
   if (u.tipo === 'SALIDA')           return { clase:'fuera',  txt:'Saliste a las ' + h };
-  if (u.tipo === 'SALIDA_DESAYUNO')  return { clase:'pausa',  txt:'Desayunando desde las ' + h };
-  if (u.tipo === 'SALIDA_COMIDA')    return { clase:'pausa',  txt:'Comiendo desde las ' + h };
   if (u.tipo === 'ENTRADA')          return { clase:'dentro', txt:'Entraste a las ' + h };
   return { clase:'dentro', txt:'Última checada: ' + h };
 }
@@ -807,6 +852,7 @@ function pintar() {
   btn.onclick = sig ? function(){ registrar(sig); } : null;
   if (!sig) btn.disabled = true;
 
+  document.getElementById('btn-corregir').hidden = !(YO && HOY.checadas.length);
   pintarDia();
   pintarCrono();
   pintarQuincena();
@@ -847,6 +893,58 @@ var EXC_TIPOS = [
 function excDe(t) {
   for (var i = 0; i < EXC_TIPOS.length; i++) if (EXC_TIPOS[i].tipo === t) return EXC_TIPOS[i];
   return null;
+}
+
+var fondoCorregir = document.getElementById('fondo-corregir');
+document.getElementById('cerrar-corregir').onclick = function(){ fondoCorregir.classList.remove('ver'); };
+document.getElementById('btn-corregir').onclick = function(){
+  pintarCorregir();
+  fondoCorregir.classList.add('ver');
+};
+
+/** Lista cada checada de hoy, una por una, con su tache. */
+function pintarCorregir() {
+  var cont = document.getElementById('lista-corregir');
+  cont.className = '';
+  if (!HOY.checadas.length) {
+    cont.innerHTML = '<div class="vacio" style="color:var(--tm);padding:14px 4px;font-size:13.5px">' +
+                     'No has checado nada hoy.</div>';
+    return;
+  }
+  cont.innerHTML = '';
+  HOY.checadas.forEach(function (c) {
+    var m = MOVS.filter(function (x) { return x.tipo === c.tipo; })[0];
+    var fila = document.createElement('div');
+    fila.className = 'corregible';
+    fila.innerHTML =
+      '<span class="e">' + (m ? m.emoji + ' ' + m.nom : c.tipo) + '</span>' +
+      '<span class="h">' + hhmm(c.hora) + '</span>' +
+      '<button class="tache" type="button" aria-label="Borrar">&times;</button>';
+    fila.querySelector('.tache').onclick = function () { borrarChecada(c); };
+    cont.appendChild(fila);
+  });
+}
+
+function borrarChecada(c) {
+  var m = MOVS.filter(function (x) { return x.tipo === c.tipo; })[0];
+  var nom = m ? m.nom : c.tipo;
+  if (!confirm('¿Borrar tu ' + nom.toLowerCase() + ' de las ' + hhmm(c.hora) + '?\n\nNo se puede deshacer.')) return;
+  if (navigator.onLine === false) { aviso('Necesitas señal para borrar.', 'warn', 4000); return; }
+
+  fondoCorregir.classList.remove('ver');
+  aviso('Borrando...', '', 0);
+  gas('borrarChecadaPropia', [YO.pin, c.hora, c.tipo]).then(function (r) {
+    if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+    HOY.checadas = HOY.checadas.filter(function (x) {
+      return !(x.tipo === c.tipo && hhmm(x.hora) === hhmm(c.hora));
+    });
+    ls(LS_HOY, HOY);
+    pintar();
+    aviso('Listo, borré tu ' + nom.toLowerCase() + '.', 'ok', 4000);
+    refrescarHoy();
+  }).catch(function (e) {
+    aviso('No se pudo borrar: ' + e.message, 'err', 6000);
+  });
 }
 
 var fondoQuincena = document.getElementById('fondo-quincena');
@@ -1030,7 +1128,7 @@ function cerrarTocandoFuera(el) {
 }
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
-  ['fondo-gente','fondo-movs','fondo-dia','fondo-alertas','fondo-quincena'].forEach(function (id) {
+  ['fondo-gente','fondo-movs','fondo-dia','fondo-alertas','fondo-quincena','fondo-corregir'].forEach(function (id) {
     var f = document.getElementById(id);
     if (f) f.classList.remove('ver');
   });
@@ -1095,6 +1193,7 @@ cerrarTocandoFuera(fondoMovs);
 cerrarTocandoFuera(fondoDia);
 cerrarTocandoFuera(fondoAlertas);
 cerrarTocandoFuera(fondoQuincena);
+cerrarTocandoFuera(fondoCorregir);
 document.getElementById('btn-otros').onclick = function(){
   if (!YO) { abrirGente(); return; }
   var cont = document.getElementById('lista-movs');
@@ -1133,6 +1232,7 @@ function registrar(mov) {
 
   // Se pinta de inmediato: la pantalla no espera a la red.
   HOY.checadas.push({ tipo: mov.tipo, hora: horaStr(ahora), pendiente: true });
+  ordenarHoy();
   ls(LS_HOY, HOY);
   pintar();
 
@@ -1159,6 +1259,7 @@ function registrar(mov) {
       HOY = { fecha: hoyStr(), checadas: r.checadasHoyServidor.map(function(c){
         return { tipo:(c.tipo||'').toUpperCase(), hora:c.hora };
       }) };
+      ordenarHoy();
       ls(LS_HOY, HOY);
     }
     pintar();
@@ -1239,6 +1340,7 @@ function refrescarHoy() {
     HOY = { fecha: hoyStr(), checadas: (r.checadasHoy || []).map(function(c){
       return { tipo:(c.tipo||'').toUpperCase(), hora:c.hora };
     }) };
+    ordenarHoy();
     ls(LS_HOY, HOY);
     pintar();
     bajarQuincena();
