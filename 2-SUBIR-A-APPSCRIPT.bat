@@ -21,41 +21,50 @@ echo   %AZUL%----------------------------------------------------%FIN%
 echo.
 if not exist "apps-script\appsscript.json" goto VACIO
 
-echo   %AZUL%[1/2]%FIN%  Credenciales . . . . . . . . . . . .
+echo   %AZUL%[1/3]%FIN%  Credenciales . . . . . . . . . . . .
 call _seguro.bat
 if errorlevel 1 goto FUGA
 echo          limpio
 
-echo   %AZUL%[2/2]%FIN%  Subiendo . . . . . . . . . . . . . .
+echo   %AZUL%[2/3]%FIN%  Subiendo . . . . . . . . . . . . . .
 call clasp push --force >nul 2>"%TEMP%\chk_e.txt"
 if errorlevel 1 goto PUSHFAIL
 del "%TEMP%\chk_e.txt" >nul 2>&1
 echo          ok
+
+echo   %AZUL%[3/3]%FIN%  Publicando version . . . . . . . . .
+if not defined DEPLOY_ID goto SINDEPLOY
+call clasp deploy -i %DEPLOY_ID% -d auto >nul 2>"%TEMP%\chk_d.txt"
+if errorlevel 1 goto DEPLOYFAIL
+del "%TEMP%\chk_d.txt" >nul 2>&1
+echo          publicada
 echo.
 echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-call :BUSCARGIT
-if errorlevel 1 goto SINGIT
-set "PUBLICAR="
-"!GIT!" status --porcelain > "%TEMP%\chk_c.txt" 2>nul
-if exist "%TEMP%\chk_c.txt" (
-    findstr /I /C:"apps-script/" "%TEMP%\chk_c.txt" | findstr /V /I /C:"Mensajes.gs" >nul 2>&1 && set "PUBLICAR=1"
-)
-del "%TEMP%\chk_c.txt" >nul 2>&1
-if defined PUBLICAR (
-    echo   %ROJO%^^!  FALTA PUBLICAR VERSION%FIN%
-) else (
-    echo %VERDE%  No hace falta publicar version.%FIN%
-)
+echo %VERDE%  Listo. Los celulares ya tienen el backend nuevo.%FIN%
 echo.
 call :LOGO
 exit /b 0
 
-:SINGIT
-echo %VERDE%  Subido.%FIN%
+:SINDEPLOY
+echo          sin DEPLOY_ID
+echo.
+echo   %AZUL%----------------------------------------------------%FIN%
+echo.
+echo   %ROJO%^^!  FALTA PUBLICAR VERSION%FIN%
 echo.
 call :LOGO
 exit /b 0
+
+:DEPLOYFAIL
+type "%TEMP%\chk_d.txt"
+del "%TEMP%\chk_d.txt" >nul 2>&1
+echo.
+echo   %ROJO%x  NO SE PUBLICO LA VERSION%FIN%
+echo      Revisa DEPLOY_ID en _config.bat
+echo.
+pause
+exit /b 1
 
 :PUSHFAIL
 type "%TEMP%\chk_e.txt"
@@ -80,17 +89,6 @@ echo   %ROJO%x  POSIBLE CREDENCIAL - no se subio nada%FIN%
 echo.
 pause
 exit /b 1
-
-:BUSCARGIT
-set "GIT=git"
-where git >nul 2>&1
-if not errorlevel 1 exit /b 0
-for /d %%D in ("%LOCALAPPDATA%\GitHubDesktop\app-*") do (
-    if exist "%%D\resources\app\git\cmd\git.exe" set "GIT=%%D\resources\app\git\cmd\git.exe"
-)
-if exist "%ProgramFiles%\Git\cmd\git.exe" set "GIT=%ProgramFiles%\Git\cmd\git.exe"
-if "!GIT!"=="git" exit /b 1
-exit /b 0
 
 :LOGO
 where node >nul 2>&1

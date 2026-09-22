@@ -19,28 +19,36 @@ echo.
 echo   SUBIR TODO                    Apps Script + GitHub
 echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-echo   %AZUL%[1/3]%FIN%  Credenciales . . . . . . . . . . . .
+echo   %AZUL%[1/4]%FIN%  Credenciales . . . . . . . . . . . .
 call _seguro.bat
 if errorlevel 1 goto FUGA
 echo          limpio
 
-echo   %AZUL%[2/3]%FIN%  Apps Script . . . . . . . . . . . .
+echo   %AZUL%[2/4]%FIN%  Apps Script . . . . . . . . . . . .
 if not exist "apps-script\appsscript.json" goto VACIO
 call clasp push --force >nul 2>"%TEMP%\chk_e.txt"
 if errorlevel 1 goto CLASPFAIL
 del "%TEMP%\chk_e.txt" >nul 2>&1
 echo          ok
 
-echo   %AZUL%[3/3]%FIN%  GitHub . . . . . . . . . . . . . . .
+echo   %AZUL%[3/4]%FIN%  Publicando version . . . . . . . . .
+set "SINPUB="
+if not defined DEPLOY_ID goto SALTAPUB
+call clasp deploy -i %DEPLOY_ID% -d auto >nul 2>"%TEMP%\chk_d.txt"
+if errorlevel 1 goto DEPLOYFAIL
+del "%TEMP%\chk_d.txt" >nul 2>&1
+echo          publicada
+goto GITHUB
+
+:SALTAPUB
+set "SINPUB=1"
+echo          sin DEPLOY_ID
+
+:GITHUB
+echo   %AZUL%[4/4]%FIN%  GitHub . . . . . . . . . . . . . . .
 call :BUSCARGIT
 if errorlevel 1 goto NOGIT
 if exist ".git\index.lock" del /f /q ".git\index.lock" >nul 2>&1
-set "PUBLICAR="
-"!GIT!" status --porcelain > "%TEMP%\chk_c.txt" 2>nul
-if exist "%TEMP%\chk_c.txt" (
-    findstr /I /C:"apps-script/" "%TEMP%\chk_c.txt" | findstr /V /I /C:"Mensajes.gs" >nul 2>&1 && set "PUBLICAR=1"
-)
-del "%TEMP%\chk_c.txt" >nul 2>&1
 "!GIT!" status --porcelain > "%TEMP%\chk_s.txt" 2>nul
 set CAMBIOS=0
 for /f %%C in ('find /c /v "" ^< "%TEMP%\chk_s.txt"') do set CAMBIOS=%%C
@@ -65,14 +73,24 @@ echo          subido
 echo.
 echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-if defined PUBLICAR (
+if defined SINPUB (
     echo   %ROJO%^^!  FALTA PUBLICAR VERSION%FIN%
 ) else (
-    echo %VERDE%  No hace falta publicar version.%FIN%
+    echo %VERDE%  Listo. Los celulares se actualizan solos.%FIN%
 )
 echo.
 call :LOGO
 exit /b 0
+
+:DEPLOYFAIL
+type "%TEMP%\chk_d.txt"
+del "%TEMP%\chk_d.txt" >nul 2>&1
+echo.
+echo   %ROJO%x  NO SE PUBLICO LA VERSION%FIN%
+echo      Revisa DEPLOY_ID en _config.bat
+echo.
+pause
+exit /b 1
 
 :CLASPFAIL
 type "%TEMP%\chk_e.txt"
