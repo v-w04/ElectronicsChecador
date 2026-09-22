@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tablero de checadas · Electronics México</title>
 <link rel="icon" href="favicon.ico">
+<script src="avatar.js"></script>
+<script src="actualizar.js"></script>
 <style>
 /* ===========================================================================
    TABLERO DE CHECADAS — Electronics México
@@ -61,9 +63,10 @@ h1{margin:0;font-size:19px;font-weight:700;color:var(--t1);letter-spacing:-.01em
   color:var(--t1);font-family:inherit;font-size:16px;cursor:pointer;min-height:118px}
 .persona:hover{background:var(--hover);border-color:var(--brand)}
 .persona:focus-visible{outline:2px solid var(--brand-hi);outline-offset:2px}
-.persona .ini{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+.persona .ini{width:44px;height:44px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(135deg,#243b63,#1b2942);color:var(--t1);font-weight:700;font-size:15px;
   border:1px solid var(--bd)}
+.persona .ini img{width:100%;height:100%;display:block}
 .persona .nom{font-weight:700;line-height:1.25;font-size:16px}
 .persona .est{font-size:12px;color:var(--tm);display:flex;align-items:center;gap:6px;margin-top:auto}
 .punto{width:8px;height:8px;border-radius:50%;background:var(--tm);flex:0 0 auto}
@@ -176,20 +179,13 @@ footer{margin-top:30px;font-size:12px;color:var(--tm);display:flex;flex-wrap:wra
 // (no una versión nueva del mismo), esta URL cambia y hay que actualizarla.
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
 
-// Quién sale en el tablero, y en este orden. El ID es el de TURNOS_DEFAULT.
-// Para agregar o quitar a alguien se edita SOLO esta lista.
-// (Cuando el backend nuevo esté arriba, esto se lee de la hoja TABLERO.)
-var EN_TABLERO = [
-  { id: '55', corto: 'Víctor' },
-  { id: '50', corto: 'Eric' },
-  { id: '25', corto: 'Samantha' },
-  { id: '1',  corto: 'Ximena' },
-  { id: '51', corto: 'Jasso' },
-  { id: '23', corto: 'Rodrigo Romero' },
-  { id: '54', corto: 'Emanuel' },
-  { id: '9',  corto: 'Eduardo Pérez' },
-  { id: '53', corto: 'Walter' }
-];
+// Quién sale en el tablero lo decide la hoja APP_EMPLEADOS del Sheet:
+// los que tienen "En la app" = SÍ. Aquí ya no se escribe a nadie a mano.
+// Se guarda una copia en la tablet para que abra aunque se caiga el internet.
+var LS_TABLERO  = 'em_tablero_gente';
+var LS_AVATARES = 'em_checar_avatares';
+var EN_TABLERO  = (function(){ try { return JSON.parse(localStorage.getItem(LS_TABLERO)) || []; } catch(e) { return []; } })();
+var AVATARES    = (function(){ try { return JSON.parse(localStorage.getItem(LS_AVATARES)) || {}; } catch(e) { return {}; } })();
 
 // Los seis movimientos, en el orden del día.
 var MOVIMIENTOS = [
@@ -232,6 +228,11 @@ function normId(v) {
   v = (v === null || v === undefined) ? '' : String(v).trim();
   var n = parseInt(v, 10);
   return (isNaN(n) || !/^\d+$/.test(v)) ? v : String(n);
+}
+
+function nombreCorto(n) {
+  var p = (n || '').trim().split(/\s+/);
+  return p.slice(0, 2).join(' ');
 }
 
 function iniciales(nombre) {
@@ -307,7 +308,9 @@ function pintarGente() {
     btn.className = 'persona';
     btn.setAttribute('aria-label', 'Registrar movimiento de ' + nombre);
     btn.innerHTML =
-      '<div class="ini">' + iniciales((emp && emp.nombre) || nombre) + '</div>' +
+      '<div class="ini"><img alt="" loading="lazy" src="' +
+        avatarUrl((emp && emp.nombre) || nombre, p.area, AVATARES[(emp && emp.nombre) || nombre]) +
+        '" onerror="this.parentNode.textContent=\'' + iniciales((emp && emp.nombre) || nombre) + '\'"></div>' +
       '<div class="nom">' + nombre + '</div>' +
       '<div class="est"><span class="punto ' + est.clase + '"></span>' + est.texto + '</div>';
     btn.onclick = function() { abrirHoja(p.id); };
@@ -427,24 +430,29 @@ function cargar() {
   aviso('Cargando la lista de personas...', 'carga');
   pintarGente();
 
-  gas('getTodosLosUsuarios', [])
+  gas('getEmpleadosApp', [])
     .then(function(r) {
-      if (!r || !r.usuarios) throw new Error((r && r.message) || 'sin respuesta');
-      r.usuarios.forEach(function(u) {
-        var id = normId(u.idUsuario);
-        // El tablero no usa PIN ni contraseña: de esta respuesta solo se
-        // toman el nombre y el turno.
-        if (!empleados[id]) empleados[id] = { id: id, nombre: u.nombre, pin: u.pin, turno: u.turnoHorario || '' };
-      });
-      var faltan = EN_TABLERO.filter(function(p) { return !empleados[p.id]; })
-                             .map(function(p) { return p.corto; });
-      pintarGente();
-      if (faltan.length) {
-        aviso('Ojo: no encontré en TURNOS_DEFAULT a ' + faltan.join(', ') + '.', 'err');
-      } else {
-        aviso('Listo. Toca un nombre para registrar su movimiento.', 'ok');
-        limpiarAviso(3500);
+      if (!r || !r.empleados) throw new Error((r && r.message) || 'sin respuesta');
+      if (!r.empleados.length) {
+        aviso('No hay nadie marcado con SÍ en la hoja APP_EMPLEADOS.', 'err');
+        return;
       }
+
+      AVATARES = r.avatares || {};
+      EN_TABLERO = r.empleados.map(function(u) {
+        var id = normId(u.id);
+        empleados[id] = { id: id, nombre: u.nombre, pin: u.pin, turno: u.turno || '' };
+        return { id: id, corto: nombreCorto(u.nombre), area: u.area || '' };
+      });
+
+      try {
+        localStorage.setItem(LS_TABLERO, JSON.stringify(EN_TABLERO));
+        localStorage.setItem(LS_AVATARES, JSON.stringify(AVATARES));
+      } catch (e) {}
+
+      pintarGente();
+      aviso('Listo. Toca un nombre para registrar su movimiento.', 'ok');
+      limpiarAviso(3500);
       return refrescarChecadas();
     })
     .catch(function(e) {
@@ -469,6 +477,10 @@ function refrescarChecadas() {
 }
 
 cargar();
+
+// La tablet también se actualiza sola cuando se publica una versión nueva.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
+Actualizar.iniciar('v700');
 
 // Relectura cada 3 minutos: si alguien checó desde su celular, el tablero
 // lo refleja sin que nadie recargue la página.

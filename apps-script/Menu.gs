@@ -10,6 +10,8 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Checador')
+    .addItem('Empleados en la app', 'menuEmpleadosApp')
+    .addSeparator()
     .addItem('Probar notificación a un celular', 'menuProbarCelular')
     .addItem('Entregas de hoy', 'menuEntregasHoy')
     .addItem('Diagnóstico', 'menuDiagnostico')
@@ -71,5 +73,25 @@ function menuActivarAlertas() {
   instalarTriggerAlertas();
   _aviso_('✅ Alertas activadas',
           'Corren cada minuto, de ' + ALERTAS_HORA_INICIO + ':00 a ' + ALERTAS_HORA_FIN + ':00, ' +
-          'con la cuenta de ' + Session.getEffectiveUser().getEmail() + '.');
+          'con la cuenta que está abriendo este Sheet.');
+}
+
+
+/**
+ * Crea la hoja APP_EMPLEADOS si no existe y le agrega a los que falten.
+ * Nunca cambia lo que ya está marcado: lo que pusiste en SÍ o NO se respeta.
+ */
+function menuEmpleadosApp() {
+  var r = sincronizarAppEmpleados();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(APP_EMPLEADOS_HOJA);
+  if (sheet) ss.setActiveSheet(sheet);
+
+  var enApp = getEmpleadosApp().empleados.length;
+  _aviso_('Empleados en la app',
+          (r && r.agregados
+             ? 'Agregué ' + r.agregados + ' empleado' + (r.agregados === 1 ? '' : 's') + ' a la lista.\n\n'
+             : 'No hay empleados nuevos.\n\n') +
+          'Aparecen hoy en la app: ' + enApp + '.\n\n' +
+          'Cambia la columna "En la app" a SÍ o NO y listo: la app lo toma sola.');
 }

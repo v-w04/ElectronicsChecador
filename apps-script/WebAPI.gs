@@ -40,6 +40,9 @@ function doGet(e) {
 // convierta en ejecución de código arbitrario.
 function _funcionesExpuestas() {
   return {
+    // Empleados que aparecen en la app (hoja APP_EMPLEADOS)
+    getEmpleadosApp:          getEmpleadosApp,
+
     // Login / usuarios
     getTodosLosUsuarios:      getTodosLosUsuarios,
     getVersionUsuarios:       getVersionUsuarios,

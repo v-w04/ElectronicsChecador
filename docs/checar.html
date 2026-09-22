@@ -11,6 +11,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon.ico">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="avatar.js"></script>
+<script src="actualizar.js"></script>
 <style>
 /* ===========================================================================
    CHECADOR — app del empleado
@@ -62,6 +64,18 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .punto{width:10px;height:10px;border-radius:50%;background:var(--tm);flex:0 0 auto}
 .punto.dentro{background:var(--ok)} .punto.fuera{background:var(--bad)} .punto.pausa{background:var(--warn)}
 
+/* cronometro en vivo — desayuno, comida y tiempo extra */
+.crono{margin-top:14px;border:1px solid var(--bd);border-radius:16px;background:var(--card);
+  padding:16px;text-align:center}
+.crono[hidden]{display:none}
+.crono .que{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--tm)}
+.crono .num{font-family:var(--mono);font-size:42px;font-weight:700;line-height:1.1;margin:7px 0 3px;
+  font-variant-numeric:tabular-nums;color:var(--t1)}
+.crono .sub{font-size:12.5px;color:var(--t2)}
+.crono.ok{border-color:rgba(56,139,253,.45)} .crono.ok .num{color:var(--brand-hi)}
+.crono.warn{border-color:var(--warn-bd);background:var(--warn-bg)} .crono.warn .num{color:var(--warn)}
+.crono.bad{border-color:var(--bad-bd);background:var(--bad-bg)} .crono.bad .num{color:var(--bad)}
+
 /* boton principal */
 .checar{margin-top:18px;width:100%;border:0;border-radius:20px;padding:26px 20px;
   background:linear-gradient(135deg,#1b4fa8,var(--brand));color:#fff;cursor:pointer;
@@ -79,14 +93,32 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
 /* avisos */
 #aviso{margin-top:14px;border-radius:14px;padding:13px 16px;font-size:13.5px;
-  border:1px solid var(--bd);background:var(--raised);display:none;line-height:1.45}
+  border:1px solid var(--bd);background:var(--raised);display:none;line-height:1.45;
+  white-space:pre-line}
 #aviso.ver{display:block}
 #aviso.ok{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
 #aviso.err{border-color:var(--bad-bd);background:var(--bad-bg);color:var(--bad)}
 #aviso.warn{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
 
-/* lista del dia */
+/* desglose del dia */
 .seccion{margin-top:24px}
+.hoy .bloque{display:flex;align-items:center;gap:13px;padding:12px 16px;border-top:1px solid var(--bd-sub)}
+.hoy .bloque:first-child{border-top:0}
+.hoy .ico{width:36px;height:36px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;
+  justify-content:center;font-size:17px;background:var(--raised);border:1px solid var(--bd)}
+.hoy .txt{flex:1;min-width:0}
+.hoy .et{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tm);font-weight:700}
+.hoy .hr{font-family:var(--mono);font-size:16px;color:var(--t1);font-weight:600;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{flex:0 0 auto;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;
+  border:1px solid var(--bd);color:var(--t2)}
+.chip.ok{color:var(--ok);border-color:var(--ok-bd);background:var(--ok-bg)}
+.chip.bad{color:var(--bad);border-color:var(--bad-bd);background:var(--bad-bg)}
+.chip.vivo{color:var(--brand-hi);border-color:rgba(56,139,253,.45);background:rgba(56,139,253,.14)}
+.resumen{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:11px 16px;border-top:1px solid var(--bd-sub);font-size:12px;color:var(--tm)}
+.resumen b{color:var(--t1);font-family:var(--mono);font-size:14px;font-weight:700}
+.resumen .extra{color:var(--warn);font-family:var(--mono);font-weight:700;font-size:13px}
 .tit{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tm);
   font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline}
 .hoy{border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--card)}
@@ -120,10 +152,33 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   cursor:pointer;margin-bottom:8px}
 .opcion:hover{background:var(--hover)}
 .opcion small{display:block;font-weight:400;font-size:12.5px;color:var(--tm);margin-top:2px}
+/* cuadricula de caras — elegir por la cara, no leyendo */
+.caras{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-bottom:10px}
+.cara{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px 6px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;color:var(--t1);
+  transition:transform .12s ease,border-color .12s ease,background .12s ease}
+.cara:hover{background:var(--hover);border-color:var(--brand)}
+.cara:active{transform:scale(.95)}
+.cara:focus-visible{outline:2px solid var(--brand-hi);outline-offset:2px}
+.cara .foto{width:64px;height:64px;border-radius:50%;overflow:hidden;background:var(--raised);
+  border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:20px;color:var(--t2)}
+.cara .foto img{width:100%;height:100%;display:block}
+.cara .nm{font-size:12.5px;font-weight:600;line-height:1.25;text-align:center;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+/* la cara de la barra de arriba */
+.ini img{width:100%;height:100%;border-radius:50%;display:block}
+
 .cerrar{width:100%;background:transparent;border:1px solid var(--bd);color:var(--t2);
   border-radius:12px;padding:13px;font-size:14px;cursor:pointer;margin-top:4px}
 
-.pie{margin-top:26px;text-align:center;font-size:11.5px;color:var(--tm);font-family:var(--mono)}
+.pie{margin-top:26px;text-align:center;font-size:11.5px;color:var(--tm);font-family:var(--mono);
+  display:flex;flex-direction:column;align-items:center;gap:10px}
+.actualizar{background:transparent;border:1px solid var(--bd);color:var(--tm);border-radius:999px;
+  padding:8px 15px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.actualizar:hover{background:var(--hover);color:var(--t2)}
+.actualizar:disabled{opacity:.6}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -148,6 +203,8 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="estado"><span class="punto" id="punto"></span><span id="estado">Cargando...</span></div>
 
+  <div class="crono" id="crono" hidden></div>
+
   <button class="checar" id="btn-checar" type="button" disabled>
     <span class="que" id="checar-que">Checar</span>
     <span class="pista" id="checar-pista">&nbsp;</span>
@@ -166,7 +223,10 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <div class="hoy" id="lista-hoy"><div class="vacio">Sin checadas hoy.</div></div>
   </section>
 
-  <div class="pie" id="pie">v700</div>
+  <div class="pie">
+    <span id="pie">v700</span>
+    <button class="actualizar" id="btn-actualizar" type="button">Buscar actualización</button>
+  </div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -203,18 +263,22 @@ var FIREBASE_CONFIG = {
 };
 var VAPID_KEY = 'BHyfFo8jnvNKeIuXlAEqsXmfTLCaJqKEVkfWHSl8Lk4W155rGgA9LSlP_a4zF1vviWXtHY6QpikDcnrm9flaUo4';
 
+// Los nombres y emojis son los MISMOS que ya usaba la app (_ETIQUETAS_TIPO).
+// No se inventan textos nuevos: el empleado ya conoce estas palabras.
 var MOVS = [
-  { tipo:'ENTRADA',          nom:'Entrada',               pista:'Llegaste' },
-  { tipo:'SALIDA_DESAYUNO',  nom:'Salgo a desayunar',     pista:'Empieza tu desayuno' },
-  { tipo:'REGRESO_DESAYUNO', nom:'Regreso de desayunar',  pista:'Cierra tu desayuno' },
-  { tipo:'SALIDA_COMIDA',    nom:'Salgo a comer',         pista:'Empieza tu comida' },
-  { tipo:'REGRESO_COMIDA',   nom:'Regreso de comer',      pista:'Cierra tu comida' },
-  { tipo:'SALIDA',           nom:'Salida',                pista:'Cierras tu día' }
+  { tipo:'ENTRADA',          emoji:'🏢', nom:'Entrada',              pista:'Empieza tu jornada' },
+  { tipo:'SALIDA_DESAYUNO',  emoji:'🥐', nom:'Salida a desayuno',    pista:'Empieza tu desayuno' },
+  { tipo:'REGRESO_DESAYUNO', emoji:'🥐', nom:'Regreso de desayuno',  pista:'Cierra tu desayuno' },
+  { tipo:'SALIDA_COMIDA',    emoji:'🍽️', nom:'Salida a comida',      pista:'Empieza tu comida' },
+  { tipo:'REGRESO_COMIDA',   emoji:'🍽️', nom:'Regreso de comida',    pista:'Cierra tu comida' },
+  { tipo:'SALIDA',           emoji:'🏠', nom:'Salida',               pista:'Cierras tu día' }
 ];
 
 var LS_YO       = 'em_checar_yo';
 var LS_GENTE    = 'em_checar_gente';
 var LS_HOY      = 'em_checar_hoy';
+var LS_CFG      = 'em_checar_cfg';   // minutos de desayuno y comida
+var LS_AVATARES = 'em_checar_avatares';
 var LS_TOKEN    = 'em_push_token';
 var DB_NAME     = 'em_checador_offline';   // la misma cola de siempre
 var DB_STORE    = 'checadas_pendientes';
@@ -354,6 +418,12 @@ var GENTE = ls(LS_GENTE) || [];  // [{ id, pin, nombre, turno }]
 var HOY = ls(LS_HOY) || { fecha:'', checadas:[] };
 if (HOY.fecha !== hoyStr()) HOY = { fecha: hoyStr(), checadas: [] };
 
+// Minutos permitidos. Se refrescan del servidor al abrir, pero queda la
+// última copia para que el cronómetro siga sirviendo sin señal.
+var CFG = ls(LS_CFG) || { duracion_desayuno_min: 20, duracion_comida_min: 60 };
+var AVATARES = ls(LS_AVATARES) || {};   // personalizaciones ya guardadas
+var _extraVivoDesde = null;   // segundos del fin de turno, si va corriendo el extra
+
 /* ===========================================================================
    RELOJ
    =========================================================================== */
@@ -373,6 +443,153 @@ setInterval(pintarReloj, 10000);
    =========================================================================== */
 function hechas() { return HOY.checadas.map(function(c){ return c.tipo; }); }
 
+/* ── Duraciones y turno ────────────────────────────────────────────────────
+   Los minutos permitidos salen de CONFIG_ALERTAS (los mismos que usa el
+   motor de alertas) y se guardan en el celular para que el contador siga
+   funcionando sin señal. */
+function durDesayuno() { return parseInt(CFG.duracion_desayuno_min, 10) || 20; }
+function durComida()   { return parseInt(CFG.duracion_comida_min,   10) || 60; }
+
+function segDe(h) {
+  var m = String(h || '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+(m[3] || 0)) : null;
+}
+function segAhora() { var d = new Date(); return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds(); }
+function fmtHMS(s) {
+  s = Math.max(0, Math.floor(s));
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), g = s%60;
+  return (h ? dosDig(h) + ':' : '') + dosDig(m) + ':' + dosDig(g);
+}
+function hmDe(s) { return dosDig(Math.floor(s/3600)) + ':' + dosDig(Math.floor((s%3600)/60)); }
+
+/** El turno viene como "10:00 - 19:00". */
+function turnoSeg() {
+  var m = String((YO && YO.turno) || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+  return m ? { ini: (+m[1])*3600 + (+m[2])*60, fin: (+m[3])*3600 + (+m[4])*60 } : null;
+}
+function primera(tipo) {
+  for (var i = 0; i < HOY.checadas.length; i++) if (HOY.checadas[i].tipo === tipo) return HOY.checadas[i];
+  return null;
+}
+
+/* ── CRONÓMETRO EN VIVO ────────────────────────────────────────────────────
+   El mismo de siempre, corriendo cada segundo:
+     · Desayuno o comida sin regresar → cuenta regresiva desde el límite.
+       Ámbar en los últimos 5 min, rojo y en negativo al pasarse.
+     · Turno terminado sin checar salida → tiempo extra que no se paga.
+     · Nada de eso → se esconde. */
+function pintarCrono() {
+  var caja = document.getElementById('crono');
+  if (!YO || !HOY.checadas.length) { caja.hidden = true; return; }
+
+  var u = HOY.checadas[HOY.checadas.length - 1];
+  var ahora = segAhora();
+
+  if (u.tipo === 'SALIDA_DESAYUNO' || u.tipo === 'SALIDA_COMIDA') {
+    var esDes = u.tipo === 'SALIDA_DESAYUNO';
+    var lim = (esDes ? durDesayuno() : durComida());
+    var ini = segDe(u.hora);
+    if (ini === null) { caja.hidden = true; return; }
+
+    var resta = lim * 60 - (ahora - ini);
+    var pasado = resta < 0;
+    caja.hidden = false;
+    caja.className = 'crono ' + (pasado ? 'bad' : (resta <= 300 ? 'warn' : 'ok'));
+    caja.innerHTML =
+      '<div class="que">' + (esDes ? '🥐 Desayuno en curso' : '🍽️ Comida en curso') + '</div>' +
+      '<div class="num">' + (pasado ? '−' : '') + fmtHMS(Math.abs(resta)) + '</div>' +
+      '<div class="sub">' + (pasado
+        ? 'Te pasaste. Registra tu regreso.'
+        : 'de ' + lim + ' min · regresa a las ' + hmDe(ini + lim * 60)) + '</div>';
+    return;
+  }
+
+  var t = turnoSeg();
+  if (t && !primera('SALIDA') && ahora > t.fin) {
+    caja.hidden = false;
+    caja.className = 'crono warn';
+    caja.innerHTML =
+      '<div class="que">⏱️ Tiempo extra · no se paga</div>' +
+      '<div class="num">' + fmtHMS(ahora - t.fin) + '</div>' +
+      '<div class="sub">Tu turno terminó a las ' + hmDe(t.fin) + '. Checa tu salida.</div>';
+    return;
+  }
+
+  caja.hidden = true;
+}
+
+/* ── DESGLOSE DEL DÍA ──────────────────────────────────────────────────────
+   Entrada · desayuno (de → a, cuántos minutos) · comida · salida, con las
+   horas de jornada y el extra sin pago. Es lo que antes vivía en el perfil. */
+function bloqueDia(emoji, etiqueta, horas, chip, claseChip) {
+  return '<div class="bloque">' +
+    '<div class="ico">' + emoji + '</div>' +
+    '<div class="txt"><div class="et">' + etiqueta + '</div><div class="hr">' + horas + '</div></div>' +
+    (chip ? '<span class="chip ' + (claseChip || '') + '">' + chip + '</span>' : '') +
+  '</div>';
+}
+
+function pintarDia() {
+  var cont = document.getElementById('lista-hoy');
+  if (!HOY.checadas.length) {
+    cont.innerHTML = '<div class="vacio">Sin checadas hoy.</div>';
+    return;
+  }
+
+  var ent = primera('ENTRADA'), sal = primera('SALIDA');
+  var sd = primera('SALIDA_DESAYUNO'), rd = primera('REGRESO_DESAYUNO');
+  var sc = primera('SALIDA_COMIDA'),   rc = primera('REGRESO_COMIDA');
+  var html = '';
+
+  if (ent) html += bloqueDia('🏢', 'Entrada', hhmm(ent.hora), '', '');
+
+  if (sd) {
+    var dD = rd ? Math.round((segDe(rd.hora) - segDe(sd.hora)) / 60) : null;
+    html += bloqueDia('🥐', 'Desayuno',
+      hhmm(sd.hora) + '  →  ' + (rd ? hhmm(rd.hora) : '…'),
+      dD === null ? 'en curso' : dD + ' min',
+      dD === null ? 'vivo' : (dD > durDesayuno() ? 'bad' : 'ok'));
+  }
+
+  if (sc) {
+    var dC = rc ? Math.round((segDe(rc.hora) - segDe(sc.hora)) / 60) : null;
+    html += bloqueDia('🍽️', 'Comida',
+      hhmm(sc.hora) + '  →  ' + (rc ? hhmm(rc.hora) : '…'),
+      dC === null ? 'en curso' : dC + ' min',
+      dC === null ? 'vivo' : (dC > durComida() ? 'bad' : 'ok'));
+  }
+
+  if (sal) html += bloqueDia('🏠', 'Salida', hhmm(sal.hora), '', '');
+
+  // Los movimientos extra que no entran en el esquema de arriba.
+  HOY.checadas.forEach(function (c) {
+    if (['ENTRADA','SALIDA','SALIDA_DESAYUNO','REGRESO_DESAYUNO','SALIDA_COMIDA','REGRESO_COMIDA']
+        .indexOf(c.tipo) === -1) {
+      html += bloqueDia('➕', 'Registro extra', hhmm(c.hora), '', '');
+    }
+  });
+
+  // Pie: jornada y tiempo extra sin pago.
+  var izq = '', der = '';
+  if (ent && sal && segDe(ent.hora) !== null && segDe(sal.hora) !== null) {
+    izq = 'Jornada <b>' + ((segDe(sal.hora) - segDe(ent.hora)) / 3600).toFixed(1) + ' h</b>';
+  }
+  var t = turnoSeg();
+  _extraVivoDesde = null;
+  if (t) {
+    if (sal && segDe(sal.hora) !== null) {
+      var exF = Math.max(0, segDe(sal.hora) - t.fin);
+      if (exF > 0) der = '<span class="extra">⏱️ ' + fmtHMS(exF) + '</span> extra sin pago';
+    } else if (segAhora() > t.fin) {
+      _extraVivoDesde = t.fin;
+      der = '<span class="extra" id="extra-vivo">⏱️ ' + fmtHMS(segAhora() - t.fin) + '</span> extra · en curso';
+    }
+  }
+  if (izq || der) html += '<div class="resumen"><span>' + izq + '</span><span>' + der + '</span></div>';
+
+  cont.innerHTML = html;
+}
+
 function siguienteMov() {
   var ya = hechas();
   for (var i = 0; i < MOVS.length; i++) if (ya.indexOf(MOVS[i].tipo) === -1) return MOVS[i];
@@ -391,7 +608,14 @@ function estadoTexto() {
 }
 
 function pintar() {
-  document.getElementById('ini').textContent = YO ? iniciales(YO.nombre) : '?';
+  var elIni = document.getElementById('ini');
+  if (YO) {
+    elIni.innerHTML = '<img alt="" src="' + avatarUrl(YO.nombre, YO.area, AVATARES[YO.nombre]) +
+      '" onerror="this.parentNode.textContent=\'' + iniciales(YO.nombre) + '\'">';
+    elIni.style.background = 'none';
+  } else {
+    elIni.textContent = '?';
+  }
   document.getElementById('nombre').textContent = YO ? nombreCorto(YO.nombre) : 'Elige tu nombre';
   document.getElementById('turno').textContent = YO && YO.turno ? YO.turno : '';
 
@@ -408,19 +632,20 @@ function pintar() {
   btn.onclick = sig ? function(){ registrar(sig); } : null;
   if (!sig) btn.disabled = true;
 
-  var cont = document.getElementById('lista-hoy');
-  if (!HOY.checadas.length) {
-    cont.innerHTML = '<div class="vacio">Sin checadas hoy.</div>';
-  } else {
-    cont.innerHTML = HOY.checadas.map(function(c){
-      var m = MOVS.filter(function(x){ return x.tipo === c.tipo; })[0];
-      return '<div class="fila"><span>' + (m ? m.nom : c.tipo) +
-             (c.pendiente ? ' <span class="pend">· por enviar</span>' : '') +
-             '</span><span class="h">' + hhmm(c.hora) + '</span></div>';
-    }).join('');
-  }
+  pintarDia();
+  pintarCrono();
   pintarAlertas();
 }
+
+// El cronómetro corre cada segundo. El contador de tiempo extra del pie se
+// actualiza aquí mismo para no volver a armar toda la lista cada segundo.
+setInterval(function () {
+  pintarCrono();
+  if (_extraVivoDesde !== null) {
+    var el = document.getElementById('extra-vivo');
+    if (el) el.textContent = '⏱️ ' + fmtHMS(segAhora() - _extraVivoDesde);
+  }
+}, 1000);
 
 function pintarPendientes() {
   pendientes().then(function(l){
@@ -452,12 +677,18 @@ function pintarGente(filtro) {
       (GENTE.length ? 'Nadie con ese nombre.' : 'Sin lista todavía: conéctate una vez para descargarla.') + '</div>';
     return;
   }
+  // Cuadrícula de caras, como elegir un Mii: se busca por la cara, no leyendo.
+  cont.className = 'caras';
   cont.innerHTML = '';
   lista.slice(0, 60).forEach(function(g){
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'opcion';
-    b.innerHTML = g.nombre + (g.turno ? '<small>' + g.turno + '</small>' : '');
+    b.className = 'cara';
+    b.innerHTML =
+      '<span class="foto"><img alt="" loading="lazy" src="' +
+        avatarUrl(g.nombre, g.area, AVATARES[g.nombre]) + '"' +
+        ' onerror="this.parentNode.textContent=\'' + avIniciales(g.nombre) + '\'"></span>' +
+      '<span class="nm">' + nombreCorto(g.nombre) + '</span>';
     b.onclick = function(){ elegir(g); };
     cont.appendChild(b);
   });
@@ -545,8 +776,10 @@ function registrar(mov) {
       ls(LS_HOY, HOY);
     }
     pintar();
-    var v = r.veredicto || {};
-    aviso('✓ ' + mov.nom + ' · ' + hhmm(r.horaServidor) + (v.texto ? '\n' + v.texto : ''), 'ok', 7000);
+    // El veredicto lo arma el servidor y trae su propio color: "✅ Entrada a
+    // tiempo", "❌ Retardo #2", "⏱️ 35 min de tiempo extra"… Se muestra
+    // completo, con el detalle, igual que en la app de siempre.
+    mostrarVeredicto(r.veredicto, mov, r.horaServidor);
   }).catch(function(){
     // La red falló a media llamada: se encola en vez de perderse.
     encolar(datos).then(function(){
@@ -555,6 +788,19 @@ function registrar(mov) {
       pedirSyncFondo();
     });
   });
+}
+
+/** Pinta el veredicto del servidor respetando su color: verde = bien,
+ *  ámbar = ojo, rojo = mal. Son los mismos textos de siempre. */
+function mostrarVeredicto(v, mov, horaServidor) {
+  v = v || {};
+  var clase = v.color === '#ef4444' ? 'err'
+            : v.color === '#fbbf24' ? 'warn'
+            : 'ok';
+  var lineas = [];
+  lineas.push((v.texto || ('✅ ' + mov.nom + ' registrada')) + ' · ' + hhmm(horaServidor));
+  if (v.detalle) lineas.push(v.detalle);
+  aviso(lineas.join('\n'), clase, 8000);
 }
 
 /** Le pide al service worker que la mande aunque se cierre la app (Android). */
@@ -569,22 +815,34 @@ function pedirSyncFondo() {
 /* ===========================================================================
    DATOS DEL SERVIDOR
    =========================================================================== */
+/** La lista sale de la hoja APP_EMPLEADOS: solo los marcados con SÍ.
+ *  Trae también el área (color del avatar) y los avatares ya personalizados. */
 function bajarGente() {
   if (navigator.onLine === false) return Promise.resolve();
-  return gas('getTodosLosUsuarios', []).then(function(r){
-    if (!r || !r.usuarios) return;
-    GENTE = r.usuarios.filter(function(u){ return u.idUsuario !== 'ADMIN' && u.nombre; })
-      .map(function(u){
-        // Del servidor solo se guarda nombre, id, pin y turno. La contraseña
-        // que viene en la respuesta NO se guarda: aquí ya no se usa.
-        return { id: normId(u.idUsuario), pin: u.pin, nombre: u.nombre, turno: u.turnoHorario || '' };
-      })
-      .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  return gas('getEmpleadosApp', []).then(function(r){
+    if (!r || !r.empleados || !r.empleados.length) return;
+    GENTE = r.empleados.map(function(u){
+      return { id: normId(u.id), pin: u.pin, nombre: u.nombre,
+               turno: u.turno || '', area: u.area || '' };
+    });
     ls(LS_GENTE, GENTE);
+    AVATARES = r.avatares || {};
+    ls(LS_AVATARES, AVATARES);
     if (YO) {
       var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
       if (mio) { YO = mio; ls(LS_YO, YO); pintar(); }
     }
+  }).catch(function(){});
+}
+
+/** Minutos permitidos de desayuno y comida. Se guardan para el cronómetro. */
+function bajarConfig() {
+  if (navigator.onLine === false) return Promise.resolve();
+  return gas('getConfigAlertas', []).then(function(r){
+    if (!r || !r.ok || !r.config) return;
+    CFG = r.config;
+    ls(LS_CFG, CFG);
+    pintar();
   }).catch(function(){});
 }
 
@@ -694,8 +952,19 @@ function activarAlertas() {
   }).then(function(){ btn.disabled = false; pintarAlertas(); });
 }
 
+/** La prueba la manda el propio empleado desde aquí. No tiene por qué
+ *  pedírsela a nadie ni saber que existe un Sheet. */
 function probarAlerta() {
-  aviso('Pídele a Víctor que mande la prueba desde el menú Checador del Sheet.', '', 6000);
+  var btn = document.getElementById('btn-alertas');
+  if (navigator.onLine === false) { aviso('Necesitas señal para mandar la prueba.', 'warn', 4000); return; }
+  btn.disabled = true;
+  aviso('Mandando la prueba...', '', 0);
+  gas('testPushEmpleado', [YO.pin]).then(function(r){
+    if (!r || r.ok === false) throw new Error((r && r.message || 'no salió').replace(/^[✅❌]\s*/, ''));
+    aviso('Listo, ya va en camino. Debe llegarte en unos segundos.', 'ok', 6000);
+  }).catch(function(e){
+    aviso('No se pudo mandar la prueba: ' + e.message, 'err', 6000);
+  }).then(function(){ btn.disabled = false; });
 }
 
 function dispositivo() {
@@ -741,6 +1010,35 @@ function salidaRemota() {
    =========================================================================== */
 document.getElementById('pie').textContent = VERSION + (navigator.onLine === false ? ' · sin internet' : '');
 
+/* ===========================================================================
+   ACTUALIZACIONES
+   ===========================================================================
+   Nadie tiene que borrar y reinstalar: la app se revisa sola al abrirse y
+   cada vez que vuelve a primer plano. Y está el botón, por si acaso. */
+var btnAct = document.getElementById('btn-actualizar');
+
+function pintarActualizacion(estado) {
+  if (estado === 'buscando')     { btnAct.disabled = true;  btnAct.textContent = 'Buscando...'; }
+  if (estado === 'actualizando') { btnAct.disabled = true;  btnAct.textContent = 'Actualizando...'; }
+  if (estado === 'aldia')        { btnAct.disabled = false; btnAct.textContent = 'Ya tienes la última versión'; }
+  if (estado === 'sinred')       { btnAct.disabled = false; btnAct.textContent = 'Buscar actualización'; }
+}
+
+btnAct.onclick = function () {
+  Actualizar.revisar(function (estado, version) {
+    pintarActualizacion(estado);
+    if (estado === 'aldia') {
+      aviso('Ya tienes la última versión (' + (version || VERSION) + ').', 'ok', 4000);
+      setTimeout(function(){ btnAct.textContent = 'Buscar actualización'; }, 4000);
+    }
+    if (estado === 'sinred') aviso('Necesitas señal para buscar actualizaciones.', 'warn', 4000);
+  }, true);
+};
+
+Actualizar.iniciar(VERSION, function (estado) {
+  if (estado === 'actualizando') btnAct.textContent = 'Actualizando...';
+});
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js').catch(function(){});
   // Si el service worker mandó la cola por su cuenta (con la app cerrada),
@@ -760,8 +1058,10 @@ pintarPendientes();
 
 if (!YO) {
   bajarGente().then(function(){ abrirGente(); });
+  bajarConfig();
 } else {
   bajarGente();
+  bajarConfig();
   refrescarHoy();
   setTimeout(revalidarToken, 2000);
 }

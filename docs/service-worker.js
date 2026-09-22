@@ -23,6 +23,8 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9I
 var NUCLEO = [
   './',
   './checar.html',
+  './avatar.js',
+  './actualizar.js',
   './tablero.html',
   './juegos.html',
   './manifest.webmanifest',
@@ -117,6 +119,26 @@ self.addEventListener('fetch', function (event) {
   try { url = new URL(event.request.url); } catch (e) { return; }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
   if (esExterno(url)) return;              // servidor y CDNs: siempre red
+
+  // version.json NUNCA se cachea: es justo el archivo que avisa que hay
+  // versión nueva. Si se guardara, nadie se enteraría nunca.
+  if (url.pathname.indexOf('version.json') !== -1) return;
+
+  // Los avatares vienen de DiceBear. Se guardan al primer uso para que las
+  // caras se vean igual sin señal; el dibujo de una persona nunca cambia.
+  if (url.host.indexOf('api.dicebear.com') !== -1) {
+    event.respondWith(
+      caches.match(event.request).then(function (guardada) {
+        if (guardada) return guardada;
+        return fetch(event.request).then(function (fresca) {
+          guardar(event.request, fresca);
+          return fresca;
+        }).catch(function () { return new Response('', { status: 504 }); });
+      })
+    );
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
   // ---- NAVEGACIONES (abrir la app o tocar una notificación) ----------------
