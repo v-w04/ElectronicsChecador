@@ -1,0 +1,6 @@
+Aqui van las portadas de los juegos.
+
+Pon los archivos aqui (png, jpg o webp) y en la hoja JUEGOS,
+columna Icono, escribe: juegos/nombre-del-archivo.png
+
+Cuadradas se ven mejor: 512x512.

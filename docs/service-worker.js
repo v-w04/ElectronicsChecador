@@ -15,7 +15,7 @@
 //      y las manda solo, aunque la app esté cerrada.
 // ============================================================================
 
-var CACHE_NAME = 'em-checador-v701';
+var CACHE_NAME = 'em-checador-v707';
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
 
@@ -26,7 +26,6 @@ var NUCLEO = [
   './avatar.js',
   './actualizar.js',
   './ui.js',
-  './tablero.html',
   './juegos.html',
   './manifest.webmanifest',
   './favicon.ico',
@@ -37,11 +36,11 @@ var NUCLEO = [
   './logo-electronics.png'
 ];
 
-// El panel viejo (index.html y sus módulos). Se intenta guardar, pero si
-// falla no se cae la instalación: son archivos pesados y solo los usa la
-// computadora de oficina.
+// El panel viejo y el tablero de checadas, que ya salió de la navegación.
+// Se intentan guardar, pero si fallan no se cae la instalación.
 var EXTRAS = [
   './index.html',
+  './tablero.html',
   './Styles.css',
   './WebApp.js',
   './api.js',
@@ -124,6 +123,21 @@ self.addEventListener('fetch', function (event) {
   // version.json NUNCA se cachea: es justo el archivo que avisa que hay
   // versión nueva. Si se guardara, nadie se enteraría nunca.
   if (url.pathname.indexOf('version.json') !== -1) return;
+
+  // Las portadas de los juegos (docs/juegos/…) se guardan al primer uso,
+  // para que las fichas se vean también sin señal.
+  if (url.pathname.indexOf('/juegos/') !== -1) {
+    event.respondWith(
+      caches.match(event.request).then(function (guardada) {
+        if (guardada) return guardada;
+        return fetch(event.request).then(function (fresca) {
+          guardar(event.request, fresca);
+          return fresca;
+        }).catch(function () { return new Response('', { status: 504 }); });
+      })
+    );
+    return;
+  }
 
   // Los avatares vienen de DiceBear. Se guardan al primer uso para que las
   // caras se vean igual sin señal; el dibujo de una persona nunca cambia.

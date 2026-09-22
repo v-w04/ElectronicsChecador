@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tablero de juegos · Electronics México</title>
 <link rel="icon" href="favicon.ico">
+<script src="avatar.js"></script>
 <script src="actualizar.js"></script>
 <script src="ui.js"></script>
 <style>
@@ -38,7 +39,9 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
-body{padding-inline:16px;padding-block:0 48px}
+body{padding-inline:max(16px, env(safe-area-inset-left));
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:calc(48px + env(safe-area-inset-bottom))}
 .wrap{max-width:1040px;margin:0 auto}
 h1,h2,h3{margin:0;letter-spacing:-.02em}
 button{font-family:inherit}
@@ -56,6 +59,8 @@ button{font-family:inherit}
   padding:9px 16px;border-radius:999px}
 .tabs a:hover{background:#e9ebee;color:var(--tinta)}
 .tabs a.on{background:var(--tinta);color:#fff}
+.tabs a.fuera{margin-left:auto;color:var(--tinta-3)}
+.tabs a.fuera::after{content:' \2197'}
 
 /* --- título --- */
 .encabezado{padding-block:26px 6px;display:flex;align-items:flex-end;
@@ -75,7 +80,11 @@ button{font-family:inherit}
 .juegos{display:flex;gap:14px;overflow-x:auto;padding:22px 2px 6px;scroll-snap-type:x mandatory}
 .juego{scroll-snap-align:start;flex:0 0 auto;width:150px;border:0;background:transparent;
   padding:0;cursor:pointer;text-align:center}
-.juego .caja{width:150px;height:150px;border-radius:var(--r-grande);display:flex;
+.juego .caja svg{width:58%;height:58%}
+.juego .caja .portada{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+.ico svg{width:60%;height:60%}
+.ico .portada{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+.juego .caja{width:150px;height:150px;border-radius:var(--r-grande);display:flex;overflow:hidden;
   align-items:center;justify-content:center;font-size:56px;color:#fff;
   box-shadow:0 2px 0 rgba(0,0,0,.06);transition:transform .12s ease}
 .juego:hover .caja{transform:translateY(-3px);box-shadow:0 0 0 4px var(--azul)}
@@ -109,15 +118,22 @@ button{font-family:inherit}
 
 /* --- tabla de posiciones --- */
 .tabla{margin-top:16px;display:flex;flex-direction:column}
-.fila{display:grid;grid-template-columns:44px 1fr repeat(4,64px);gap:10px;align-items:center;
+.fila{display:grid;grid-template-columns:40px 1fr repeat(4,46px);gap:8px;align-items:center;
   padding:12px 8px;border-top:1px solid var(--linea);font-size:14px}
-.fila.enc{border-top:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+.fila.enc{border-top:0;font-size:15px;letter-spacing:0;text-transform:none;white-space:nowrap;
   color:var(--tinta-3);font-weight:700;padding-bottom:4px}
 .fila .pos{font-weight:800;font-size:16px;text-align:center;color:var(--tinta-3)}
 .fila.p1 .pos{color:var(--oro)}
 .fila.p2 .pos{color:#9aa3ab}
 .fila.p3 .pos{color:#c1703a}
-.fila .quien{font-weight:700}
+.fila .quien{font-weight:700;display:flex;align-items:center;gap:9px;min-width:0}
+.fila .quien .avat{width:30px;height:30px;flex:0 0 auto;border-radius:50%;overflow:hidden;
+  background:var(--fondo);display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--tinta-3);font-weight:700}
+.fila .quien .avat img{width:100%;height:100%;display:block}
+.fila .quien .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila.enc .n{text-align:center}
+.leyenda{margin-top:12px;font-size:12px;color:var(--tinta-3);text-align:right}
 .fila .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--tinta-2)}
 .fila .n.fuerte{color:var(--tinta);font-weight:800}
 .vacio{padding:26px 8px;color:var(--tinta-3);font-size:14px;text-align:center}
@@ -140,32 +156,74 @@ button{font-family:inherit}
 .fondo{position:fixed;inset:0;background:rgba(20,20,22,.55);display:none;
   align-items:center;justify-content:center;padding:16px;z-index:40}
 .fondo.ver{display:flex}
-.modal{background:var(--papel);border-radius:26px;padding:24px;width:100%;max-width:560px;
-  max-height:92vh;overflow-y:auto}
-.modal h3{font-size:22px;font-weight:800}
+.modal{background:var(--papel);border-radius:26px;width:100%;max-width:560px;
+  max-height:92vh;overflow-y:auto;position:relative;
+  padding:0 24px calc(16px + env(safe-area-inset-bottom))}
+/* La cabecera se queda pegada arriba: la X nunca se va con el scroll. */
+.modal .cab-modal{position:sticky;top:0;z-index:2;background:var(--papel);
+  padding:22px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border-bottom:1px solid var(--linea)}
+.modal h3{font-size:22px;font-weight:800;margin:0}
+.equis{width:40px;height:40px;flex:0 0 auto;border:0;border-radius:50%;cursor:pointer;
+  background:var(--fondo);color:var(--tinta-2);font-size:22px;line-height:1;
+  display:flex;align-items:center;justify-content:center;font-family:inherit}
+.equis:hover{background:#dfe1e4;color:var(--tinta)}
 .campo{margin-top:16px}
 .campo label{display:block;font-size:12px;font-weight:700;letter-spacing:.05em;
   text-transform:uppercase;color:var(--tinta-3);margin-bottom:6px}
 .campo input,.campo select{width:100%;padding:12px 14px;border:1px solid var(--linea);
   border-radius:var(--r-chico);font-size:15px;font-family:inherit;background:var(--papel);color:var(--tinta)}
 .campo input:focus,.campo select:focus{outline:2px solid var(--azul);outline-offset:1px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{border:1px solid var(--linea);background:var(--papel);border-radius:999px;
-  padding:9px 14px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--tinta-2)}
-.chip.on{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+.chip{border:2px solid var(--linea);background:var(--papel);border-radius:18px;
+  padding:12px 6px 10px;font-size:12.5px;font-weight:700;cursor:pointer;color:var(--tinta-2);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  transition:transform .12s ease,border-color .12s ease}
+.chip .cara{width:58px;height:58px;border-radius:50%;overflow:hidden;background:var(--fondo);
+  display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--tinta-3)}
+.chip .cara img{width:100%;height:100%;display:block}
+.chip .nm{line-height:1.2;text-align:center;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.chip:active{transform:scale(.95)}
+/* Elegido: el aro de neón azul del menú del Switch. */
+.chip.on{border-color:var(--azul);color:var(--tinta);box-shadow:0 0 0 3px rgba(0,195,227,.25)}
+.chip.on .cara{box-shadow:0 0 0 2px var(--azul)}
+
+/* Los del podio, también con su cara. */
+.podio .p .avat{width:30px;height:30px;border-radius:50%;overflow:hidden;flex:0 0 auto}
+.podio .p .avat img{width:100%;height:100%;display:block}
 .podio{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .podio .p{display:grid;grid-template-columns:34px 1fr 96px;gap:10px;align-items:center}
 .podio .p .lugar{font-weight:800;text-align:center;color:var(--tinta-3)}
 .podio .p .nom{font-weight:700;font-size:14px}
 .podio .p input{padding:9px 10px;font-size:14px;border:1px solid var(--linea);border-radius:8px;width:100%}
-.acciones{display:flex;gap:10px;margin-top:22px}
+.acciones{display:flex;gap:10px;margin-top:22px;position:sticky;bottom:0;z-index:2;
+  background:var(--papel);padding:14px 0 6px;border-top:1px solid var(--linea)}
 .acciones .btn{flex:1}
 
+/* ── CELULAR ────────────────────────────────────────────────────────────
+   La barra de arriba en renglones y las pestañas deslizables: apretadas se
+   encimaban con la hora y la señal del teléfono. */
+@media (max-width:700px){
+  .barra{flex-direction:column;align-items:stretch;gap:10px}
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs a{flex:0 0 auto;font-size:13.5px;padding:8px 14px}
+  .encabezado{flex-direction:column;align-items:stretch;gap:12px}
+  .acciones-cab{width:100%}
+  .acciones-cab .btn{flex:1}
+  .fondo{align-items:flex-end;padding:0}
+  .modal{border-radius:24px 24px 0 0;max-height:88vh;
+    padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+}
 @media (max-width:620px){
   .encabezado h1{font-size:27px}
   .juego,.juego .caja{width:126px}
   .juego .caja{height:126px;font-size:46px}
-  .fila{grid-template-columns:34px 1fr repeat(4,50px);font-size:13px;gap:6px}
+  .fila{grid-template-columns:28px 1fr repeat(4,34px);font-size:13px;gap:6px}
+  .fila.enc{font-size:14px}
+  .fila .quien .avat{width:26px;height:26px}
+  .leyenda{text-align:center;font-size:11.5px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -180,9 +238,9 @@ button{font-family:inherit}
     </div>
     <nav class="tabs">
       <a href="checar.html">Mi checador</a>
-      <a href="tablero.html">Tablero</a>
       <a href="juegos.html" class="on" aria-current="page">Juegos</a>
-      <a href="index.html?panel">Panel</a>
+      <a href="https://script.google.com/macros/s/AKfycbx9y0Nr4thwHCAdQYaeHD_48gCukdPc4PvU8r10vh6RD_qbMRse4j1fReOZEQX2fcs9Wg/exec"
+         class="fuera" target="_blank" rel="noopener">Intranet</a>
     </nav>
   </div>
 
@@ -226,7 +284,10 @@ button{font-family:inherit}
 
 <div class="fondo" id="fondo" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
   <div class="modal">
-    <h3 id="modal-titulo">Registrar partida</h3>
+    <div class="cab-modal">
+      <h3 id="modal-titulo">Registrar partida</h3>
+      <button class="equis" id="m-equis" type="button" title="Cerrar" aria-label="Cerrar">&times;</button>
+    </div>
 
     <div class="campo">
       <label for="m-juego">Juego</label>
@@ -294,6 +355,16 @@ function gas(fn, args) {
    =========================================================================== */
 var JUEGOS = [];
 var JUGADORES = [];
+var AVATARES = (function(){ try { return JSON.parse(localStorage.getItem('em_checar_avatares')) || {}; } catch(e){ return {}; } })();
+function cortito(n) { var p = (n || '').trim().split(/\s+/); return p.slice(0, 2).join(' '); }
+/** El área de una persona, para que su avatar tenga el mismo color que en
+ *  el resto de la app. */
+function avArea(nombre) {
+  for (var i = 0; i < JUGADORES.length; i++) {
+    if (JUGADORES[i].nombre === nombre) return JUGADORES[i].area || '';
+  }
+  return '';
+}
 var PARTIDAS = [];      // una fila por jugador
 var juegoSel = null;
 var periodo = 'hoy';    // 'hoy' | 'mes' | 'todo'
@@ -304,6 +375,108 @@ var seleccion = [];     // ids elegidos en el modal, en orden
 var elAviso = document.getElementById('aviso');
 function aviso(t, clase) { elAviso.className = 'ver ' + (clase || ''); elAviso.textContent = t; }
 function quitarAviso(ms) { setTimeout(function () { elAviso.className = ''; }, ms || 4000); }
+
+
+/* ===========================================================================
+   ARTE DE LAS FICHAS
+   ===========================================================================
+   Dibujos propios, hechos aquí con SVG: una bandera a cuadros para lo de
+   carreras, un estallido para lo de pelea, y así. Se escalan sin pixelearse
+   y no pesan nada, que es justo lo que necesita una ficha grande.
+
+   Si un juego no cae en ninguna categoría, se queda con el emoji que trae
+   la hoja JUEGOS. */
+var ARTE = {
+  carreras:
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<g fill="#fff" opacity=".5">' +
+        '<rect x="1" y="16" width="9" height="4" rx="2"/>' +
+        '<rect x="0" y="28" width="7" height="4" rx="2"/>' +
+        '<rect x="2" y="40" width="9" height="4" rx="2"/>' +
+      '</g>' +
+      '<rect x="14" y="6" width="5" height="52" rx="2.5" fill="#fff"/>' +
+      '<g fill="#fff">' +
+        '<rect x="21" y="10" width="10" height="10"/><rect x="41" y="10" width="10" height="10"/>' +
+        '<rect x="31" y="20" width="10" height="10"/><rect x="51" y="20" width="10" height="10"/>' +
+        '<rect x="21" y="30" width="10" height="10"/><rect x="41" y="30" width="10" height="10"/>' +
+      '</g>' +
+      '<rect x="21" y="10" width="40" height="30" fill="none" stroke="#fff" stroke-width="2.5" opacity=".55"/>' +
+    '</svg>',
+
+  pelea:
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<polygon fill="#fff" points="32,2 38.5,19 53,10 48.5,26 63,32 48.5,38 53,54 38.5,45 32,62 ' +
+        '25.5,45 11,54 15.5,38 1,32 15.5,26 11,10 25.5,19"/>' +
+      '<circle cx="32" cy="32" r="10" fill="#000" opacity=".2"/>' +
+    '</svg>',
+
+  balon:
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<circle cx="32" cy="32" r="26" fill="#fff"/>' +
+      '<polygon fill="#000" opacity=".75" points="32,17 43,25 39,38 25,38 21,25"/>' +
+      '<g fill="#000" opacity=".45">' +
+        '<polygon points="32,6 40,12 32,17 24,12"/>' +
+        '<polygon points="9,29 19,24 21,25 19,37"/>' +
+        '<polygon points="55,29 45,24 43,25 45,37"/>' +
+      '</g>' +
+    '</svg>',
+
+  cartas:
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<rect x="9" y="16" width="26" height="36" rx="5" fill="#fff" opacity=".55" ' +
+        'transform="rotate(-12 22 34)"/>' +
+      '<rect x="27" y="12" width="26" height="36" rx="5" fill="#fff" ' +
+        'transform="rotate(10 40 30)"/>' +
+      '<polygon fill="#000" opacity=".7" points="40,22 46,29 40,37 34,29" ' +
+        'transform="rotate(10 40 30)"/>' +
+    '</svg>',
+
+  ajedrez:
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<circle cx="32" cy="15" r="8" fill="#fff"/>' +
+      '<path fill="#fff" d="M24 26h16l-4 12h-8z"/>' +
+      '<path fill="#fff" d="M20 40h24l4 12H16z"/>' +
+    '</svg>',
+
+  dardos:
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<circle cx="32" cy="32" r="26" fill="#fff"/>' +
+      '<circle cx="32" cy="32" r="18" fill="#000" opacity=".22"/>' +
+      '<circle cx="32" cy="32" r="10" fill="#fff"/>' +
+      '<circle cx="32" cy="32" r="4" fill="#000" opacity=".6"/>' +
+    '</svg>'
+};
+
+function _sinAcentos(t) {
+  return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * La columna "Icono" de la hoja JUEGOS acepta tres cosas:
+ *   · un emoji            →  🏁
+ *   · un archivo del repo →  juegos/mi-imagen.png   (súbelo a docs/juegos/)
+ *   · una dirección web   →  https://.../imagen.png
+ * Si trae imagen, esa manda sobre todo lo demás.
+ */
+function esImagen(v) {
+  return /^(https?:\/\/|\.?\/?[\w.\-\/]+\.(png|jpe?g|webp|gif|svg))$/i.test((v || '').trim());
+}
+
+function imagenDe(v) {
+  return '<img class="portada" src="' + (v || '').trim() + '" alt="" loading="lazy">';
+}
+
+/** Elige el dibujo por lo que dice el nombre del juego. */
+function arteDe(nombre) {
+  var n = _sinAcentos(nombre).toLowerCase();
+  if (/kart|carrera|race|racing|auto|coche|rally|velocidad/.test(n)) return ARTE.carreras;
+  if (/smash|pelea|lucha|fight|box|combate|guerra|versus/.test(n))   return ARTE.pelea;
+  if (/futbol|soccer|fifa|balon|basquet|volei/.test(n))              return ARTE.balon;
+  if (/carta|poker|uno|baraja|domino|loteria/.test(n))               return ARTE.cartas;
+  if (/ajedrez|chess|damas/.test(n))                                 return ARTE.ajedrez;
+  if (/dardo|tiro|puntería|punteria|billar/.test(n))                 return ARTE.dardos;
+  return '';
+}
 
 function colorDe(nombre) {
   var i = JUEGOS.map(function (j) { return j.juego; }).indexOf(nombre);
@@ -351,7 +524,8 @@ function pintarJuegos() {
     b.type = 'button';
     b.className = 'juego' + (juegoSel === j.juego ? ' sel' : '');
     b.innerHTML =
-      '<div class="caja" style="background:' + colorDe(j.juego) + '">' + j.icono + '</div>' +
+      '<div class="caja" style="background:' + colorDe(j.juego) + '">' +
+        (esImagen(j.icono) ? imagenDe(j.icono) : (arteDe(j.juego) || j.icono)) + '</div>' +
       '<div class="nombre">' + j.juego + '</div>' +
       '<div class="dato">' + (n ? n + (n === 1 ? ' partida' : ' partidas') : 'sin partidas') + '</div>';
     b.onclick = function () { juegoSel = j.juego; pintarTodo(); };
@@ -472,8 +646,13 @@ function pintarTabla() {
 
   var enc = document.createElement('div');
   enc.className = 'fila enc';
+  // Las palabras no caben en columnas de 50px y se amontonaban unas sobre
+  // otras. Un icono por columna, y abajo dice qué es cada uno.
   enc.innerHTML = '<div class="pos">#</div><div>Jugador</div>' +
-    '<div class="n">Jugadas</div><div class="n">Ganadas</div><div class="n">Podios</div><div class="n">Puntos</div>';
+    '<div class="n" title="Partidas jugadas">🎮</div>' +
+    '<div class="n" title="Ganadas">🥇</div>' +
+    '<div class="n" title="Veces en el podio">🏅</div>' +
+    '<div class="n" title="Puntos">⭐</div>';
   cont.appendChild(enc);
 
   lista.forEach(function (s, i) {
@@ -481,13 +660,21 @@ function pintarTabla() {
     f.className = 'fila p' + (i + 1);
     f.innerHTML =
       '<div class="pos">' + (i + 1) + '</div>' +
-      '<div class="quien">' + s.nombre + '</div>' +
+      '<div class="quien"><span class="avat"><img alt="" loading="lazy" src="' +
+          avatarUrl(s.nombre, avArea(s.nombre), AVATARES[s.nombre]) +
+          '" onerror="this.parentNode.textContent=\'' + avIniciales(s.nombre) + '\'"></span>' +
+        '<span class="nm">' + cortito(s.nombre) + '</span></div>' +
       '<div class="n">' + s.jugadas + '</div>' +
       '<div class="n fuerte">' + s.ganadas + '</div>' +
       '<div class="n">' + s.podios + '</div>' +
       '<div class="n">' + (s.puntos || '—') + '</div>';
     cont.appendChild(f);
   });
+
+  var pie = document.createElement('div');
+  pie.className = 'leyenda';
+  pie.textContent = '🎮 jugadas · 🥇 ganadas · 🏅 podios · ⭐ puntos';
+  cont.appendChild(pie);
 }
 
 /* ===========================================================================
@@ -529,7 +716,9 @@ function pintarHistorico() {
     var d = document.createElement('div');
     d.className = 'partida';
     d.innerHTML =
-      '<div class="ico" style="background:' + colorDe(par.juego) + '">' + iconoDe(par.juego) + '</div>' +
+      '<div class="ico" style="background:' + colorDe(par.juego) + '">' +
+        (esImagen(iconoDe(par.juego)) ? imagenDe(iconoDe(par.juego))
+                                      : (arteDe(par.juego) || iconoDe(par.juego))) + '</div>' +
       '<div class="cuerpo">' +
         '<div class="linea1">' +
           '<span class="juego-n">' + par.juego + '</span>' +
@@ -586,6 +775,14 @@ document.getElementById('btn-limpiar').onclick = function () {
   }).then(function () { btn.disabled = false; });
 };
 document.getElementById('m-cancelar').onclick = cerrarModal;
+document.getElementById('m-equis').onclick = cerrarModal;
+
+// Tocar el fondo oscuro cierra. Tocar dentro del recuadro, no.
+fondo.onclick = function (e) { if (e.target === fondo) cerrarModal(); };
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && fondo.classList.contains('ver')) cerrarModal();
+});
 fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrarModal(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModal(); });
 
@@ -606,11 +803,17 @@ function abrirModal() {
 
   var chips = document.getElementById('m-chips');
   chips.innerHTML = '';
+  // Solo los que están en SÍ en la hoja APP_EMPLEADOS, y con su avatar:
+  // se busca la cara, no se lee una lista de cuarenta nombres.
   JUGADORES.forEach(function (j) {
     var c = document.createElement('button');
     c.type = 'button';
     c.className = 'chip';
-    c.textContent = j.nombre.split(' ')[0] + ' ' + (j.nombre.split(' ')[1] || '');
+    c.innerHTML =
+      '<span class="cara"><img alt="" loading="lazy" src="' +
+        avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) + '"' +
+        ' onerror="this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
+      '<span class="nm">' + cortito(j.nombre) + '</span>';
     c.onclick = function () {
       var i = seleccion.indexOf(j.id);
       if (i === -1) { seleccion.push(j.id); c.classList.add('on'); }
@@ -637,7 +840,11 @@ function pintarPodio() {
     fila.className = 'p';
     fila.innerHTML =
       '<div class="lugar">' + (i + 1) + '°</div>' +
-      '<div class="nom">' + j.nombre + '</div>' +
+      '<div class="nom" style="display:flex;align-items:center;gap:9px">' +
+        '<span class="avat"><img alt="" src="' +
+          avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) + '"></span>' +
+        j.nombre +
+      '</div>' +
       '<input type="number" inputmode="numeric" id="pts-' + id + '" placeholder="pts">';
     podio.appendChild(fila);
   });
@@ -687,6 +894,10 @@ function cargar() {
       if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
       JUEGOS = r.juegos || [];
       JUGADORES = r.jugadores || [];
+      if (r.avatares) {
+        AVATARES = r.avatares;
+        try { localStorage.setItem('em_checar_avatares', JSON.stringify(AVATARES)); } catch (e) {}
+      }
       PARTIDAS = r.partidas || [];
       tableroDesde = r.tableroDesde || '';
       document.getElementById('filtro-jugador').innerHTML = '';
@@ -710,7 +921,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v701');
+Actualizar.iniciar('v707');
 </script>
 </body>
 </html>

@@ -4,37 +4,62 @@
   <meta charset="UTF-8">
 
   <!-- ═══════════════════════════════════════════════════════════════════════
-       PUENTE A LA APP NUEVA (v700)
+       PUENTE A LA APP NUEVA (v702)
        ───────────────────────────────────────────────────────────────────────
-       Esta página es el PANEL de oficina. Los empleados ya no van aquí: su
-       pantalla es checar.html (sin PIN, con alertas y cola offline).
+       Esta página es el PANEL de oficina, para pantalla grande. La pantalla
+       del empleado es checar.html.
 
-       Los celulares que ya tienen la PWA instalada siguen abriendo esta
-       página porque su acceso directo apunta al start_url viejo. En vez de
-       pedirles que borren y reinstalen, aquí se les manda solo.
-
-       Se queda en el panel si:
-         · la dirección trae ?panel   (queda recordado en este navegador)
-         · es pantalla grande y NO es la app instalada
-       =================================================================== -->
+       El celular SIEMPRE se va a checar.html: antes bastaba con haber
+       abierto el panel una vez para quedarse atorado aquí, sin forma de
+       regresar más que cerrando la app. Ya no: en celular o en la app
+       instalada el rebote no se puede desactivar.
+       =================================================================== */ -->
   <script>
   (function () {
     try {
       var PANEL = 'em_es_panel';
-      if (location.search.indexOf('panel') !== -1) {
-        localStorage.setItem(PANEL, '1');
-        return;
-      }
-      if (localStorage.getItem(PANEL) === '1') return;
 
       var instalada = (window.matchMedia &&
                        window.matchMedia('(display-mode: standalone)').matches) ||
                       window.navigator.standalone === true;
       var chica = Math.min(screen.width, screen.height) < 900;
 
-      if (instalada || chica) location.replace('checar.html');
+      // En celular no hay panel que valga: el panel no cabe ahí.
+      if (instalada || chica) {
+        try { localStorage.removeItem(PANEL); } catch (e) {}
+        location.replace('checar.html');
+        return;
+      }
+
+      // De aquí para abajo, pantalla grande.
+      if (location.search.indexOf('panel') !== -1) {
+        localStorage.setItem(PANEL, '1');
+        return;
+      }
+      if (localStorage.getItem(PANEL) === '1') return;
+
+      location.replace('checar.html');
     } catch (e) {}
   })();
+  </script>
+
+  <!-- Salida siempre visible: que nunca haya que cerrar la app para volver. -->
+  <style>
+    #volver-checador{position:fixed;left:14px;bottom:14px;z-index:100001;
+      display:flex;align-items:center;gap:7px;padding:10px 15px;border-radius:999px;
+      background:rgba(15,23,42,.92);border:1px solid rgba(59,130,246,.45);
+      color:#65c9ff;font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px)}
+    #volver-checador:hover{background:rgba(30,41,59,.96)}
+  </style>
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var a = document.createElement('a');
+    a.id = 'volver-checador';
+    a.href = 'checar.html';
+    a.textContent = '\u2190 Mi checador';
+    document.body.appendChild(a);
+  });
   </script>
 
 

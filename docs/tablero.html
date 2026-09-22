@@ -27,7 +27,9 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--base);color:var(--t2);font-family:var(--sans)}
-body{padding-inline:16px;padding-block:0 40px}
+body{padding-inline:max(16px, env(safe-area-inset-left));
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:calc(40px + env(safe-area-inset-bottom))}
 .wrap{max-width:1100px;margin:0 auto}
 
 header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
@@ -109,11 +111,27 @@ h1{margin:0;font-size:19px;font-weight:700;color:var(--t1);letter-spacing:-.01em
 
 footer{margin-top:30px;font-size:12px;color:var(--tm);display:flex;flex-wrap:wrap;gap:8px 18px}
 
+/* ── CELULAR ────────────────────────────────────────────────────────────
+   El encabezado se acomoda en renglones en vez de apretarse, y las
+   pestañas se pueden deslizar si no caben. */
+@media (max-width:700px){
+  header{flex-direction:column;align-items:stretch;gap:10px;padding-block:14px 12px}
+  .marca{justify-content:flex-start}
+  h1{font-size:17px}
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs a{flex:0 0 auto;font-size:13.5px;padding:8px 14px}
+  .reloj{font-size:22px;text-align:left}
+  .reloj small{text-align:left}
+  .seccion{margin-top:18px}
+}
 @media (max-width:520px){
   .gente{grid-template-columns:1fr 1fr;gap:10px}
   .persona{min-height:104px;padding:13px}
   .movs{grid-template-columns:1fr}
-  .reloj{font-size:20px}
+  .fondo{align-items:flex-end;padding:0}
+  .hoja{border-radius:20px 20px 0 0;max-height:88vh;
+    padding-bottom:calc(22px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -133,7 +151,6 @@ footer{margin-top:30px;font-size:12px;color:var(--tm);display:flex;flex-wrap:wra
       <a href="checar.html">Mi checador</a>
       <a href="tablero.html" class="on" aria-current="page">Tablero</a>
       <a href="juegos.html">Juegos</a>
-      <a href="index.html?panel">Panel</a>
     </nav>
     <div class="reloj"><span id="reloj">--:--</span><small id="fecha">—</small></div>
   </header>
@@ -483,7 +500,7 @@ cargar();
 
 // La tablet también se actualiza sola cuando se publica una versión nueva.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v701');
+Actualizar.iniciar('v703');
 
 // Relectura cada 3 minutos: si alguien checó desde su celular, el tablero
 // lo refleja sin que nadie recargue la página.

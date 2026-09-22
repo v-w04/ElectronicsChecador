@@ -45,6 +45,8 @@ body{padding:0 16px calc(28px + env(safe-area-inset-bottom));
   padding:9px 15px;border-radius:999px;border:1px solid transparent}
 .tabs a:hover{background:var(--hover);color:var(--t1)}
 .tabs a.on{background:var(--brand);color:#fff}
+.tabs a.fuera{margin-left:auto;color:var(--tm)}
+.tabs a.fuera::after{content:' \2197'}
 
 /* dos columnas en pantallas anchas */
 .cols{display:block}
@@ -70,6 +72,10 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .icono:hover{background:var(--hover);color:var(--t1)}
 .icono:disabled{opacity:.5}
 .icono.girando{animation:giro 1s linear infinite}
+.icono.puesto{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
+.nota{margin:-8px 0 14px;font-size:13px;color:var(--tm);line-height:1.45}
+.opcion .em{margin-right:9px}
+.opcion.quitar{color:var(--bad);border-color:var(--bad-bd);background:var(--bad-bg)}
 @keyframes giro{to{transform:rotate(360deg)}}
 
 /* reloj */
@@ -265,9 +271,9 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <nav class="tabs">
     <a href="checar.html" class="on" aria-current="page">Mi checador</a>
-    <a href="tablero.html">Tablero</a>
     <a href="juegos.html">Juegos</a>
-    <a href="index.html?panel">Panel</a>
+    <a href="https://script.google.com/macros/s/AKfycbx9y0Nr4thwHCAdQYaeHD_48gCukdPc4PvU8r10vh6RD_qbMRse4j1fReOZEQX2fcs9Wg/exec"
+       class="fuera" target="_blank" rel="noopener">Intranet</a>
   </nav>
 
   <div class="barra">
@@ -279,6 +285,8 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
       </div>
     </div>
     <div class="acciones">
+      <button class="icono" id="btn-dia" type="button"
+              title="Marcar el día" aria-label="Marcar el día">&#128197;</button>
       <button class="icono" id="btn-actualizar" type="button"
               title="Buscar actualización" aria-label="Buscar actualización">&#8635;</button>
       <button class="cambiar" id="btn-cambiar" type="button">Cambiar</button>
@@ -327,7 +335,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v701</span></div>
+  <div class="pie"><span id="pie">v707</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -336,6 +344,15 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <input class="buscar" id="buscar" type="search" placeholder="Escribe tu nombre" autocomplete="off">
     <div id="lista-gente"></div>
     <button class="cerrar" id="cerrar-gente" type="button">Cancelar</button>
+  </div>
+</div>
+
+<div class="fondo" id="fondo-dia">
+  <div class="hoja">
+    <h2>¿Qué pasa hoy?</h2>
+    <p class="nota">El día cuenta como trabajado y no te llegan alertas.</p>
+    <div id="lista-dia"></div>
+    <button class="cerrar" id="cerrar-dia" type="button">Cancelar</button>
   </div>
 </div>
 
@@ -352,7 +369,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v701';
+var VERSION = 'v707';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -381,6 +398,7 @@ var LS_HOY      = 'em_checar_hoy';
 var LS_CFG      = 'em_checar_cfg';   // minutos de desayuno y comida
 var LS_AVATARES = 'em_checar_avatares';
 var LS_QUINCENA = 'em_checar_quincena';
+var LS_EXC      = 'em_checar_exc';
 var LS_TOKEN    = 'em_push_token';
 var DB_NAME     = 'em_checador_offline';   // la misma cola de siempre
 var DB_STORE    = 'checadas_pendientes';
@@ -525,6 +543,8 @@ if (HOY.fecha !== hoyStr()) HOY = { fecha: hoyStr(), checadas: [] };
 var CFG = ls(LS_CFG) || { duracion_desayuno_min: 20, duracion_comida_min: 60 };
 var AVATARES = ls(LS_AVATARES) || {};   // personalizaciones ya guardadas
 var QUINCENA = ls(LS_QUINCENA) || null;  // el log de la quincena, para verlo sin senal
+var EXC = ls(LS_EXC) || { fecha:'', tipo:'', global:false };
+if (EXC.fecha !== hoyStr()) EXC = { fecha: hoyStr(), tipo:'', global:false };
 var _extraVivoDesde = null;   // segundos del fin de turno, si va corriendo el extra
 
 /* ===========================================================================
@@ -700,6 +720,12 @@ function siguienteMov() {
 }
 
 function estadoTexto() {
+  // Un día marcado manda sobre todo lo demás: cuenta como trabajado y no
+  // hay alertas, aunque no se cheque nada.
+  var t = excDe(EXC.tipo);
+  if (t && !HOY.checadas.length) {
+    return { clase:'pausa', txt: t.em + ' ' + t.nom + (EXC.global ? ' — toda la empresa' : '') };
+  }
   if (!HOY.checadas.length) return { clase:'', txt:'Todavía no checas hoy' };
   var u = HOY.checadas[HOY.checadas.length - 1];
   var h = hhmm(u.hora);
@@ -738,6 +764,7 @@ function pintar() {
   pintarDia();
   pintarCrono();
   pintarQuincena();
+  pintarExcepcion();
   pintarAlertas();
 }
 
@@ -756,6 +783,103 @@ function pintarPendientes() {
     document.getElementById('cuenta-pend').textContent =
       l.length ? l.length + ' por enviar' : '';
   });
+}
+
+/* ===========================================================================
+   QUÉ PASA HOY — vacaciones, incapacidad, evento, festivo
+   ===========================================================================
+   Un día marcado cuenta como trabajado y NO manda alertas. Es lo que ya
+   hacía la app; aquí está a un toque, sin llenar la pantalla de botones:
+   uno solo abre la lista. */
+var EXC_TIPOS = [
+  { tipo:'VACACIONES', em:'🏖️', nom:'Vacaciones',  pie:'Solo para ti' },
+  { tipo:'ENFERMEDAD', em:'🤒', nom:'Incapacidad', pie:'Solo para ti' },
+  { tipo:'EVENTO',     em:'🎉', nom:'Evento',      pie:'Solo para ti' },
+  { tipo:'FESTIVO',    em:'📅', nom:'Día festivo', pie:'Aplica a toda la empresa' }
+];
+
+function excDe(t) {
+  for (var i = 0; i < EXC_TIPOS.length; i++) if (EXC_TIPOS[i].tipo === t) return EXC_TIPOS[i];
+  return null;
+}
+
+var fondoDia = document.getElementById('fondo-dia');
+document.getElementById('cerrar-dia').onclick = function(){ fondoDia.classList.remove('ver'); };
+document.getElementById('btn-dia').onclick = function(){
+  if (!YO) { abrirGente(); return; }
+  pintarHojaDia();
+  fondoDia.classList.add('ver');
+};
+
+function pintarHojaDia() {
+  var cont = document.getElementById('lista-dia');
+  cont.innerHTML = '';
+
+  EXC_TIPOS.forEach(function(t){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opcion';
+    b.innerHTML = '<span class="em">' + t.em + '</span>' + t.nom +
+                  (EXC.tipo === t.tipo ? ' ✓' : '') +
+                  '<small>' + t.pie + '</small>';
+    b.onclick = function(){ marcarDia(t); };
+    cont.appendChild(b);
+  });
+
+  if (EXC.tipo) {
+    var q = document.createElement('button');
+    q.type = 'button';
+    q.className = 'opcion quitar';
+    q.innerHTML = 'Quitar la marca de hoy<small>Vuelven las alertas</small>';
+    q.onclick = quitarDia;
+    cont.appendChild(q);
+  }
+}
+
+function pintarExcepcion() {
+  var b = document.getElementById('btn-dia');
+  b.className = 'icono' + (EXC.tipo ? ' puesto' : '');
+  var t = excDe(EXC.tipo);
+  b.title = t ? t.nom + ' — hoy no hay alertas' : 'Marcar el día';
+}
+
+function marcarDia(t) {
+  if (navigator.onLine === false) { aviso('Necesitas señal para marcar el día.', 'warn', 4000); return; }
+  fondoDia.classList.remove('ver');
+  aviso('Registrando...', '', 0);
+  gas('guardarExcepcionDia', [YO.pin, t.tipo]).then(function(r){
+    if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+    EXC = { fecha: hoyStr(), tipo: t.tipo, global: t.tipo === 'FESTIVO' };
+    ls(LS_EXC, EXC);
+    pintar();
+    aviso(r.message || (t.em + ' ' + t.nom + ' registrado. Hoy no habrá alertas.'), 'ok', 6000);
+  }).catch(function(e){
+    aviso('No se pudo marcar el día: ' + e.message, 'err', 6000);
+  });
+}
+
+function quitarDia() {
+  if (navigator.onLine === false) { aviso('Necesitas señal para quitar la marca.', 'warn', 4000); return; }
+  fondoDia.classList.remove('ver');
+  gas('quitarExcepcionDia', [YO.pin]).then(function(r){
+    if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+    EXC = { fecha: hoyStr(), tipo:'', global:false };
+    ls(LS_EXC, EXC);
+    pintar();
+    aviso(r.message || 'Listo, las alertas vuelven.', 'ok', 5000);
+  }).catch(function(e){
+    aviso('No se pudo quitar: ' + e.message, 'err', 6000);
+  });
+}
+
+function bajarExcepcion() {
+  if (!YO || !YO.pin || navigator.onLine === false) { pintarExcepcion(); return Promise.resolve(); }
+  return gas('getExcepcionHoy', [YO.pin]).then(function(r){
+    if (!r || !r.ok) return;
+    EXC = { fecha: hoyStr(), tipo: r.tipo || '', global: !!r.global };
+    ls(LS_EXC, EXC);
+    pintar();
+  }).catch(function(){});
 }
 
 /* ===========================================================================
@@ -804,9 +928,11 @@ function filaDia(d) {
 
   // Día sin jornada: descanso, festivo o permiso.
   if (d.finde || d.excepcion) {
+    // getHistorialQuincena devuelve el tipo tal cual: VACACIONES, ENFERMEDAD…
+    var t = d.excepcion ? excDe(String(d.excepcion).toUpperCase()) : null;
+    var txt = d.excepcion ? (t ? t.em + ' ' + t.nom : String(d.excepcion)) : 'Descanso';
     return '<div class="dia libre"><span class="f">' + etiqueta + '</span>' +
-           '<span class="e">' + (d.excepcion ? (d.excepcion.motivo || 'Permiso') : 'Descanso') +
-           '</span></div>';
+           '<span class="e">' + txt + '</span></div>';
   }
 
   var ent = (d.checadas || []).filter(function(c){ return c.tipo === 'ENTRADA'; })[0];
@@ -843,6 +969,19 @@ function bajarQuincena() {
 var fondoGente = document.getElementById('fondo-gente');
 document.getElementById('btn-cambiar').onclick = abrirGente;
 document.getElementById('cerrar-gente').onclick = function(){ fondoGente.classList.remove('ver'); };
+
+/* Cerrar tocando el fondo oscuro o con Esc: nunca quedarse atrapado en una
+   hoja porque el botón de Cancelar se fue abajo del todo. */
+function cerrarTocandoFuera(el) {
+  el.onclick = function (e) { if (e.target === el) el.classList.remove('ver'); };
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  ['fondo-gente','fondo-movs','fondo-dia'].forEach(function (id) {
+    var f = document.getElementById(id);
+    if (f) f.classList.remove('ver');
+  });
+});
 
 function abrirGente() {
   pintarGente('');
@@ -884,10 +1023,13 @@ function elegir(g) {
   ls(LS_HOY, HOY);
   QUINCENA = null;
   ls(LS_QUINCENA, null);
+  EXC = { fecha: hoyStr(), tipo:'', global:false };
+  ls(LS_EXC, EXC);
   fondoGente.classList.remove('ver');
   pintar();
   refrescarHoy();
   bajarQuincena();
+  bajarExcepcion();
   aviso('Listo, ' + nombreCorto(g.nombre) + '. Este celular ya te recuerda.', 'ok', 4000);
 }
 
@@ -895,6 +1037,9 @@ function elegir(g) {
    OTROS MOVIMIENTOS
    =========================================================================== */
 var fondoMovs = document.getElementById('fondo-movs');
+cerrarTocandoFuera(fondoGente);
+cerrarTocandoFuera(fondoMovs);
+cerrarTocandoFuera(fondoDia);
 document.getElementById('btn-otros').onclick = function(){
   if (!YO) { abrirGente(); return; }
   var cont = document.getElementById('lista-movs');
@@ -1249,6 +1394,7 @@ if (!YO) {
   bajarConfig();
   refrescarHoy();
   bajarQuincena();
+  bajarExcepcion();
   setTimeout(revalidarToken, 2000);
 }
 vaciarCola();
@@ -1263,7 +1409,7 @@ window.addEventListener('offline', function(){
   document.getElementById('pie').textContent = VERSION + ' · sin internet';
 });
 document.addEventListener('visibilitychange', function(){
-  if (!document.hidden) { vaciarCola(); refrescarHoy(); }
+  if (!document.hidden) { vaciarCola(); refrescarHoy(); bajarExcepcion(); }
 });
 </script>
 </body>

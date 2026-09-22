@@ -105,14 +105,17 @@ function getJuegosTablero(limite) {
       });
     }
 
-    // ── Jugadores: los mismos empleados, sin PIN ni contraseña ────────────
+    // ── Jugadores: SOLO los que están en SÍ en la hoja APP_EMPLEADOS ──────
+    // No tiene caso mostrar cuarenta nombres para elegir a cuatro que juegan.
+    // Va el área, que es la que le da color al avatar.
     var jugadores = [];
+    var avatares = {};
     try {
-      var u = getTodosLosUsuarios();
-      (u.usuarios || []).forEach(function (x) {
-        if (x.idUsuario === 'ADMIN') return;
-        jugadores.push({ id: _normId(x.idUsuario), nombre: x.nombre });
+      var e2 = getEmpleadosApp();
+      (e2.empleados || []).forEach(function (x) {
+        jugadores.push({ id: _normId(x.id), nombre: x.nombre, area: x.area || '' });
       });
+      avatares = e2.avatares || {};
     } catch (e) { /* si falla, la página deja escribir el nombre a mano */ }
 
     // ── Histórico ─────────────────────────────────────────────────────────
@@ -139,7 +142,7 @@ function getJuegosTablero(limite) {
     }
 
     return { ok: true, juegos: juegos, jugadores: jugadores, partidas: partidas,
-             tableroDesde: _tableroDesde_() };
+             avatares: avatares, tableroDesde: _tableroDesde_() };
 
   } catch (e) {
     Logger.log('❌ getJuegosTablero: ' + e.message);
