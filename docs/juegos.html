@@ -117,7 +117,29 @@ button{font-family:inherit}
 .filtro.on{background:var(--tinta);color:#fff;border-color:var(--tinta)}
 
 /* --- tabla de posiciones --- */
-.tabla{margin-top:16px;display:flex;flex-direction:column}
+.tabla{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+
+/* Marcador de cada quien: lo importante en grande. */
+.tarjeta{border:2px solid var(--linea);border-radius:20px;background:var(--panel);padding:16px}
+.tarjeta.lider{border-color:var(--azul);box-shadow:0 0 0 3px rgba(0,195,227,.18)}
+.tarjeta .cabe{display:flex;align-items:center;gap:11px}
+.tarjeta .avat{width:46px;height:46px;flex:0 0 auto;border-radius:50%;overflow:hidden;
+  background:var(--fondo);display:flex;align-items:center;justify-content:center;
+  font-weight:700;color:var(--tinta-3)}
+.tarjeta .avat img{width:100%;height:100%;display:block}
+.tarjeta .quien{flex:1;min-width:0}
+.tarjeta .quien .nm{font-size:16px;font-weight:800;color:var(--tinta);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tarjeta .quien .pos{font-size:12px;color:var(--tinta-3);font-weight:600;margin-top:2px}
+.tarjeta .racha{flex:0 0 auto;border-radius:999px;padding:5px 10px;font-size:12.5px;font-weight:800}
+.tarjeta .racha.buena{background:rgba(255,125,0,.14);color:#c25e00}
+.tarjeta .racha.mala{background:rgba(0,195,227,.16);color:#0a7c93}
+.tarjeta .cifras{display:flex;gap:6px;margin-top:14px}
+.tarjeta .cif{flex:1;text-align:center;background:var(--fondo);border-radius:13px;padding:9px 4px}
+.tarjeta .cif b{display:block;font-size:26px;line-height:1.05;color:var(--tinta);font-weight:800}
+.tarjeta .cif span{display:block;font-size:10.5px;color:var(--tinta-3);font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+.tarjeta .cif.gano b{color:var(--rojo)}
 .fila{display:grid;grid-template-columns:40px 1fr repeat(4,46px);gap:8px;align-items:center;
   padding:12px 8px;border-top:1px solid var(--linea);font-size:14px}
 .fila.enc{border-top:0;font-size:15px;letter-spacing:0;text-transform:none;white-space:nowrap;
@@ -144,6 +166,10 @@ button{font-family:inherit}
 .partida .ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;
   justify-content:center;font-size:21px;color:#fff;flex:0 0 auto}
 .partida .cuerpo{flex:1;min-width:0}
+.partida .tirar{width:32px;height:32px;flex:0 0 auto;border:0;border-radius:50%;cursor:pointer;
+  background:transparent;color:var(--tinta-3);font-size:20px;line-height:1;font-family:inherit;
+  display:flex;align-items:center;justify-content:center}
+.partida .tirar:hover{background:rgba(230,0,18,.1);color:var(--rojo)}
 .partida .linea1{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .partida .juego-n{font-weight:800}
 .partida .cuando{font-size:12.5px;color:var(--tinta-3);font-family:var(--mono)}
@@ -192,6 +218,32 @@ button{font-family:inherit}
 /* Los del podio, también con su cara. */
 .podio .p .avat{width:30px;height:30px;border-radius:50%;overflow:hidden;flex:0 0 auto}
 .podio .p .avat img{width:100%;height:100%;display:block}
+/* Cada carrera: se van tocando las caras en el orden en que llegaron. */
+.ronda{border:1px solid var(--linea);border-radius:16px;padding:12px;margin-top:10px}
+.ronda .cab-r{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin-bottom:10px}
+.ronda .cab-r b{font-size:14px;color:var(--tinta)}
+.ronda .cab-r .pista{font-size:12px;color:var(--tinta-3)}
+.ronda .cab-r button{border:0;background:transparent;color:var(--azul-hondo);cursor:pointer;
+  font:700 12px inherit;font-family:inherit}
+.ronda .pista-caras{display:flex;flex-wrap:wrap;gap:8px}
+.corredor{position:relative;border:2px solid var(--linea);background:var(--papel);
+  border-radius:14px;padding:8px 6px 6px;cursor:pointer;width:72px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;font-family:inherit}
+.corredor .c{width:42px;height:42px;border-radius:50%;overflow:hidden;background:var(--fondo);
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+  color:var(--tinta-3)}
+.corredor .c img{width:100%;height:100%;display:block}
+.corredor .n{font-size:11px;font-weight:700;color:var(--tinta-2);line-height:1.15;text-align:center;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.corredor.puesto{border-color:var(--azul);color:var(--tinta)}
+.corredor .lug{position:absolute;top:-8px;right:-6px;min-width:22px;height:22px;border-radius:999px;
+  background:var(--tinta);color:#fff;font-size:11px;font-weight:800;display:flex;
+  align-items:center;justify-content:center;padding:0 5px}
+.corredor.p1 .lug{background:var(--oro);color:#2d2d2d}
+.corredor.p2 .lug{background:#9aa3ab}
+.corredor.p3 .lug{background:#c1703a}
+
 .podio{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .podio .p{display:grid;grid-template-columns:34px 1fr 96px;gap:10px;align-items:center}
 .podio .p .lugar{font-weight:800;text-align:center;color:var(--tinta-3)}
@@ -304,9 +356,14 @@ button{font-family:inherit}
       <div class="chips" id="m-chips"></div>
     </div>
 
+    <div class="campo" id="m-rondas-campo" hidden>
+      <label id="m-rondas-label">¿Cuántas carreras?</label>
+      <div class="filtros" id="m-rondas"></div>
+    </div>
+
     <div class="campo" id="m-podio-campo" hidden>
-      <label>Resultado</label>
-      <div class="podio" id="m-podio"></div>
+      <label id="m-podio-label">Resultado</label>
+      <div id="m-podio"></div>
     </div>
 
     <div class="campo">
@@ -640,41 +697,81 @@ function pintarTabla() {
   var cont = document.getElementById('tabla');
   cont.innerHTML = '';
   if (!lista.length) {
-    cont.innerHTML = '<div class="vacio">Todavía no hay partidas aquí. Registra una y aparecen las posiciones.</div>';
+    cont.innerHTML = '<div class="vacio">Todavía no hay partidas aquí. Registra una y aparecen los marcadores.</div>';
     return;
   }
 
-  var enc = document.createElement('div');
-  enc.className = 'fila enc';
-  // Las palabras no caben en columnas de 50px y se amontonaban unas sobre
-  // otras. Un icono por columna, y abajo dice qué es cada uno.
-  enc.innerHTML = '<div class="pos">#</div><div>Jugador</div>' +
-    '<div class="n" title="Partidas jugadas">🎮</div>' +
-    '<div class="n" title="Ganadas">🥇</div>' +
-    '<div class="n" title="Veces en el podio">🏅</div>' +
-    '<div class="n" title="Puntos">⭐</div>';
-  cont.appendChild(enc);
-
+  // Una tarjeta por persona, con el número que importa en grande. Nada de
+  // tabla: de un vistazo se ve quién va ganando y quién trae racha.
   lista.forEach(function (s, i) {
-    var f = document.createElement('div');
-    f.className = 'fila p' + (i + 1);
-    f.innerHTML =
-      '<div class="pos">' + (i + 1) + '</div>' +
-      '<div class="quien"><span class="avat"><img alt="" loading="lazy" src="' +
+    var perdidas = Math.max(0, s.jugadas - s.ganadas);
+    var r = rachaDe(s.nombre);
+
+    var c = document.createElement('div');
+    c.className = 'tarjeta' + (i === 0 ? ' lider' : '');
+    c.innerHTML =
+      '<div class="cabe">' +
+        '<span class="avat"><img alt="" loading="lazy" src="' +
           avatarUrl(s.nombre, avArea(s.nombre), AVATARES[s.nombre]) +
           '" onerror="this.parentNode.textContent=\'' + avIniciales(s.nombre) + '\'"></span>' +
-        '<span class="nm">' + cortito(s.nombre) + '</span></div>' +
-      '<div class="n">' + s.jugadas + '</div>' +
-      '<div class="n fuerte">' + s.ganadas + '</div>' +
-      '<div class="n">' + s.podios + '</div>' +
-      '<div class="n">' + (s.puntos || '—') + '</div>';
-    cont.appendChild(f);
+        '<div class="quien">' +
+          '<div class="nm">' + cortito(s.nombre) + '</div>' +
+          '<div class="pos">' + (i === 0 ? '👑 va ganando' : (i + 1) + '° lugar') + '</div>' +
+        '</div>' +
+        (r.n > 1 ? '<span class="racha ' + (r.tipo === 'gana' ? 'buena' : 'mala') + '">' +
+                     (r.tipo === 'gana' ? '🔥 ' : '🥶 ') + r.n + '</span>' : '') +
+      '</div>' +
+      '<div class="cifras">' +
+        '<div class="cif gano"><b>' + s.ganadas + '</b><span>ganó</span></div>' +
+        '<div class="cif"><b>' + perdidas + '</b><span>perdió</span></div>' +
+        '<div class="cif"><b>' + s.jugadas + '</b><span>jugó</span></div>' +
+        (s.puntos ? '<div class="cif"><b>' + s.puntos + '</b><span>puntos</span></div>' : '') +
+      '</div>';
+    cont.appendChild(c);
+  });
+}
+
+/**
+ * Cuántas lleva seguidas: ganadas al hilo, o perdidas al hilo.
+ * Se mira de la partida más reciente hacia atrás.
+ */
+function rachaDe(nombre) {
+  var suyas = partidasAgrupadas(function (p) {
+    if (juegoSel && p.juego !== juegoSel) return false;
+    return true;
+  }).filter(function (par) {
+    return par.jugadores.some(function (j) { return j.jugador === nombre; });
   });
 
-  var pie = document.createElement('div');
-  pie.className = 'leyenda';
-  pie.textContent = '🎮 jugadas · 🥇 ganadas · 🏅 podios · ⭐ puntos';
-  cont.appendChild(pie);
+  // partidasAgrupadas devuelve de la más nueva a la más vieja.
+  var tipo = null, n = 0;
+  for (var i = 0; i < suyas.length; i++) {
+    var gano = (suyas[i].jugadores[0] || {}).jugador === nombre;
+    var esta = gano ? 'gana' : 'pierde';
+    if (tipo === null) { tipo = esta; n = 1; }
+    else if (tipo === esta) { n++; }
+    else break;
+  }
+  return { tipo: tipo || 'gana', n: n };
+}
+
+/** Borra una partida entera (todas sus filas). No se puede deshacer, así
+ *  que pregunta antes. */
+function borrar(par) {
+  var quienes = par.jugadores.map(function (j) { return cortito(j.jugador); }).join(', ');
+  if (!confirm('¿Borrar esta partida?\n\n' + par.juego + ' · ' + fechaBonita(par.fecha) +
+               ' ' + (par.hora || '') + '\n' + quienes + '\n\nNo se puede deshacer.')) return;
+
+  aviso('Borrando...');
+  gas('borrarPartida', [par.id]).then(function (r) {
+    if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+    PARTIDAS = PARTIDAS.filter(function (p) { return p.id !== par.id; });
+    pintarTodo();
+    aviso('Partida borrada.', 'ok');
+    quitarAviso(3000);
+  }).catch(function (e) {
+    aviso('No se pudo borrar: ' + e.message, 'err');
+  });
 }
 
 /* ===========================================================================
@@ -712,7 +809,7 @@ function pintarHistorico() {
     return;
   }
 
-  lista.slice(0, 40).forEach(function (par) {
+  lista.slice(0, 20).forEach(function (par) {
     var d = document.createElement('div');
     d.className = 'partida';
     d.innerHTML =
@@ -726,10 +823,14 @@ function pintarHistorico() {
           (par.nota ? '<span class="nota">' + par.nota + '</span>' : '') +
         '</div>' +
         '<ol>' + par.jugadores.map(function (j, i) {
-          return '<li' + (i === 0 ? ' class="gan"' : '') + '>' + j.jugador +
+          return '<li' + (i === 0 ? ' class="gan"' : '') + '>' + cortito(j.jugador) +
                  (j.puntos ? ' · ' + j.puntos + ' pts' : '') + '</li>';
         }).join('') + '</ol>' +
-      '</div>';
+      '</div>' +
+      '<button class="tirar" type="button" title="Borrar esta partida" ' +
+              'aria-label="Borrar esta partida">&times;</button>';
+
+    d.querySelector('.tirar').onclick = function () { borrar(par); };
     cont.appendChild(d);
   });
 }
@@ -801,6 +902,9 @@ function abrirModal() {
     String(hoy.getDate()).padStart(2, '0');
   document.getElementById('m-nota').value = '';
 
+  nRondas = 1;
+  ordenes = [];
+
   var chips = document.getElementById('m-chips');
   chips.innerHTML = '';
   // Solo los que están en SÍ en la hoja APP_EMPLEADOS, y con su avatar:
@@ -817,7 +921,13 @@ function abrirModal() {
     c.onclick = function () {
       var i = seleccion.indexOf(j.id);
       if (i === -1) { seleccion.push(j.id); c.classList.add('on'); }
-      else { seleccion.splice(i, 1); c.classList.remove('on'); }
+      else {
+        seleccion.splice(i, 1);
+        c.classList.remove('on');
+        ordenes = ordenes.map(function (o) {
+          return o.filter(function (x) { return x !== j.id; });
+        });
+      }
       pintarPodio();
     };
     chips.appendChild(c);
@@ -829,59 +939,174 @@ function abrirModal() {
 
 function cerrarModal() { fondo.classList.remove('ver'); }
 
-function pintarPodio() {
-  var campo = document.getElementById('m-podio-campo');
-  var podio = document.getElementById('m-podio');
-  campo.hidden = seleccion.length === 0;
-  podio.innerHTML = '';
-  seleccion.forEach(function (id, i) {
-    var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id };
-    var fila = document.createElement('div');
-    fila.className = 'p';
-    fila.innerHTML =
-      '<div class="lugar">' + (i + 1) + '°</div>' +
-      '<div class="nom" style="display:flex;align-items:center;gap:9px">' +
-        '<span class="avat"><img alt="" src="' +
-          avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) + '"></span>' +
-        j.nombre +
-      '</div>' +
-      '<input type="number" inputmode="numeric" id="pts-' + id + '" placeholder="pts">';
-    podio.appendChild(fila);
-  });
+/* ===========================================================================
+   CARRERAS
+   ===========================================================================
+   Una sesión son varias carreras. Se elige cuántas y en cada una se van
+   tocando las caras en el orden en que llegaron: primera que toques, primer
+   lugar. Volver a tocarla la saca.
+
+   Cada carrera se guarda como su propia partida, así que los marcadores
+   cuentan bien: cuatro carreras son cuatro ganadas o perdidas, no una.
+   =========================================================================== */
+var nRondas = 1;
+var ordenes = [];   // ordenes[i] = [idJugador, ...] en orden de llegada
+
+/** Cómo se llama una ronda según el juego: carreras, rondas o peleas. */
+function palabraRonda(plural) {
+  var n = _sinAcentos(document.getElementById('m-juego').value || '').toLowerCase();
+  if (/kart|carrera|race|racing|auto|rally/.test(n)) return plural ? 'carreras' : 'Carrera';
+  if (/smash|pelea|lucha|fight|box|combate/.test(n)) return plural ? 'peleas' : 'Pelea';
+  return plural ? 'rondas' : 'Ronda';
 }
 
+function pintarPodio() {
+  var campoR = document.getElementById('m-rondas-campo');
+  var campo  = document.getElementById('m-podio-campo');
+  var podio  = document.getElementById('m-podio');
+
+  campoR.hidden = campo.hidden = (seleccion.length === 0);
+  if (!seleccion.length) return;
+
+  // Cuántas
+  document.getElementById('m-rondas-label').textContent = '¿Cuántas ' + palabraRonda(true) + '?';
+  var cr = document.getElementById('m-rondas');
+  cr.innerHTML = '';
+  [1,2,3,4,5,6,8,12].forEach(function (n) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'filtro' + (nRondas === n ? ' on' : '');
+    b.textContent = n;
+    b.onclick = function () {
+      nRondas = n;
+      ordenes = ordenes.slice(0, n);
+      pintarPodio();
+    };
+    cr.appendChild(b);
+  });
+
+  // El resultado de cada una
+  document.getElementById('m-podio-label').textContent =
+    'Resultado de cada ' + palabraRonda(false).toLowerCase();
+  podio.innerHTML = '';
+
+  for (var i = 0; i < nRondas; i++) {
+    if (!ordenes[i]) ordenes[i] = [];
+    podio.appendChild(bloqueRonda(i));
+  }
+}
+
+function bloqueRonda(i) {
+  var orden = ordenes[i];
+  var d = document.createElement('div');
+  d.className = 'ronda';
+
+  var cab = document.createElement('div');
+  cab.className = 'cab-r';
+  cab.innerHTML = '<b>' + palabraRonda(false) + ' ' + (i + 1) + '</b>' +
+    '<span class="pista">' +
+      (orden.length === seleccion.length ? '✓ completa'
+        : 'toca en el orden en que llegaron') + '</span>';
+  if (orden.length) {
+    var limpiar = document.createElement('button');
+    limpiar.type = 'button';
+    limpiar.textContent = 'limpiar';
+    limpiar.onclick = function () { ordenes[i] = []; pintarPodio(); };
+    cab.appendChild(limpiar);
+  }
+  d.appendChild(cab);
+
+  var pista = document.createElement('div');
+  pista.className = 'pista-caras';
+
+  seleccion.forEach(function (id) {
+    var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id, area: '' };
+    var lugar = orden.indexOf(id) + 1;   // 0 si no está
+
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'corredor' + (lugar ? ' puesto p' + lugar : '');
+    b.innerHTML =
+      (lugar ? '<span class="lug">' + lugar + '°</span>' : '') +
+      '<span class="c"><img alt="" src="' +
+        avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) +
+        '" onerror="this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
+      '<span class="n">' + cortito(j.nombre) + '</span>';
+    b.onclick = function () {
+      var k = orden.indexOf(id);
+      if (k === -1) orden.push(id); else orden.splice(k, 1);
+      pintarPodio();
+    };
+    pista.appendChild(b);
+  });
+
+  d.appendChild(pista);
+  return d;
+}
+
+
 document.getElementById('m-guardar').onclick = function () {
-  if (seleccion.length < 2) {
-    aviso('Elige al menos dos jugadores.', 'err');
+  if (seleccion.length < 2) { aviso('Elige al menos dos jugadores.', 'err'); return; }
+
+  // Cada carrera tiene que estar completa: si falta alguien no se sabe en
+  // qué lugar quedó, y el marcador saldría mal.
+  var incompletas = [];
+  for (var i = 0; i < nRondas; i++) {
+    if (!ordenes[i] || ordenes[i].length !== seleccion.length) incompletas.push(i + 1);
+  }
+  if (incompletas.length) {
+    aviso('Falta el resultado de ' + palabraRonda(incompletas.length > 1) + ' ' +
+          incompletas.join(', ') + '.', 'err');
     return;
   }
+
   var btn = this;
   btn.disabled = true;
   btn.textContent = 'Guardando...';
 
-  var partida = {
-    juego: document.getElementById('m-juego').value,
-    fecha: document.getElementById('m-fecha').value,
-    nota:  document.getElementById('m-nota').value,
-    jugadores: seleccion.map(function (id, i) {
-      var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id };
-      var pts = (document.getElementById('pts-' + id) || {}).value;
-      return { id: id, nombre: j.nombre, posicion: i + 1, puntos: pts === '' ? '' : Number(pts) };
-    })
-  };
+  var juego = document.getElementById('m-juego').value;
+  var fecha = document.getElementById('m-fecha').value;
+  var nota  = document.getElementById('m-nota').value;
+  var una   = palabraRonda(false);
 
-  gas('registrarPartida', [partida])
-    .then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.message) || 'el servidor la rechazó');
-      cerrarModal();
-      aviso('✓ Partida de ' + partida.juego + ' guardada. Ganó ' +
-            partida.jugadores[0].nombre + '.', 'ok');
-      quitarAviso(6000);
-      juegoSel = partida.juego;
-      cargar();
-    })
-    .catch(function (e) { aviso('No se guardó: ' + e.message, 'err'); })
-    .then(function () { btn.disabled = false; btn.textContent = 'Guardar partida'; });
+  var sesion = [];
+  for (var r = 0; r < nRondas; r++) {
+    sesion.push({
+      juego: juego,
+      fecha: fecha,
+      nota: (nRondas > 1 ? una + ' ' + (r + 1) + ' de ' + nRondas : '') +
+            (nota ? (nRondas > 1 ? ' · ' : '') + nota : ''),
+      jugadores: ordenes[r].map(function (id, k) {
+        var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id };
+        return { id: id, nombre: j.nombre, posicion: k + 1, puntos: '' };
+      })
+    });
+  }
+
+  // Se mandan una por una, en orden, para que las horas salgan en secuencia.
+  var guardadas = 0;
+  sesion.reduce(function (cadena, partida) {
+    return cadena.then(function () {
+      return gas('registrarPartida', [partida]).then(function (r) {
+        if (!r || !r.ok) throw new Error((r && r.message) || 'el servidor la rechazó');
+        guardadas++;
+      });
+    });
+  }, Promise.resolve())
+  .then(function () {
+    cerrarModal();
+    aviso('✓ ' + guardadas + ' ' + (guardadas === 1 ? una.toLowerCase() : palabraRonda(true)) +
+          ' de ' + juego + ' guardada' + (guardadas === 1 ? '' : 's') + '.', 'ok');
+    quitarAviso(6000);
+    juegoSel = juego;
+    cargar();
+  })
+  .catch(function (e) {
+    aviso(guardadas ? 'Se guardaron ' + guardadas + ', pero falló el resto: ' + e.message
+                    : 'No se guardó: ' + e.message, 'err');
+    if (guardadas) cargar();
+  })
+  .then(function () { btn.disabled = false; btn.textContent = 'Guardar partida'; });
 };
 
 /* ===========================================================================
@@ -921,7 +1146,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v707');
+Actualizar.iniciar('v708');
 </script>
 </body>
 </html>

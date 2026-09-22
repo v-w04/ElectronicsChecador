@@ -19,6 +19,13 @@ function onOpen() {
     .addItem('Configurar Firebase', 'configurarFirebase')
     .addItem('Verificar Firebase', 'menuVerificarFirebase')
     .addItem('Activar alertas', 'menuActivarAlertas')
+    .addSeparator()
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('Limpieza')
+      .addItem('Ver qué hojas hay', 'menuRevisarHojas')
+      .addItem('Limpiar hojas que ya no se usan', 'menuLimpiarHojas')
+      .addItem('Deshacer limpieza', 'menuRestaurarHojas')
+      .addSeparator()
+      .addItem('Borrar las hojas archivadas', 'menuBorrarArchivadas'))
     .addToUi();
 }
 
