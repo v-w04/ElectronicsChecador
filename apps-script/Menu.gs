@@ -11,6 +11,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Checador')
     .addItem('Empleados en la app', 'menuEmpleadosApp')
+    .addItem('Liga a la otra app', 'menuUrlIntranet')
     .addSeparator()
     .addItem('Probar notificación a un celular', 'menuProbarCelular')
     .addItem('Entregas de hoy', 'menuEntregasHoy')
@@ -101,4 +102,22 @@ function menuEmpleadosApp() {
              : 'No hay empleados nuevos.\n\n') +
           'Aparecen hoy en la app: ' + enApp + '.\n\n' +
           'Cambia la columna "En la app" a SÍ o NO y listo: la app lo toma sola.');
+}
+
+/**
+ * La dirección de la otra app web (la del site). Se guarda en las
+ * propiedades del proyecto porque lleva una llave de kiosco y el repo de
+ * GitHub es público.
+ */
+function menuUrlIntranet() {
+  var ui = SpreadsheetApp.getUi();
+  var actual = getUrlIntranet();
+  var r = ui.prompt('Liga a la otra app',
+    (actual ? 'Ahora apunta a:\n' + actual + '\n\n' : 'Todavía no hay ninguna.\n\n') +
+    'Pega la dirección completa. Déjalo vacío para quitar la pestaña.',
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+
+  var res = guardarUrlIntranet(r.getResponseText());
+  _aviso_(res.ok ? 'Listo' : 'No se pudo', res.message);
 }

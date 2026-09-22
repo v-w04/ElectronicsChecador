@@ -179,10 +179,38 @@ function getEmpleadosApp() {
 
     empleados.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
 
-    // Los avatares que cada quien ya se había armado.
-    return { ok: true, empleados: empleados, avatares: getAvatarOverrides() };
+    // Los avatares que cada quien ya se había armado, y la liga a la otra
+    // app. Esa liga NO vive en el repo: trae una llave de kiosco y el repo
+    // es público. Se guarda en las propiedades del script y viaja de aquí.
+    return { ok: true, empleados: empleados, avatares: getAvatarOverrides(),
+             urlIntranet: getUrlIntranet() };
 
   } catch (e) {
     return { ok: false, error: true, message: e.message, empleados: [], avatares: {} };
   }
+}
+
+/* ===========================================================================
+   LIGA A LA OTRA APP (el checador del site)
+   ===========================================================================
+   Se guarda en las propiedades del proyecto, nunca en un archivo del repo:
+   la dirección lleva una llave de kiosco y el repo es público. Se pone una
+   sola vez desde el menú del Sheet.
+   =========================================================================== */
+
+var URL_INTRANET_PROP = 'URL_INTRANET';
+
+function getUrlIntranet() {
+  return PropertiesService.getScriptProperties().getProperty(URL_INTRANET_PROP) || '';
+}
+
+function guardarUrlIntranet(url) {
+  url = (url || '').toString().trim();
+  if (!url) {
+    PropertiesService.getScriptProperties().deleteProperty(URL_INTRANET_PROP);
+    return { ok: true, message: 'Liga borrada. La pestaña deja de aparecer.' };
+  }
+  if (url.indexOf('http') !== 0) return { ok: false, message: 'Tiene que empezar con https://' };
+  PropertiesService.getScriptProperties().setProperty(URL_INTRANET_PROP, url);
+  return { ok: true, message: 'Liga guardada.' };
 }

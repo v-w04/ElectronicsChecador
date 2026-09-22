@@ -304,8 +304,7 @@ button{font-family:inherit}
     <nav class="tabs">
       <a href="checar.html">Mi checador</a>
       <a href="juegos.html" class="on" aria-current="page">Juegos</a>
-      <a href="https://script.google.com/macros/s/AKfycbx9y0Nr4thwHCAdQYaeHD_48gCukdPc4PvU8r10vh6RD_qbMRse4j1fReOZEQX2fcs9Wg/exec"
-         class="fuera" target="_blank" rel="noopener">Intranet</a>
+      <a href="#" class="fuera" id="tab-intranet" target="_blank" rel="noopener" hidden>Checador del site</a>
     </nav>
   </div>
 
@@ -426,6 +425,18 @@ function gas(fn, args) {
 var JUEGOS = [];
 var JUGADORES = [];
 var AVATARES = (function(){ try { return JSON.parse(localStorage.getItem('em_checar_avatares')) || {}; } catch(e){ return {}; } })();
+/** La pestaña al checador del site. La dirección llega del servidor: trae
+ *  una llave de kiosco y el repo es público. */
+function ponerLigaSite(url) {
+  try {
+    if (url) localStorage.setItem('em_checar_site', url);
+    else url = localStorage.getItem('em_checar_site') || '';
+  } catch (e) {}
+  var a = document.getElementById('tab-intranet');
+  if (!a) return;
+  if (url) { a.href = url; a.hidden = false; } else { a.hidden = true; }
+}
+
 function cortito(n) { var p = (n || '').trim().split(/\s+/); return p.slice(0, 2).join(' '); }
 /** El área de una persona, para que su avatar tenga el mismo color que en
  *  el resto de la app. */
@@ -1132,6 +1143,7 @@ function cargar() {
       if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
       JUEGOS = r.juegos || [];
       JUGADORES = r.jugadores || [];
+      ponerLigaSite(r.urlIntranet || '');
       if (r.avatares) {
         AVATARES = r.avatares;
         try { localStorage.setItem('em_checar_avatares', JSON.stringify(AVATARES)); } catch (e) {}
@@ -1159,7 +1171,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v713');
+Actualizar.iniciar('v714');
 </script>
 </body>
 </html>

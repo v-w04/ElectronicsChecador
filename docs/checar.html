@@ -214,8 +214,6 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   border-radius:22px 22px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));
   max-height:86vh;overflow-y:auto}
 .hoja h2{font-size:19px;margin-bottom:14px}
-.buscar{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--bd);
-  background:var(--base);color:var(--t1);font-size:16px;margin-bottom:12px}
 .opcion{width:100%;text-align:left;background:var(--card);border:1px solid var(--bd);
   border-radius:12px;padding:14px 16px;color:var(--t1);font-size:15.5px;font-weight:600;
   cursor:pointer;margin-bottom:8px}
@@ -325,8 +323,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   <nav class="tabs">
     <a href="checar.html" class="on" aria-current="page">Mi checador</a>
     <a href="juegos.html">Juegos</a>
-    <a href="https://script.google.com/macros/s/AKfycbx9y0Nr4thwHCAdQYaeHD_48gCukdPc4PvU8r10vh6RD_qbMRse4j1fReOZEQX2fcs9Wg/exec"
-       class="fuera" target="_blank" rel="noopener">Intranet</a>
+    <a href="#" class="fuera" id="tab-intranet" target="_blank" rel="noopener" hidden>Checador del site</a>
   </nav>
 
   <div class="barra">
@@ -386,13 +383,12 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v713</span></div>
+  <div class="pie"><span id="pie">v714</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
   <div class="hoja">
     <h2>¿Quién eres?</h2>
-    <input class="buscar" id="buscar" type="search" placeholder="Escribe tu nombre" autocomplete="off">
     <div id="lista-gente"></div>
     <button class="cerrar" id="cerrar-gente" type="button">Cancelar</button>
   </div>
@@ -447,7 +443,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v713';
+var VERSION = 'v714';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -1282,25 +1278,22 @@ document.addEventListener('keydown', function (e) {
 });
 
 function abrirGente() {
-  pintarGente('');
+  pintarGente();
   fondoGente.classList.add('ver');
-  setTimeout(function(){ document.getElementById('buscar').focus(); }, 120);
 }
-document.getElementById('buscar').oninput = function(){ pintarGente(this.value); };
 
-function pintarGente(filtro) {
-  var f = (filtro || '').toLowerCase().trim();
-  var lista = GENTE.filter(function(g){ return !f || g.nombre.toLowerCase().indexOf(f) !== -1; });
+function pintarGente() {
+  var lista = GENTE;
   var cont = document.getElementById('lista-gente');
   if (!lista.length) {
     cont.innerHTML = '<div class="vacio" style="color:var(--tm);padding:16px 4px;font-size:13.5px">' +
-      (GENTE.length ? 'Nadie con ese nombre.' : 'Sin lista todavía: conéctate una vez para descargarla.') + '</div>';
+      'Sin lista todavía: conéctate una vez para descargarla.</div>';
     return;
   }
   // Cuadrícula de caras, como elegir un Mii: se busca por la cara, no leyendo.
   cont.className = 'caras';
   cont.innerHTML = '';
-  lista.slice(0, 60).forEach(function(g){
+  lista.forEach(function(g){
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'cara';
@@ -1462,12 +1455,28 @@ function bajarGente() {
     ls(LS_GENTE, GENTE);
     AVATARES = r.avatares || {};
     ls(LS_AVATARES, AVATARES);
+    ponerLigaSite(r.urlIntranet || '');
     if (YO) {
       var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
       if (mio) { YO = mio; guardarYo(YO); pintar(); }
     }
   }).catch(function(){});
 }
+
+/**
+ * La pestaña que lleva al checador del site. La dirección llega del
+ * servidor, no está escrita en el repo: trae una llave de kiosco y el repo
+ * es público. Se guarda para que también aparezca sin señal.
+ */
+var LS_SITE = 'em_checar_site';
+function ponerLigaSite(url) {
+  if (url) { try { localStorage.setItem(LS_SITE, url); } catch (e) {} }
+  else { try { url = localStorage.getItem(LS_SITE) || ''; } catch (e) {} }
+  var a = document.getElementById('tab-intranet');
+  if (!a) return;
+  if (url) { a.href = url; a.hidden = false; } else { a.hidden = true; }
+}
+ponerLigaSite('');
 
 /** Minutos permitidos de desayuno y comida. Se guardan para el cronómetro. */
 function bajarConfig() {
