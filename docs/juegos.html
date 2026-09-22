@@ -182,11 +182,12 @@ button{font-family:inherit}
 
 /* --- modal --- */
 .fondo{position:fixed;inset:0;background:rgba(20,20,22,.55);display:none;
-  align-items:center;justify-content:center;padding:16px;z-index:40}
+  align-items:center;justify-content:center;padding:16px;z-index:40;
+  overflow:hidden}
 .fondo.ver{display:flex}
 .modal{background:var(--papel);border-radius:26px;width:100%;max-width:560px;
-  max-height:92vh;overflow-y:auto;position:relative;
-  padding:0 24px calc(16px + env(safe-area-inset-bottom))}
+  max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  position:relative;padding:0 24px calc(16px + env(safe-area-inset-bottom))}
 /* La cabecera se queda pegada arriba: la X nunca se va con el scroll. */
 .modal .cab-modal{position:sticky;top:0;z-index:2;background:var(--papel);
   padding:22px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -278,8 +279,16 @@ button{font-family:inherit}
   .acciones-cab{width:100%}
   .acciones-cab .btn{flex:1}
   .fondo{align-items:flex-end;padding:0}
-  .modal{border-radius:24px 24px 0 0;max-height:88vh;
-    padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  .modal{border-radius:24px 24px 0 0;
+    max-height:88vh;max-height:88dvh;
+    padding-left:16px;padding-right:16px;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  /* Con varias carreras la ventana se alarga: las caras se hacen chicas
+     para que quepan más por renglón y no haya que bajar tanto. */
+  .corredor{width:62px;padding:6px 4px 5px}
+  .corredor .c{width:36px;height:36px}
+  .corredor .n{font-size:10px}
+  .ronda{padding:10px}
 }
 @media (max-width:620px){
   .encabezado h1{font-size:27px}
@@ -1171,7 +1180,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v714');
+Actualizar.iniciar('v716');
 </script>
 </body>
 </html>

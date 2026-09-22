@@ -20,9 +20,14 @@ var EMUI = (function () {
   }
 
   function aplicar(z) {
-    // body.style.zoom funciona en Safari, Chrome y Edge, que es lo que usan
-    // los celulares, la tablet y la computadora de la oficina.
-    document.body.style.zoom = z;
+    // El zoom va en el CONTENIDO, no en el body. Puesto en el body también
+    // afectaba a las ventanas emergentes: como están fijas a la pantalla y
+    // miden su alto en unidades de pantalla, al acercar se descuadraban a lo
+    // alto y dejaban de caber. Zoomeando solo el contenido, las ventanas se
+    // quedan derechas.
+    var destino = document.querySelector('.wrap') || document.body;
+    destino.style.zoom = z;
+    if (destino !== document.body) document.body.style.zoom = '';
     var d = document.getElementById('em-zoom-pct');
     if (d) d.textContent = Math.round(z * 100) + '%';
   }

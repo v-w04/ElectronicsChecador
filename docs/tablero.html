@@ -80,7 +80,7 @@ h1{margin:0;font-size:19px;font-weight:700;color:var(--t1);letter-spacing:-.01em
 .fondo{position:fixed;inset:0;background:rgba(1,4,9,.78);backdrop-filter:blur(4px);
   display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
 .fondo.ver{display:flex}
-.hoja{width:100%;max-width:520px;max-height:90vh;overflow-y:auto;background:var(--raised);
+.hoja{width:100%;max-width:520px;max-height:90vh;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--raised);
   border:1px solid var(--bd);border-radius:18px;padding:22px}
 .hoja h3{margin:0;font-size:20px;color:var(--t1)}
 .hoja .turno{font-size:13px;color:var(--tm);margin-top:4px}
@@ -136,7 +136,7 @@ footer{margin-top:30px;font-size:12px;color:var(--tm);display:flex;flex-wrap:wra
   .persona{min-height:104px;padding:13px}
   .movs{grid-template-columns:1fr}
   .fondo{align-items:flex-end;padding:0}
-  .hoja{border-radius:20px 20px 0 0;max-height:88vh;
+  .hoja{border-radius:20px 20px 0 0;max-height:88vh;max-height:88dvh;
     padding-bottom:calc(22px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -506,7 +506,7 @@ cargar();
 
 // La tablet también se actualiza sola cuando se publica una versión nueva.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v713');
+Actualizar.iniciar('v716');
 
 // Relectura cada 3 minutos: si alguien checó desde su celular, el tablero
 // lo refleja sin que nadie recargue la página.

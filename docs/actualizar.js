@@ -83,7 +83,7 @@ var Actualizar = (function () {
 
     _revisando = true;
     _ultimaRevision = Date.now();
-    if (avisar) avisar('buscando');
+    if (avisar) avisar('buscando', VERSION_LOCAL);
 
     return versionPublicada().then(function (pub) {
       if (!pub) { if (avisar) avisar('sinred'); return; }
