@@ -47,15 +47,28 @@ var EMUI = (function () {
     var css = document.createElement('style');
     css.textContent =
       '#em-zoom{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));' +
-        'z-index:9000;display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:16px;' +
+        'z-index:30;display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:16px;' +
         'background:rgba(13,17,23,.92);border:1px solid #30363d;backdrop-filter:blur(8px);' +
-        'box-shadow:0 8px 24px rgba(0,0,0,.45);user-select:none;-webkit-user-select:none}' +
-      '#em-zoom button{width:40px;height:40px;border:0;border-radius:11px;cursor:pointer;' +
-        'background:rgba(31,111,235,.18);color:#58a6ff;font-size:21px;font-weight:700;' +
+        'box-shadow:0 8px 24px rgba(0,0,0,.45);user-select:none;-webkit-user-select:none;' +
+        'transition:opacity .15s ease}' +
+      '#em-zoom button{width:38px;height:38px;border:0;border-radius:11px;cursor:pointer;' +
+        'background:rgba(31,111,235,.18);color:#58a6ff;font-size:20px;font-weight:700;' +
         'line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit}' +
       '#em-zoom button:hover{background:rgba(31,111,235,.32)}' +
-      '#em-zoom .pct{width:40px;text-align:center;font-size:10.5px;color:#7d8590;font-weight:700;' +
+      '#em-zoom .pct{width:38px;text-align:center;font-size:10.5px;color:#7d8590;font-weight:700;' +
         'cursor:pointer;padding:3px 0}' +
+      // Mientras haya una ventana abierta encima, el zoom estorba: tapaba
+      // los botones de Guardar y Cancelar. Se quita y vuelve al cerrarla.
+      '#em-zoom.oculto{opacity:0;pointer-events:none}' +
+      'body:has(.fondo.ver) #em-zoom{opacity:0;pointer-events:none}' +
+      // Un respiro al final de la página para que el control no se siente
+      // encima del último botón o del pie.
+      'body::after{content:"";display:block;height:84px}' +
+      '@media (max-width:700px){' +
+        '#em-zoom{right:10px;bottom:calc(10px + env(safe-area-inset-bottom));padding:4px;gap:3px}' +
+        '#em-zoom button{width:34px;height:34px;font-size:18px}' +
+        '#em-zoom .pct{width:34px;font-size:10px}' +
+      '}' +
       '@media print{#em-zoom{display:none}}';
     document.head.appendChild(css);
 
@@ -72,6 +85,25 @@ var EMUI = (function () {
     document.getElementById('em-zoom-pct').onclick   = reiniciar;
 
     aplicar(leer());
+    vigilarVentanas(caja);
+  }
+
+  /**
+   * Respaldo del selector :has() para navegadores que no lo tienen: en
+   * cuanto alguna ventana emergente se abre o se cierra, se esconde o se
+   * muestra el control.
+   */
+  function vigilarVentanas(caja) {
+    if (!window.MutationObserver) return;
+    function revisar() {
+      var abierta = document.querySelector('.fondo.ver');
+      caja.className = abierta ? 'oculto' : '';
+    }
+    var obs = new MutationObserver(revisar);
+    document.querySelectorAll('.fondo').forEach(function (f) {
+      obs.observe(f, { attributes: true, attributeFilter: ['class'] });
+    });
+    revisar();
   }
 
   function iniciar() {
