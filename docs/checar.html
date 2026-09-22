@@ -387,7 +387,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v716</span></div>
+  <div class="pie"><span id="pie">v718</span></div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -448,7 +448,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v716';
+var VERSION = 'v718';
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -1313,8 +1313,20 @@ function pintarGente() {
   var lista = GENTE;
   var cont = document.getElementById('lista-gente');
   if (!lista.length) {
-    cont.innerHTML = '<div class="vacio" style="color:var(--tm);padding:16px 4px;font-size:13.5px">' +
-      'Sin lista todavía: conéctate una vez para descargarla.</div>';
+    cont.className = '';
+    cont.innerHTML =
+      '<div class="vacio" style="color:var(--warn);padding:14px 4px;font-size:13.5px;line-height:1.5">' +
+        (errorGente || 'Sin lista todavía: conéctate una vez para descargarla.') +
+      '</div>';
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opcion';
+    b.textContent = 'Reintentar';
+    b.onclick = function () {
+      cont.innerHTML = '<div class="vacio" style="color:var(--tm);padding:14px 4px;font-size:13.5px">Buscando...</div>';
+      bajarGente().then(function () { pintarGente(); });
+    };
+    cont.appendChild(b);
     return;
   }
   // Cuadrícula de caras, como elegir un Mii: se busca por la cara, no leyendo.
@@ -1470,11 +1482,34 @@ function pedirSyncFondo() {
    DATOS DEL SERVIDOR
    =========================================================================== */
 /** La lista sale de la hoja APP_EMPLEADOS: solo los marcados con SÍ.
- *  Trae también el área (color del avatar) y los avatares ya personalizados. */
+ *  Trae también el área (color del avatar) y los avatares ya personalizados.
+ *
+ *  Si algo falla, se guarda el motivo en vez de quedarse callado: en un
+ *  teléfono nuevo no hay lista guardada, y un error mudo se veía como
+ *  "sin lista" sin decir por qué. */
+var errorGente = '';
+
 function bajarGente() {
-  if (navigator.onLine === false) return Promise.resolve();
+  if (navigator.onLine === false) {
+    errorGente = 'Sin señal. Conéctate y vuelve a intentar.';
+    return Promise.resolve();
+  }
+  errorGente = '';
+  return pedirGente(2);
+}
+
+/** Apps Script tarda en despertar: la primera llamada de un teléfono nuevo
+ *  puede fallar por lenta. Se reintenta sola un par de veces antes de
+ *  molestar a nadie. */
+function pedirGente(intentos) {
   return gas('getEmpleadosApp', []).then(function(r){
-    if (!r || !r.empleados || !r.empleados.length) return;
+    if (!r) throw new Error('el servidor no contestó');
+    if (r.error || r.ok === false) throw new Error(r.message || 'el servidor devolvió un error');
+    if (!r.empleados || !r.empleados.length) {
+      errorGente = 'La hoja APP_EMPLEADOS no tiene a nadie en SÍ. ' +
+                   'En el Sheet: menú Checador → Empleados en la app.';
+      return;
+    }
     GENTE = r.empleados.map(function(u){
       return { id: normId(u.id), pin: u.pin, nombre: u.nombre,
                turno: u.turno || '', area: u.area || '' };
@@ -1487,7 +1522,18 @@ function bajarGente() {
       var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
       if (mio) { YO = mio; guardarYo(YO); pintar(); }
     }
-  }).catch(function(){});
+  }).catch(function(e){
+    var m = (e && e.message) || 'falló la conexión';
+
+    if (intentos > 1 && m.indexOf('No permitida') === -1) {
+      return new Promise(function (res) { setTimeout(res, 1500); })
+             .then(function () { return pedirGente(intentos - 1); });
+    }
+
+    errorGente = m.indexOf('No permitida') !== -1
+      ? 'Falta publicar la versión nueva del backend. Corre 5-SUBIR-TODO.bat.'
+      : 'No pude bajar la lista: ' + m;
+  });
 }
 
 /**
