@@ -366,7 +366,20 @@ function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio) {
           body: cuerpo,
           icon: 'https://v-w04.github.io/ElectronicsChecador/icon-192.png',
           badge: 'https://v-w04.github.io/ElectronicsChecador/icon-192.png',
-          tag: 'checador-alerta',
+          // CADA AVISO CON SU PROPIA ETIQUETA.
+          //
+          // Antes todos llevaban 'checador-alerta'. Con la etiqueta repetida
+          // el celular NO pinta un aviso nuevo: reemplaza el anterior en
+          // silencio. Y peor: iOS lleva la cuenta de los mensajes que NO
+          // acaban en un aviso visible, y cuando se le acaba la paciencia
+          // empieza a tirarlos. Por eso el 23-sep el recordatorio de salida
+          // de las 16:06 se mostró (acuse SÍ) y los de 16:11, 16:16 y 16:17
+          // ya no: mismo mensaje, misma etiqueta, tirados en silencio.
+          //
+          // Con el folio del envío cada recordatorio es un aviso distinto:
+          // suena, se apila, y se ve cuántos lleva uno ignorando — que es
+          // exactamente lo que debe hacer un recordatorio de "ya vete".
+          tag: 'checador-' + (idEnvio || 'alerta'),
           renotify: true,
           requireInteraction: true,
           vibrate: [400, 150, 400, 150, 400],

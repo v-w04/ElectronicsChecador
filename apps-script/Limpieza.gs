@@ -46,6 +46,11 @@ var LIMPIEZA_EN_USO = [
   'AUSENCIAS',
   'EXCEPCIONES_DIA',
 
+  // Rastro de auditoría: quién borró qué checada y cuándo. La crea
+  // Correcciones.gs y NO estaba en esta lista — la limpieza se la habría
+  // archivado junto con lo legado.
+  'CHECADAS_BORRADAS',
+
   // Tablero de juegos
   'JUEGOS',
   'JUEGOS_PARTIDAS'

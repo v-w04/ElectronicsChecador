@@ -81,7 +81,9 @@ function mostrarAviso(d) {
     requireInteraction: true,
     renotify: true,
     vibrate: [400, 150, 400, 150, 400],
-    tag: 'checador-alerta'
+    // Cada aviso con su propia etiqueta: con la etiqueta repetida el
+    // celular reemplaza el anterior en silencio en vez de avisar de nuevo.
+    tag: 'checador-' + (d.envio || Date.now())
   });
 
   return mostrar.then(function () { return acusarRecibo(d.envio); });
