@@ -134,7 +134,15 @@ if (!SDK_OK) {
 // ⚠️ UN SOLO listener. Antes había dos y un toque podía abrir dos ventanas.
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var destino = (event.notification.data && event.notification.data.url) || APP_CHECAR;
+  var d = event.notification.data || {};
+  var destino = d.url || APP_CHECAR;
+
+  // Desde que el aviso lo pinta el propio sistema (bloque notification en el
+  // mensaje), este service worker ya no se entera de que se mostró, así que
+  // no puede acusar recibo en ese momento. El acuse se manda al TOCARLO.
+  // "Entregada" en PUSH_LOG pasa a querer decir "el empleado la vio y la
+  // tocó", que es una prueba más fuerte, no más débil.
+  if (d.envio) acusarRecibo(d.envio);
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (lista) {

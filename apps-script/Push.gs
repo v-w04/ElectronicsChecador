@@ -220,18 +220,55 @@ function _obtenerAccessTokenFCM() {
  * devuelve al recibirlo y así se sabe si la alerta llegó de verdad.
  */
 function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio) {
+  var destino = urlAccion || 'https://v-w04.github.io/ElectronicsChecador/checar.html';
   return JSON.stringify({
     message: {
       token: token,
+
+      // Los datos siguen viajando: el service worker los usa para el acuse
+      // y para saber a dónde llevar al empleado si toca el aviso.
       data: {
         title: titulo,
         body: cuerpo,
         url: urlAccion || '',
         envio: idEnvio || ''
       },
+
+      // ---------------------------------------------------------------
+      // EL BLOQUE notification ES LA PIEZA QUE FALTABA EN iPHONE
+      // ---------------------------------------------------------------
+      // Antes solo se mandaba data. Un mensaje de solo datos NO se pinta
+      // solo: obliga al service worker del celular a despertar, cargar dos
+      // librerias de gstatic y dibujar el aviso a mano. Android aguanta esa
+      // cadena; iOS le da una ventana de tiempo mucho mas corta y si no
+      // alcanza, el aviso simplemente no aparece. Firebase contesta 200 y en
+      // el telefono no pasa nada — exactamente el sintoma del 23-sep, con
+      // Android acusando recibo y iPhone en silencio con el mismo token.
+      //
+      // Con notification, el propio sistema operativo pinta el aviso sin
+      // depender de que corra nada nuestro. Es el camino corto y el unico
+      // que iOS garantiza.
+      notification: {
+        title: titulo,
+        body: cuerpo
+      },
+
       webpush: {
         headers: { Urgency: 'high', TTL: '600' },
-        fcm_options: { link: 'https://v-w04.github.io/ElectronicsChecador/' }
+        // Aqui van los detalles que solo entiende la web. Este bloque manda
+        // sobre el notification de arriba cuando el destino es un navegador.
+        notification: {
+          title: titulo,
+          body: cuerpo,
+          icon: 'https://v-w04.github.io/ElectronicsChecador/icon-192.png',
+          badge: 'https://v-w04.github.io/ElectronicsChecador/icon-192.png',
+          tag: 'checador-alerta',
+          renotify: true,
+          requireInteraction: true,
+          vibrate: [400, 150, 400, 150, 400],
+          data: { url: urlAccion || '', envio: idEnvio || '' }
+        },
+        fcm_options: { link: destino }
       }
     }
   });
