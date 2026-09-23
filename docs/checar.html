@@ -468,7 +468,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v725</span> · buscar actualización
+      <span id="pie">v726</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -532,7 +532,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v725';
+var VERSION = 'v726';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1652,7 +1652,10 @@ function cerrarSesion() {
   }
 
   if (token && pin && navigator.onLine !== false) {
-    gas('eliminarPushToken', [pin, token]).then(terminar).catch(terminar);
+    // OJO: en el servidor es eliminarPushToken(token) — un solo argumento.
+    // Se le mandaban dos y el PIN llegaba en el lugar del token, así que no
+    // borraba nada. El aparato seguía dado de alta después de cerrar sesión.
+    gas('eliminarPushToken', [token]).then(terminar).catch(terminar);
   } else {
     terminar();
   }
