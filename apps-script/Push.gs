@@ -143,11 +143,115 @@ function registrarPushToken(pin, token, tokenAnterior, dispositivo) {
       }
     }
     sheet.appendRow([emp.pin, emp.idUsuario, emp.nombre, token, disp, ahora, ahora]);
+    // Un aparato, un token: fuera los registros viejos de este mismo celular.
+    _dejarUnoPorAparato_(sheet, emp.pin, disp, token);
     const total = _contarDispositivos(emp.pin);
     Logger.log('🔔 Dispositivo vinculado: ' + emp.nombre + ' · ' + disp + ' (total: ' + total + ')');
     return { ok: true, message: 'Dispositivo vinculado (' + total + ' en total)' };
   } catch (e) {
     return { ok: false, message: e.message };
+  }
+}
+
+/* ===========================================================================
+   PODA DE DISPOSITIVOS — que la lista no mienta
+   ===========================================================================
+   Un "token muerto" es una fila que apunta a un teléfono que ya no existe:
+   alguien borró la app, la reinstaló o limpió los datos. FCM contesta 200
+   porque el token sigue en SU registro, pero no hay a dónde entregar. Se
+   acumulan y el sistema miente: el 23-sep dijo "enviada a 4 de 4" y no
+   llegó nada a ninguno.
+
+   FCM acaba marcándolos 404/410 y ahí sí se borran solos (abajo, en el
+   envío), pero tarda. Estas dos reglas los quitan antes, y las dos son
+   seguras — ninguna puede borrar un teléfono vivo:
+
+     1. UN APARATO, UN TOKEN. Al registrarse, se borran las otras filas de
+        la MISMA persona con el MISMO aparato. Un iPhone de Víctor no tiene
+        por qué aparecer tres veces.
+
+     2. SIN APARECER EN MUCHO TIEMPO. "Último uso" se actualiza cada vez que
+        la app se abre. Si un aparato lleva PUSH_DIAS_INACTIVO días sin dar
+        señales, ya no lo usa nadie.
+
+   OJO: NO se puede podar contando envíos sin acuse. Desde que el aviso lo
+   pinta el sistema operativo, "Entregada" se marca cuando la persona TOCA
+   la notificación, no cuando aparece. Un teléfono vivo cuyo dueño no las
+   toca acumularía envíos sin acuse y se borraría estando bien.
+   =========================================================================== */
+
+var PUSH_DIAS_INACTIVO = 45;
+
+/** Deja un solo token por persona+aparato: borra los otros. */
+function _dejarUnoPorAparato_(sheet, pin, dispositivo, tokenBueno) {
+  try {
+    var data = sheet.getDataRange().getValues();
+    var d = (dispositivo || '').toString().trim().toLowerCase();
+    if (!d) return 0;
+    var borradas = 0;
+    for (var i = data.length - 1; i >= 1; i--) {
+      var mismoPin = _normId(data[i][0]) === _normId(pin);
+      var mismoAp  = (data[i][4] || '').toString().trim().toLowerCase() === d;
+      var otroTk   = (data[i][3] || '').toString() !== tokenBueno;
+      if (mismoPin && mismoAp && otroTk) { sheet.deleteRow(i + 1); borradas++; }
+    }
+    if (borradas) Logger.log('🧹 ' + borradas + ' token(s) viejo(s) del mismo aparato');
+    return borradas;
+  } catch (e) {
+    Logger.log('⚠️ _dejarUnoPorAparato_: ' + e.message);
+    return 0;
+  }
+}
+
+/**
+ * Quita los aparatos que llevan mucho sin abrir la app.
+ * Se puede correr desde el menú y se corre solo una vez al día.
+ */
+function podarTokens() {
+  try {
+    var sheet = crearHojaPushTokens();
+    var data = sheet.getDataRange().getValues();
+    var limite = new Date().getTime() - PUSH_DIAS_INACTIVO * 24 * 60 * 60 * 1000;
+    var borradas = 0, nombres = [];
+
+    for (var i = data.length - 1; i >= 1; i--) {
+      var ult = data[i][6];
+      var t = null;
+      if (ult instanceof Date) t = ult.getTime();
+      else {
+        // Formato dd/MM/yyyy HH:mm
+        var m = (ult || '').toString().match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (m) t = new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+      }
+      // Si no se entiende la fecha, NO se borra: más vale un token de sobra
+      // que quitarle las alertas a alguien por un formato raro.
+      if (t === null) continue;
+      if (t < limite) {
+        nombres.push((data[i][2] || '?') + ' · ' + (data[i][4] || '?'));
+        sheet.deleteRow(i + 1);
+        borradas++;
+      }
+    }
+    return { ok: true, borradas: borradas, detalle: nombres,
+             message: borradas ? ('Se quitaron ' + borradas + ' aparato(s) sin usar en ' +
+                                  PUSH_DIAS_INACTIVO + ' días:\n\n' + nombres.join('\n'))
+                               : 'Todos los aparatos registrados siguen activos.' };
+  } catch (e) {
+    return { ok: false, message: e.message };
+  }
+}
+
+/** La poda diaria, sin trigger propio: la llama el motor de alertas. */
+function _podaDiaria_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var hoy = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
+    if (props.getProperty('PUSH_PODA_DIA') === hoy) return;
+    props.setProperty('PUSH_PODA_DIA', hoy);
+    var r = podarTokens();
+    if (r.borradas) Logger.log('🧹 Poda diaria: ' + r.borradas + ' aparato(s)');
+  } catch (e) {
+    Logger.log('⚠️ _podaDiaria_: ' + e.message);
   }
 }
 

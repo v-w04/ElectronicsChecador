@@ -129,6 +129,9 @@ function _limpiarMarcasViejas() {
 // ============================================================================
 
 function revisarAlertas() {
+  // Una vez al día, quitar los aparatos que ya nadie usa.
+  try { _podaDiaria_(); } catch (e) {}
+
   try {
     var ahora = new Date();
     var hAhora = parseInt(Utilities.formatDate(ahora, TIMEZONE, 'H'), 10);

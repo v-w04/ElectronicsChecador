@@ -15,6 +15,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Probar notificación a un celular', 'menuProbarCelular')
     .addItem('Entregas de hoy', 'menuEntregasHoy')
+    .addItem('Limpiar aparatos que ya nadie usa', 'menuPodarTokens')
     .addItem('Diagnóstico', 'menuDiagnostico')
     .addSeparator()
     .addItem('Configurar Firebase', 'configurarFirebase')
@@ -120,4 +121,9 @@ function menuUrlIntranet() {
 
   var res = guardarUrlIntranet(r.getResponseText());
   _aviso_(res.ok ? 'Listo' : 'No se pudo', res.message);
+}
+
+function menuPodarTokens() {
+  var r = podarTokens();
+  _aviso_(r.ok ? '🧹 Aparatos' : '❌ No se pudo', r.message);
 }

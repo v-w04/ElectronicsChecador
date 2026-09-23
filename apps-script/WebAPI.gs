@@ -71,6 +71,7 @@ function _funcionesExpuestas() {
     testPushEmpleado:         testPushEmpleado,
     getMisDispositivos:       getMisDispositivos,
     desvincularDispositivo:   desvincularDispositivo,
+    podarTokens:              podarTokens,
 
     // Preferencias de alertas
     getPrefsAlertas:          getPrefsAlertas,
