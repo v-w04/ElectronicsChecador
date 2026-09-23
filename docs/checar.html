@@ -154,6 +154,10 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .checar:disabled{opacity:.55;box-shadow:none}
 .checar.salida{background:linear-gradient(135deg,#8c2b26,#c93c34)}
 
+.saltar{margin-top:10px;width:100%;background:transparent;border:1px dashed var(--bd);
+  color:var(--tm);border-radius:14px;padding:12px;font-size:13.5px;font-weight:600;cursor:pointer}
+.saltar:hover{background:var(--hover);color:var(--t2);border-style:solid}
+.saltar[hidden]{display:none}
 .otros{margin-top:10px;width:100%;background:transparent;border:1px solid var(--bd);
   color:var(--t2);border-radius:14px;padding:13px;font-size:14px;font-weight:600;cursor:pointer}
 .otros:hover{background:var(--hover)}
@@ -265,10 +269,18 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 /* la cara de la barra de arriba */
 .ini img{width:100%;height:100%;border-radius:50%;display:block}
 
+.salir{width:100%;background:var(--bad-bg);border:1px solid var(--bad-bd);color:var(--bad);
+  border-radius:12px;padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;
+  margin-top:6px;font-family:inherit}
+.salir[hidden]{display:none}
 .cerrar{width:100%;background:transparent;border:1px solid var(--bd);color:var(--t2);
   border-radius:12px;padding:13px;font-size:14px;cursor:pointer;margin-top:4px}
 
-.pie{margin-top:22px;text-align:center;font-size:11.5px;color:var(--tm);font-family:var(--mono)}
+.pie{margin-top:22px;text-align:center}
+.ver-boton{background:transparent;border:0;color:var(--tm);font-family:var(--mono);
+  font-size:11.5px;cursor:pointer;padding:10px 14px;border-radius:999px}
+.ver-boton:hover{background:var(--hover);color:var(--t2)}
+.ver-boton:disabled{opacity:.6}
 /* ── TABLET Y COMPUTADORA ───────────────────────────────────────────────
    En pantalla ancha la columna de 560px se veia como una tirita al centro.
    Aqui la pantalla se abre en dos: a la izquierda lo que se toca (reloj,
@@ -367,8 +379,6 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
               title="Alertas" aria-label="Alertas">&#128276;</button>
       <button class="icono" id="btn-dia" type="button"
               title="Marcar el día" aria-label="Marcar el día">&#128197;</button>
-      <button class="icono" id="btn-actualizar" type="button"
-              title="Buscar actualización" aria-label="Buscar actualización">&#8635;</button>
       <button class="cambiar" id="btn-cambiar" type="button">Cambiar</button>
     </div>
   </div>
@@ -392,6 +402,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <span class="que" id="checar-que">Checar</span>
     <span class="pista" id="checar-pista">&nbsp;</span>
   </button>
+  <button class="saltar" id="btn-saltar" type="button" hidden></button>
   <button class="otros" id="btn-otros" type="button">Registrar otro movimiento</button>
 
   <div id="aviso" role="status" aria-live="polite"></div>
@@ -412,7 +423,11 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
   </div>
 
-  <div class="pie"><span id="pie">v721</span></div>
+  <div class="pie">
+    <button class="ver-boton" id="btn-actualizar" type="button">
+      <span id="pie">v723</span> · buscar actualización
+    </button>
+  </div>
 </div>
 
 <div class="fondo" id="fondo-gente">
@@ -420,6 +435,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <h2>¿Quién eres?</h2>
     <p class="nota" id="nota-gente"></p>
     <div id="lista-gente"></div>
+    <button class="salir" id="btn-salir" type="button" hidden>Cerrar sesión en este aparato</button>
     <button class="cerrar" id="cerrar-gente" type="button">Cancelar</button>
   </div>
 </div>
@@ -473,7 +489,28 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v721';
+var VERSION = 'v723';
+
+/* ===========================================================================
+   CAZA-ERRORES
+   ===========================================================================
+   Si algo truena durante el arranque, la ejecución se corta y la pantalla se
+   queda a medias: el nombre en "Checador", el avatar en "?" y "Cargando..."
+   para siempre. Eso ya pasó dos veces y las dos me quedé adivinando.
+
+   Ahora el error se escribe donde va el estado. Feo, pero dice la verdad.
+   =========================================================================== */
+window.onerror = function (msg, archivo, linea) {
+  try {
+    var e = document.getElementById('estado');
+    if (e) {
+      e.textContent = 'ERROR: ' + msg + ' · ' +
+                      String(archivo || '').split('/').pop() + ':' + linea;
+      e.style.color = '#f85149';
+    }
+  } catch (x) {}
+  return false;
+};
 
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEstImEa0U-pNahzKyxZ2K7t303lF4D4E",
@@ -721,7 +758,8 @@ function olvidarYo() {
 var YO = ls(LS_YO);              // { id, pin, nombre, turno }
 var GENTE = ls(LS_GENTE) || [];  // [{ id, pin, nombre, turno }]
 var HOY = ls(LS_HOY) || { fecha:'', checadas:[] };
-if (HOY.fecha !== hoyStr()) HOY = { fecha: hoyStr(), checadas: [] };
+if (HOY.fecha !== hoyStr()) HOY = { fecha: hoyStr(), checadas: [], saltados: [] };
+if (!HOY.saltados) HOY.saltados = [];
 
 // Minutos permitidos. Se refrescan del servidor al abrir, pero queda la
 // última copia para que el cronómetro siga sirviendo sin señal.
@@ -741,7 +779,7 @@ function pintarReloj() {
   var d = new Date();
   document.getElementById('hora').textContent = dosDig(d.getHours()) + ':' + dosDig(d.getMinutes());
   document.getElementById('fecha').textContent = DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()];
-  if (HOY.fecha !== hoyStr(d)) { HOY = { fecha: hoyStr(d), checadas: [] }; ls(LS_HOY, HOY); pintar(); }
+  if (HOY.fecha !== hoyStr(d)) { HOY = { fecha: hoyStr(d), checadas: [], saltados: [] }; ls(LS_HOY, HOY); pintar(); }
 }
 pintarReloj();
 setInterval(pintarReloj, 10000);
@@ -990,8 +1028,44 @@ function pintarDia() {
 
 function siguienteMov() {
   var ya = hechas();
-  for (var i = 0; i < MOVS.length; i++) if (ya.indexOf(MOVS[i].tipo) === -1) return MOVS[i];
+  var saltados = HOY.saltados || [];
+  for (var i = 0; i < MOVS.length; i++) {
+    if (ya.indexOf(MOVS[i].tipo) !== -1) continue;
+    if (saltados.indexOf(MOVS[i].tipo) !== -1) continue;
+    return MOVS[i];
+  }
   return null;
+}
+
+/** Los descansos se pueden saltar; entrada y salida no. */
+function seSalta(mov) {
+  return mov && mov.tipo !== 'ENTRADA' && mov.tipo !== 'SALIDA';
+}
+
+/* Si alguien no desayunó, la app no tiene por qué quedarse atorada
+   ofreciéndole desayuno el resto del día. Saltarlo la empuja al siguiente
+   movimiento. No registra nada: solo deja de proponerlo. */
+function saltar(mov) {
+  if (!HOY.saltados) HOY.saltados = [];
+  if (HOY.saltados.indexOf(mov.tipo) === -1) HOY.saltados.push(mov.tipo);
+
+  // Si se salta la salida a comer, el regreso tampoco tiene sentido.
+  var pareja = { 'SALIDA_DESAYUNO':'REGRESO_DESAYUNO', 'SALIDA_COMIDA':'REGRESO_COMIDA' };
+  if (pareja[mov.tipo] && HOY.saltados.indexOf(pareja[mov.tipo]) === -1) {
+    HOY.saltados.push(pareja[mov.tipo]);
+  }
+
+  ls(LS_HOY, HOY);
+  pintar();
+  aviso('Listo, hoy no cuento tu ' + mov.nom.toLowerCase() +
+        '. Si te arrepientes, está en "Registrar otro movimiento".', 'ok', 5000);
+}
+
+/** Vuelve a poner en la fila algo que se había saltado. */
+function desaltar(tipo) {
+  if (!HOY.saltados) return;
+  var i = HOY.saltados.indexOf(tipo);
+  if (i !== -1) { HOY.saltados.splice(i, 1); ls(LS_HOY, HOY); }
 }
 
 function estadoTexto() {
@@ -1018,17 +1092,28 @@ function estadoTexto() {
 }
 
 function pintar() {
-  var elIni = document.getElementById('ini');
-  if (YO) {
-    elIni.innerHTML = '<img alt="" src="' + avatarUrl(YO.nombre, YO.area, AVATARES[YO.nombre]) +
-      '" onerror="this.parentNode.textContent=\'' + iniciales(YO.nombre) + '\'">';
-    elIni.style.background = 'none';
-  } else {
-    elIni.textContent = '?';
-  }
-  document.getElementById('nombre').textContent = YO ? nombreCorto(YO.nombre) : 'Elige tu nombre';
-  document.getElementById('turno').textContent = YO && YO.turno ? YO.turno : '';
+  // Lo primero es el nombre: es el dato que le dice al empleado que la app
+  // sí sabe quién es. Va antes que nada y no depende de nada externo.
+  try {
+    document.getElementById('nombre').textContent =
+      YO ? nombreCorto(YO.nombre) : 'Elige tu nombre';
+    document.getElementById('turno').textContent = (YO && YO.turno) ? YO.turno : '';
+  } catch (e) {}
 
+  // El avatar aparte: viene de un archivo externo (avatar.js) y si ese no
+  // cargó, tumbaba TODO el pintado. Ahora, si falla, se ven las iniciales.
+  try {
+    var elIni = document.getElementById('ini');
+    if (!YO) {
+      elIni.textContent = '?';
+    } else if (typeof avatarUrl === 'function') {
+      elIni.innerHTML = '<img alt="" src="' + avatarUrl(YO.nombre, YO.area, AVATARES[YO.nombre]) +
+        '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + iniciales(YO.nombre) + '\'">';
+      elIni.style.background = 'none';
+    } else {
+      elIni.textContent = iniciales(YO.nombre);
+    }
+  } catch (e) {}
   var e = estadoTexto();
   document.getElementById('punto').className = 'punto ' + e.clase;
   document.getElementById('estado').textContent = YO ? e.txt : 'Toca Cambiar y elige tu nombre';
@@ -1041,6 +1126,17 @@ function pintar() {
   document.getElementById('checar-pista').textContent = sig ? sig.pista : 'Ya registraste todos tus movimientos';
   btn.onclick = sig ? function(){ registrar(sig); } : null;
   if (!sig) btn.disabled = true;
+
+  // "Hoy no desayuno": deja de proponerlo y pasa al siguiente.
+  var bs = document.getElementById('btn-saltar');
+  if (YO && seSalta(sig)) {
+    bs.hidden = false;
+    bs.textContent = 'Hoy no voy a ' + (sig.tipo.indexOf('DESAYUNO') !== -1 ? 'desayunar' : 'comer');
+    bs.onclick = function(){ saltar(sig); };
+  } else {
+    bs.hidden = true;
+    bs.onclick = null;
+  }
 
   // Cada pieza va aparte: si una truena, las demás se pintan igual. Una
   // pantalla a medias sirve; una en blanco, no.
@@ -1312,10 +1408,15 @@ function bajarQuincena() {
 var fondoGente = document.getElementById('fondo-gente');
 document.getElementById('btn-cambiar').onclick = abrirGente;
 document.getElementById('cerrar-gente').onclick = function(){ fondoGente.classList.remove('ver'); };
+document.getElementById('btn-salir').onclick = cerrarSesion;
 
 /* Cerrar tocando el fondo oscuro o con Esc: nunca quedarse atrapado en una
    hoja porque el botón de Cancelar se fue abajo del todo. */
 function cerrarTocandoFuera(el) {
+  // Sin este guardia, una hoja que todavía no se ha declarado llega como
+  // undefined y tumba TODO el arranque. Fue exactamente lo que pasó: una
+  // sola línea fuera de orden dejaba la app en "Checador / Cargando...".
+  if (!el) return;
   el.onclick = function (e) { if (e.target === el) el.classList.remove('ver'); };
 }
 document.addEventListener('keydown', function (e) {
@@ -1328,6 +1429,8 @@ document.addEventListener('keydown', function (e) {
 
 function abrirGente() {
   pintarGente();
+  var bsal = document.getElementById('btn-salir');
+  if (bsal) bsal.hidden = !YO;
   var n = document.getElementById('nota-gente');
   if (n) {
     if (!almacenSirve()) {
@@ -1374,11 +1477,42 @@ function pintarGente() {
     b.innerHTML =
       '<span class="foto"><img alt="" loading="lazy" src="' +
         avatarUrl(g.nombre, g.area, AVATARES[g.nombre]) + '"' +
-        ' onerror="this.parentNode.textContent=\'' + avIniciales(g.nombre) + '\'"></span>' +
+        ' onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(g.nombre) + '\'"></span>' +
       '<span class="nm">' + nombreCorto(g.nombre) + '</span>';
     b.onclick = function(){ elegir(g); };
     cont.appendChild(b);
   });
+}
+
+/* Cerrar sesión de verdad: olvida quién eres EN ESTE APARATO y desvincula
+   las notificaciones, para que no le sigan llegando a alguien que ya no lo
+   usa. Faltaba: "Cambiar" solo intercambiaba de persona, nunca soltaba el
+   aparato. */
+function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión en este aparato?\n\nDejarás de recibir alertas aquí ' +
+               'y habrá que elegir el nombre otra vez.')) return;
+
+  var token = ls(LS_TOKEN);
+  var pin = YO ? YO.pin : '';
+
+  function terminar() {
+    olvidarYo();
+    ls(LS_TOKEN, null);
+    ls(LS_HOY, null);
+    ls(LS_QUINCENA, null);
+    ls(LS_EXC, null);
+    YO = null; HOY = { fecha: hoyStr(), checadas: [], saltados: [] }; QUINCENA = null;
+    EXC = { fecha: hoyStr(), tipo:'', global:false };
+    pintar();
+    abrirGente();
+    aviso('Sesión cerrada en este aparato.', 'ok', 4000);
+  }
+
+  if (token && pin && navigator.onLine !== false) {
+    gas('eliminarPushToken', [pin, token]).then(terminar).catch(terminar);
+  } else {
+    terminar();
+  }
 }
 
 function elegir(g) {
@@ -1402,23 +1536,28 @@ function elegir(g) {
    OTROS MOVIMIENTOS
    =========================================================================== */
 var fondoMovs = document.getElementById('fondo-movs');
-cerrarTocandoFuera(fondoGente);
-cerrarTocandoFuera(fondoMovs);
-cerrarTocandoFuera(fondoDia);
-cerrarTocandoFuera(fondoAlertas);
-cerrarTocandoFuera(fondoQuincena);
-cerrarTocandoFuera(fondoCorregir);
+// Todas las hojas, por su id: así no importa en qué orden se declararon.
+['fondo-gente','fondo-movs','fondo-dia','fondo-alertas','fondo-quincena','fondo-corregir']
+  .forEach(function (id) { cerrarTocandoFuera(document.getElementById(id)); });
 document.getElementById('btn-otros').onclick = function(){
   if (!YO) { abrirGente(); return; }
   var cont = document.getElementById('lista-movs');
   cont.innerHTML = '';
   var ya = hechas();
+  var saltados = HOY.saltados || [];
   MOVS.forEach(function(m){
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'opcion';
-    b.innerHTML = m.nom + '<small>' + (ya.indexOf(m.tipo) !== -1 ? 'Ya lo registraste hoy' : m.pista) + '</small>';
-    b.onclick = function(){ fondoMovs.classList.remove('ver'); registrar(m); };
+    var nota = ya.indexOf(m.tipo) !== -1 ? 'Ya lo registraste hoy'
+             : saltados.indexOf(m.tipo) !== -1 ? 'Lo saltaste hoy · tócalo para registrarlo'
+             : m.pista;
+    b.innerHTML = m.nom + '<small>' + nota + '</small>';
+    b.onclick = function(){
+      fondoMovs.classList.remove('ver');
+      desaltar(m.tipo);   // si estaba saltado, vuelve a contar
+      registrar(m);
+    };
     cont.appendChild(b);
   });
   fondoMovs.classList.add('ver');
@@ -1801,8 +1940,8 @@ function arrancarConYo() {
 
 _diag.ls = YO ? 'sí' : 'vacío';
 
-pintar();
-pintarPendientes();
+try { pintar(); } catch (e) { window.onerror(e.message, 'pintar', 0); }
+try { pintarPendientes(); } catch (e) {}
 
 if (YO) {
   _diag.idb = 'no hizo falta';
@@ -1830,6 +1969,7 @@ vaciarCola();
 /* ===========================================================================
    DE AQUÍ PARA ABAJO, NADA PUEDE TUMBAR LA PANTALLA
    =========================================================================== */
+var btnAct = document.getElementById('btn-actualizar');
 var elEstadoAct = document.getElementById('estado-act');
 var _actTimer = null;
 
@@ -1837,8 +1977,7 @@ var _actTimer = null;
  *  buscando, si ya está al día o si está bajando la versión nueva. */
 function pintarActualizacion(estado, version) {
   clearTimeout(_actTimer);
-  btnAct.disabled = (estado === 'buscando' || estado === 'actualizando');
-  btnAct.className = btnAct.disabled ? 'icono girando' : 'icono';
+  if (btnAct) btnAct.disabled = (estado === 'buscando' || estado === 'actualizando');
 
   var txt = '', clase = '', rueda = false;
   if (estado === 'buscando') {
@@ -1866,7 +2005,7 @@ function pintarActualizacion(estado, version) {
   }
 }
 
-btnAct.onclick = function () {
+if (btnAct) btnAct.onclick = function () {
   Actualizar.revisar(pintarActualizacion, true);
 };
 

@@ -891,7 +891,7 @@ function pintarTabla() {
       '<div class="cabe">' +
         '<span class="avat"><img alt="" loading="lazy" src="' +
           avatarUrl(s.nombre, avArea(s.nombre), AVATARES[s.nombre]) +
-          '" onerror="this.parentNode.textContent=\'' + avIniciales(s.nombre) + '\'"></span>' +
+          '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(s.nombre) + '\'"></span>' +
         '<div class="quien">' +
           '<div class="nm">' + cortito(s.nombre) + '</div>' +
           '<div class="pos">' + (i === 0 ? '👑 va ganando' : (i + 1) + '° lugar') + '</div>' +
@@ -1121,7 +1121,7 @@ function abrirModal() {
     c.innerHTML =
       '<span class="cara"><img alt="" loading="lazy" src="' +
         avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) + '"' +
-        ' onerror="this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
+        ' onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
       '<span class="nm">' + cortito(j.nombre) + '</span>';
     c.onclick = function () {
       var i = seleccion.indexOf(j.id);
@@ -1237,7 +1237,7 @@ function bloqueRonda(i) {
       (lugar ? '<span class="lug">' + lugar + '°</span>' : '') +
       '<span class="c"><img alt="" src="' +
         avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) +
-        '" onerror="this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
+        '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
       '<span class="n">' + cortito(j.nombre) + '</span>';
     b.onclick = function () {
       var k = orden.indexOf(id);
@@ -1356,7 +1356,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v721');
+Actualizar.iniciar('v723');
 </script>
 </body>
 </html>
