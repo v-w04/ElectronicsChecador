@@ -499,7 +499,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v733</span> · buscar actualización
+      <span id="pie">v734</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -584,7 +584,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v733';
+var VERSION = 'v734';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1211,13 +1211,40 @@ function pintarDia() {
   cerrar(html);
 }
 
+/**
+ * Qué toca ahora.
+ *
+ * EL DÍA NO VA HACIA ATRÁS. Antes esta función recorría la lista en orden y
+ * devolvía el primero que faltara, sin fijarse en lo que YA estaba
+ * registrado más adelante. Si alguien tenía entrada y comida pero nunca
+ * checó el desayuno, la app le seguía pidiendo el desayuno — a media tarde,
+ * con la comida ya hecha. Y al cambiar de aparato o volver a entrar, le
+ * empezaba a pedir cosas que ya habían pasado hacía horas.
+ *
+ * El dato que faltaba leer estaba ahí: la checada más avanzada del día. Si
+ * ya hay comida, el desayuno dejó de existir; nadie desayuna después de
+ * comer. Ahora se busca hasta dónde llegó el día y solo se ofrece de ahí en
+ * adelante.
+ *
+ * Lo que se brincó así no se pierde: sigue disponible en "Registrar otro
+ * movimiento" por si de verdad hace falta anotarlo tarde.
+ */
 function siguienteMov() {
   var ya = hechas();
   var saltados = HOY.saltados || [];
+
+  // Hasta dónde llegó el día: el índice del movimiento más avanzado que ya
+  // está registrado.
+  var avance = -1;
   for (var i = 0; i < MOVS.length; i++) {
-    if (ya.indexOf(MOVS[i].tipo) !== -1) continue;
-    if (saltados.indexOf(MOVS[i].tipo) !== -1) continue;
-    return MOVS[i];
+    if (ya.indexOf(MOVS[i].tipo) !== -1) avance = i;
+  }
+
+  for (var j = 0; j < MOVS.length; j++) {
+    if (j < avance) continue;                          // su momento ya pasó
+    if (ya.indexOf(MOVS[j].tipo) !== -1) continue;     // ya está registrado
+    if (saltados.indexOf(MOVS[j].tipo) !== -1) continue; // lo descartó a mano
+    return MOVS[j];
   }
   return null;
 }
