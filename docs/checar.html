@@ -164,9 +164,9 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .carril-fondo{position:absolute;inset:0;display:flex;align-items:center;
   justify-content:space-between;padding:0 22px;border-radius:20px;
   font-size:15px;font-weight:800;letter-spacing:-.01em;pointer-events:none}
-.carril-izq{color:#d29922;opacity:.25;transition:opacity .12s ease}
-.carril-der{color:#3fb950;opacity:.25;transition:opacity .12s ease}
-.carril-izq.listo,.carril-der.listo{opacity:1}
+.carril-reg{color:#3fb950;opacity:.25;transition:opacity .12s ease}
+.carril-desc{color:#d29922;opacity:.25;transition:opacity .12s ease}
+.carril-reg.listo,.carril-desc.listo{opacity:1}
 .carril .checar{margin-top:0;touch-action:pan-y;will-change:transform}
 .carril.arrastrando .checar{transition:none}
 .carril.soltando .checar{transition:transform .18s cubic-bezier(.2,.8,.3,1)}
@@ -201,6 +201,13 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .hoy .et{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tm);font-weight:700}
 .hoy .hr{font-family:var(--mono);font-size:16px;color:var(--t1);font-weight:600;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Lo que se descartó hoy: apagado, y con su deshacer a la mano. */
+.hoy .bloque.saltado .ico{opacity:.5}
+.hoy .bloque.saltado .hr{font-family:inherit;font-size:13.5px;color:var(--tm);font-weight:600}
+.hoy .deshacer{flex:0 0 auto;background:transparent;border:1px solid var(--bd);color:var(--t2);
+  border-radius:999px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit}
+.hoy .deshacer:hover{background:var(--hover)}
 .chip{flex:0 0 auto;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;
   border:1px solid var(--bd);color:var(--t2)}
 .chip.ok{color:var(--ok);border-color:var(--ok-bd);background:var(--ok-bg)}
@@ -421,10 +428,14 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   <!-- El botón va dentro de un carril: al arrastrarlo hacia la derecha se
        registra el movimiento, hacia la izquierda se descarta. Las dos
        etiquetas de atrás se asoman conforme se desliza el dedo. -->
+  <!-- OJO con el orden: las etiquetas viven DEBAJO del botón, así que la que
+       se asoma al arrastrar a la DERECHA es la que está pegada a la
+       IZQUIERDA. Estaban al revés: uno deslizaba a la derecha para registrar
+       y se asomaba "No hoy". La de la izquierda es la de registrar. -->
   <div class="carril" id="carril">
     <div class="carril-fondo">
-      <span class="carril-izq" id="carril-izq">✕ No hoy</span>
-      <span class="carril-der" id="carril-der">Registrar ✓</span>
+      <span class="carril-reg"  id="carril-reg">Registrar ✓</span>
+      <span class="carril-desc" id="carril-desc">✕ No hoy</span>
     </div>
     <button class="checar" id="btn-checar" type="button" disabled>
       <span class="que" id="checar-que">Checar</span>
@@ -457,7 +468,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v724</span> · buscar actualización
+      <span id="pie">v725</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -521,7 +532,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v724';
+var VERSION = 'v725';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -874,6 +885,37 @@ function ordenarHoy() {
   });
 }
 
+/**
+ * Mete las checadas que manda el servidor SIN perder lo que la persona
+ * decidió aquí.
+ *
+ * Este era el bug del desayuno: el servidor solo sabe de checadas, no sabe
+ * que dijiste "hoy no desayuno". Al refrescar se armaba un HOY nuevo desde
+ * cero y `saltados` se iba a la basura, así que la app volvía a ofrecerte el
+ * desayuno que acababas de descartar. Y como el refresco corre cada vez que
+ * vuelves a la app, pasaba a cada rato.
+ *
+ * Lo que la persona decidió manda sobre lo que el servidor no sabe.
+ */
+function fijarChecadas(lista) {
+  var saltados = (HOY && HOY.saltados) || [];
+  HOY = {
+    fecha: hoyStr(),
+    checadas: (lista || []).map(function (c) {
+      return { tipo: (c.tipo || '').toUpperCase(), hora: c.hora };
+    }),
+    saltados: saltados
+  };
+  ordenarHoy();
+
+  // Si algo que estaba saltado aparece ya checado, deja de tener sentido
+  // tenerlo en la lista de saltados.
+  var hechos = HOY.checadas.map(function (c) { return c.tipo; });
+  HOY.saltados = HOY.saltados.filter(function (t) { return hechos.indexOf(t) === -1; });
+
+  ls(LS_HOY, HOY);
+}
+
 /** El descanso que sigue abierto: el último que se abrió y no se ha cerrado.
  *  Antes se miraba solo la última checada de la lista y bastaba una fuera de
  *  orden para que el contador desapareciera. */
@@ -1018,10 +1060,48 @@ function chipDescanso(minutos, limite) {
   return '+' + exceso + ' min · −' + horas + ' h';
 }
 
+/* Lo que se descartó hoy se PINTA, no se avisa y ya.
+   Un mensajito que se va en cinco segundos no sirve: después uno no sabe si
+   quedó o no. Aquí queda a la vista, con su "deshacer" al lado. */
+function bloqueSaltado(tipo) {
+  var mov = null;
+  MOVS.forEach(function (m) { if (m.tipo === tipo) mov = m; });
+  if (!mov) return '';
+  var nom = tipo.indexOf('DESAYUNO') !== -1 ? 'Desayuno' : 'Comida';
+  return '<div class="bloque saltado">' +
+           '<div class="ico">' + mov.emoji + '</div>' +
+           '<div class="txt"><div class="et">' + nom + '</div>' +
+             '<div class="hr">hoy no lo tomas</div></div>' +
+           '<button type="button" class="deshacer" data-tipo="' + tipo + '">deshacer</button>' +
+         '</div>';
+}
+
 function pintarDia() {
   var cont = document.getElementById('lista-hoy');
+
+  // Las salidas a descanso que se descartaron. Solo se pinta la salida: el
+  // regreso se salta junto con ella y pintar los dos confunde.
+  var saltHtml = '';
+  (HOY.saltados || []).forEach(function (t) {
+    if (t === 'SALIDA_DESAYUNO' || t === 'SALIDA_COMIDA') saltHtml += bloqueSaltado(t);
+  });
+
+  function cerrar(html) {
+    cont.innerHTML = html + saltHtml;
+    // El "deshacer" vuelve a meter el movimiento en la fila.
+    [].slice.call(cont.querySelectorAll('.deshacer')).forEach(function (b) {
+      b.onclick = function () {
+        var t = b.getAttribute('data-tipo');
+        desaltar(t);
+        desaltar(t === 'SALIDA_DESAYUNO' ? 'REGRESO_DESAYUNO' : 'REGRESO_COMIDA');
+        pintar();
+        aviso('Listo, vuelve a contar.', 'ok', 3000);
+      };
+    });
+  }
+
   if (!HOY.checadas.length) {
-    cont.innerHTML = '<div class="vacio">Sin checadas hoy.</div>';
+    cerrar(saltHtml ? '' : '<div class="vacio">Sin checadas hoy.</div>');
     return;
   }
 
@@ -1076,7 +1156,7 @@ function pintarDia() {
   }
   if (izq || der) html += '<div class="resumen"><span>' + izq + '</span><span>' + der + '</span></div>';
 
-  cont.innerHTML = html;
+  cerrar(html);
 }
 
 function siguienteMov() {
@@ -1110,8 +1190,8 @@ function saltar(mov) {
 
   ls(LS_HOY, HOY);
   pintar();
-  aviso('Listo, hoy no cuento tu ' + mov.nom.toLowerCase() +
-        '. Si te arrepientes, está en "Registrar otro movimiento".', 'ok', 5000);
+  // Corto y en verde. El detalle queda pintado abajo, con su "deshacer".
+  aviso('Hoy no cuento tu ' + (mov.tipo.indexOf('DESAYUNO') !== -1 ? 'desayuno' : 'comida') + '.', 'ok', 3500);
 }
 
 /** Vuelve a poner en la fila algo que se había saltado. */
@@ -1183,10 +1263,10 @@ function pintar() {
   // El carril: la etiqueta de la izquierda solo tiene sentido si ese
   // movimiento se puede descartar. En entrada y salida se apaga.
   try {
-    var ci = document.getElementById('carril-izq');
-    if (ci) {
+    var cd = document.getElementById('carril-desc');
+    if (cd) {
       var puede = !!(YO && sig && seSalta(sig));
-      ci.style.visibility = puede ? '' : 'hidden';
+      cd.style.visibility = puede ? '' : 'hidden';
     }
   } catch (e) {}
 
@@ -1581,7 +1661,7 @@ function cerrarSesion() {
 function elegir(g) {
   YO = g;
   guardarYo(YO);
-  HOY = { fecha: hoyStr(), checadas: [] };
+  HOY = { fecha: hoyStr(), checadas: [], saltados: [] };
   ls(LS_HOY, HOY);
   QUINCENA = null;
   ls(LS_QUINCENA, null);
@@ -1671,13 +1751,7 @@ function registrar(mov) {
       aviso(r.message || 'No se registró', 'warn', 8000);
       return;
     }
-    if (r.checadasHoyServidor) {
-      HOY = { fecha: hoyStr(), checadas: r.checadasHoyServidor.map(function(c){
-        return { tipo:(c.tipo||'').toUpperCase(), hora:c.hora };
-      }) };
-      ordenarHoy();
-      ls(LS_HOY, HOY);
-    }
+    if (r.checadasHoyServidor) fijarChecadas(r.checadasHoyServidor);
     pintar();
     // El veredicto lo arma el servidor y trae su propio color: "✅ Entrada a
     // tiempo", "❌ Retardo #2", "⏱️ 35 min de tiempo extra"… Se muestra
@@ -1803,11 +1877,7 @@ function refrescarHoy() {
   if (!YO || !YO.pin || navigator.onLine === false) return Promise.resolve();
   return gas('getPerfilEmpleado', [YO.pin]).then(function(r){
     if (!r || !r.ok) return;
-    HOY = { fecha: hoyStr(), checadas: (r.checadasHoy || []).map(function(c){
-      return { tipo:(c.tipo||'').toUpperCase(), hora:c.hora };
-    }) };
-    ordenarHoy();
-    ls(LS_HOY, HOY);
+    fijarChecadas(r.checadasHoy);
     pintar();
     bajarQuincena();
   }).catch(function(){});
@@ -1872,7 +1942,15 @@ function pintarAlertas() {
   if (Notification.permission === 'granted' && token) {
     campana.className = 'icono activo';
     tit.textContent = 'Este aparato ya recibe tus avisos de entrada, comida y salida.';
-    sub.textContent = 'activas';
+    // Si el último intento de darse de alta falló, aquí se ve. Antes fallaba
+    // en silencio y el empleado creía que estaba dado de alta.
+    if (_diag.push && _diag.push.indexOf('falló') === 0) {
+      campana.className = 'icono apagado';
+      tit.textContent = 'Algo falla al dar de alta este aparato.';
+      sub.textContent = _diag.push;
+    } else {
+      sub.textContent = 'activas';
+    }
     btn.textContent = 'Probar';
     btn.onclick = probarAlerta;
   } else if (Notification.permission === 'denied') {
@@ -1920,17 +1998,44 @@ function activarAlertas() {
 
 /** La prueba la manda el propio empleado desde aquí. No tiene por qué
  *  pedírsela a nadie ni saber que existe un Sheet. */
+/**
+ * Probar = REGISTRAR DE NUEVO Y LUEGO MANDAR.
+ *
+ * Antes solo mandaba, y si el servidor ya no tenía el token de este celular
+ * la prueba se iba al vacío sin decir por qué. Ahora primero se vuelve a dar
+ * de alta el aparato y después se manda: así el botón arregla el caso más
+ * común en vez de nada más fallar.
+ */
 function probarAlerta() {
   var btn = document.getElementById('btn-alertas');
   if (navigator.onLine === false) { aviso('Necesitas señal para mandar la prueba.', 'warn', 4000); return; }
   btn.disabled = true;
-  aviso('Mandando la prueba...', '', 0);
-  gas('testPushEmpleado', [YO.pin]).then(function(r){
-    if (!r || r.ok === false) throw new Error((r && r.message || 'no salió').replace(/^[✅❌]\s*/, ''));
-    aviso('Listo, ya va en camino. Debe llegarte en unos segundos.', 'ok', 6000);
-  }).catch(function(e){
-    aviso('No se pudo mandar la prueba: ' + e.message, 'err', 6000);
-  }).then(function(){ btn.disabled = false; });
+  aviso('Registrando este aparato...', '', 0);
+
+  sdkFirebase()
+    .then(function(){ return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope:'./fcm-push/' }); })
+    .then(function(reg){ return firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg }); })
+    .then(function(token){
+      if (!token) throw new Error('este aparato no dio token de notificaciones');
+      var anterior = ls(LS_TOKEN);
+      return gas('registrarPushToken', [YO.pin, token, (anterior && anterior !== token) ? anterior : '', dispositivo()])
+        .then(function(r){
+          if (!r || r.ok === false) throw new Error((r && r.message) || 'el servidor rechazó el registro');
+          ls(LS_TOKEN, token);
+          _diag.push = 'registrado';
+          aviso('Mandando la prueba...', '', 0);
+          return gas('testPushEmpleado', [YO.pin]);
+        });
+    })
+    .then(function(r){
+      if (!r || r.ok === false) throw new Error((r && r.message || 'no salió').replace(/^[✅❌]\s*/, ''));
+      aviso('Listo, ya va en camino. Debe llegarte en unos segundos.', 'ok', 6000);
+    })
+    .catch(function(e){
+      _diag.push = 'falló: ' + (e && e.message || e);
+      aviso('No se pudo: ' + (e && e.message || e), 'err', 9000);
+    })
+    .then(function(){ btn.disabled = false; try { pintarAlertas(); } catch (err) {} });
 }
 
 function dispositivo() {
@@ -1941,22 +2046,45 @@ function dispositivo() {
   return so + (instalada() ? ' (app)' : '');
 }
 
-/** Revalida el token cada vez que se abre: FCM los rota y si nadie lo renueva
- *  el empleado se cae de las alertas sin enterarse. */
+/**
+ * Revalida el token cada vez que se abre la app.
+ *
+ * ANTES tenía un `if (token === anterior) return;` y ahí estaba el problema:
+ * si el servidor perdía el token —porque alguien cerró sesión, porque se
+ * limpió la hoja PUSH_TOKENS, porque se volvió a instalar la app— el celular
+ * seguía creyendo que estaba dado de alta y NUNCA se volvía a registrar. El
+ * empleado se quedaba sin alertas para siempre y sin enterarse.
+ *
+ * Ahora se vuelve a mandar al servidor una vez por sesión, aunque el token
+ * sea el mismo. Registrar dos veces no cuesta nada; quedarse fuera, sí.
+ */
+var _tokenMandado = false;
 function revalidarToken() {
   if (!YO || !soportaPush() || Notification.permission !== 'granted') return;
   if (navigator.onLine === false) return;
+  if (_tokenMandado) return;
+  _tokenMandado = true;
+
   sdkFirebase()
     .then(function(){ return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope:'./fcm-push/' }); })
     .then(function(reg){ return firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg }); })
     .then(function(token){
-      if (!token) return;
+      if (!token) throw new Error('Firebase no dio token');
       var anterior = ls(LS_TOKEN);
-      if (token === anterior) return;
-      return gas('registrarPushToken', [YO.pin, token, anterior || '', dispositivo()])
-        .then(function(){ ls(LS_TOKEN, token); pintarAlertas(); });
+      return gas('registrarPushToken', [YO.pin, token, (anterior && anterior !== token) ? anterior : '', dispositivo()])
+        .then(function(r){
+          if (!r || r.ok === false) throw new Error((r && r.message) || 'el servidor lo rechazó');
+          ls(LS_TOKEN, token);
+          _diag.push = 'registrado';
+          pintarAlertas();
+        });
     })
-    .catch(function(){});
+    .catch(function(e){
+      // No se grita, pero queda escrito: la tarjeta de alertas lo enseña.
+      _tokenMandado = false;
+      _diag.push = 'falló: ' + (e && e.message || e);
+      try { pintarAlertas(); } catch (err) {}
+    });
 }
 
 /* ===========================================================================
@@ -2051,8 +2179,8 @@ try {
   (function () {
     var carril = document.getElementById('carril');
     var btn    = document.getElementById('btn-checar');
-    var etIzq  = document.getElementById('carril-izq');
-    var etDer  = document.getElementById('carril-der');
+    var etReg  = document.getElementById('carril-reg');    // se asoma al ir a la DERECHA
+    var etDesc = document.getElementById('carril-desc');   // se asoma al ir a la IZQUIERDA
     var ayuda  = document.getElementById('carril-ayuda');
     if (!carril || !btn || !window.PointerEvent) return;
 
@@ -2062,8 +2190,8 @@ try {
 
     function mover(px) {
       btn.style.transform = px ? 'translateX(' + px + 'px)' : '';
-      etDer.classList.toggle('listo', px >=  UMBRAL);
-      etIzq.classList.toggle('listo', px <= -UMBRAL);
+      etReg.classList.toggle('listo',  px >=  UMBRAL);
+      etDesc.classList.toggle('listo', px <= -UMBRAL);
     }
 
     function soltar() {
