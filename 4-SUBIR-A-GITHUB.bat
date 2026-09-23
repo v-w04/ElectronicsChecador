@@ -19,7 +19,7 @@ echo.
 echo   SUBIR A GITHUB                     solo el frontend
 echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-echo   %AZUL%[1/2]%FIN%  Credenciales . . . . . . . . . . . .
+echo   %AZUL%[1/3]%FIN%  Credenciales . . . . . . . . . . . .
 call _seguro.bat
 if errorlevel 1 goto FUGA
 echo          limpio
@@ -32,7 +32,7 @@ del /f /q ".git\index.lock" ".git\HEAD.lock" ".git\config.lock" >nul 2>&1
 del /f /q ".git\objects\maintenance.lock" >nul 2>&1
 del /f /q ".git\refs\heads\*.lock" >nul 2>&1
 
-echo   %AZUL%[2/2]%FIN%  GitHub . . . . . . . . . . . . . . .
+echo   %AZUL%[2/3]%FIN%  GitHub . . . . . . . . . . . . . . .
 "!GIT!" status --porcelain > "%TEMP%\chk_s.txt" 2>nul
 set CAMBIOS=0
 for /f %%C in ('find /c /v "" ^< "%TEMP%\chk_s.txt"') do set CAMBIOS=%%C
@@ -85,10 +85,27 @@ if /i not "!LOCAL:~0,10!"=="!REMOTO:~0,10!" goto NOCUADRA
 echo          subido y verificado
 
 :FIN
+REM Clasp se cae solo cada tantos dias y nadie se entera hasta que el 5
+REM muere a medias. Aqui se revisa SIEMPRE, aunque este bat no lo use:
+REM mas vale enterarse ahora que cuando urge subir el backend.
+echo   %AZUL%[3/3]%FIN%  Apps Script . . . . . . . . . . . .
+set "CLASPMAL="
+call clasp login --status > "%TEMP%\chk_cl.txt" 2>&1
+if errorlevel 1 set "CLASPMAL=1"
+findstr /I /C:"not logged" "%TEMP%\chk_cl.txt" >nul 2>&1 && set "CLASPMAL=1"
+findstr /I /C:"no credential" "%TEMP%\chk_cl.txt" >nul 2>&1 && set "CLASPMAL=1"
+del "%TEMP%\chk_cl.txt" >nul 2>&1
+if defined CLASPMAL (echo          sesion caducada) else (echo          sesion viva)
+
 echo.
 echo   %AZUL%----------------------------------------------------%FIN%
 echo.
-echo %VERDE%  Listo.%FIN%
+if defined CLASPMAL (
+    echo   %ROJO%^^!  CLASP CADUCADO - el backend no se puede subir%FIN%
+    echo      Corre 1-INSTALAR-CLASP.bat
+) else (
+    echo %VERDE%  Listo.%FIN%
+)
 echo.
 call :LOGO
 exit /b 0

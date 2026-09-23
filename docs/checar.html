@@ -468,7 +468,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v726</span> · buscar actualización
+      <span id="pie">v727</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -532,7 +532,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v726';
+var VERSION = 'v727';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1676,6 +1676,38 @@ function elegir(g) {
   bajarQuincena();
   bajarExcepcion();
   aviso('Listo, ' + nombreCorto(g.nombre) + '. Este celular ya te recuerda.', 'ok', 4000);
+
+  // Elegir tu nombre es TODO lo que hay que hacer.
+  //
+  // Antes había que acordarse de entrar a la campanita y darle "Activar", y
+  // quien no lo hacía simplemente no recibía nada, sin enterarse nunca. Un
+  // empleado no tiene por qué saber que existe un permiso de notificaciones.
+  //
+  // Tiene que ser aquí y no en el arranque: iOS solo deja pedir el permiso
+  // como respuesta a algo que la persona tocó, y tocar su cara cuenta.
+  altaAutomatica();
+}
+
+/**
+ * Da de alta este aparato para las alertas, sin preguntar nada de más.
+ * Si el permiso ya está dado, ni se nota. Si no, sale el cuadro del sistema
+ * una sola vez. Si lo rechazan, no pasa nada: la app sigue funcionando y el
+ * botón de la campanita queda para reintentarlo.
+ */
+function altaAutomatica() {
+  if (!YO || !soportaPush()) return;
+  if (navigator.onLine === false) return;
+  if (Notification.permission === 'denied') return;
+
+  var permiso = Notification.permission === 'granted'
+    ? Promise.resolve('granted')
+    : Notification.requestPermission();
+
+  permiso.then(function (p) {
+    if (p !== 'granted') { try { pintarAlertas(); } catch (e) {} return; }
+    _tokenMandado = false;      // que se registre aunque ya se hubiera hecho
+    revalidarToken();
+  }).catch(function () {});
 }
 
 /* ===========================================================================
