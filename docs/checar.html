@@ -154,6 +154,26 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .checar:disabled{opacity:.55;box-shadow:none}
 .checar.salida{background:linear-gradient(135deg,#8c2b26,#c93c34)}
 
+/* carril del deslizamiento
+   ---------------------------------------------------------------------------
+   El botón se arrastra sobre dos etiquetas fijas. A la derecha "Registrar",
+   a la izquierda "No hoy": se van iluminando conforme el dedo avanza, y solo
+   se pintan del todo cuando ya se pasó el umbral, para que se sepa que al
+   soltar va a pasar algo. */
+.carril{position:relative;margin-top:18px;border-radius:20px;overflow:hidden}
+.carril-fondo{position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:space-between;padding:0 22px;border-radius:20px;
+  font-size:15px;font-weight:800;letter-spacing:-.01em;pointer-events:none}
+.carril-izq{color:#d29922;opacity:.25;transition:opacity .12s ease}
+.carril-der{color:#3fb950;opacity:.25;transition:opacity .12s ease}
+.carril-izq.listo,.carril-der.listo{opacity:1}
+.carril .checar{margin-top:0;touch-action:pan-y;will-change:transform}
+.carril.arrastrando .checar{transition:none}
+.carril.soltando .checar{transition:transform .18s cubic-bezier(.2,.8,.3,1)}
+.carril-ayuda{margin-top:8px;text-align:center;font-size:12px;color:var(--tm)}
+.carril-ayuda[hidden]{display:none}
+.carril-ayuda b{color:var(--t2)}
+
 .saltar{margin-top:10px;width:100%;background:transparent;border:1px dashed var(--bd);
   color:var(--tm);border-radius:14px;padding:12px;font-size:13.5px;font-weight:600;cursor:pointer}
 .saltar:hover{background:var(--hover);color:var(--t2);border-style:solid}
@@ -398,10 +418,22 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="crono" id="crono" hidden></div>
 
-  <button class="checar" id="btn-checar" type="button" disabled>
-    <span class="que" id="checar-que">Checar</span>
-    <span class="pista" id="checar-pista">&nbsp;</span>
-  </button>
+  <!-- El botón va dentro de un carril: al arrastrarlo hacia la derecha se
+       registra el movimiento, hacia la izquierda se descarta. Las dos
+       etiquetas de atrás se asoman conforme se desliza el dedo. -->
+  <div class="carril" id="carril">
+    <div class="carril-fondo">
+      <span class="carril-izq" id="carril-izq">✕ No hoy</span>
+      <span class="carril-der" id="carril-der">Registrar ✓</span>
+    </div>
+    <button class="checar" id="btn-checar" type="button" disabled>
+      <span class="que" id="checar-que">Checar</span>
+      <span class="pista" id="checar-pista">&nbsp;</span>
+    </button>
+  </div>
+  <div class="carril-ayuda" id="carril-ayuda" hidden>
+    Desliza <b>→</b> para registrar · <b>←</b> para descartar
+  </div>
   <button class="saltar" id="btn-saltar" type="button" hidden></button>
   <button class="otros" id="btn-otros" type="button">Registrar otro movimiento</button>
 
@@ -425,7 +457,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v723</span> · buscar actualización
+      <span id="pie">v724</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -489,7 +521,28 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v723';
+var VERSION = 'v724';
+
+/* ===========================================================================
+   SERVICE WORKER — LO PRIMERO DE TODO
+   ===========================================================================
+   Esto es lo que hace que la app abra SIN INTERNET: el service worker guarda
+   las pantallas en el teléfono. Si no se registra, no hay nada guardado y sin
+   señal la app simplemente no abre.
+
+   Antes estaba hasta el final del archivo, después de 1,500 líneas. En la
+   v721 el arranque tronaba en la línea ~1500 y esta línea NUNCA se alcanzaba:
+   por eso la app dejó de abrir sin wifi. Un solo error se llevaba también el
+   modo sin señal.
+
+   No depende de nada, así que va primero. Pase lo que pase más abajo, el
+   modo sin internet queda salvado.
+   =========================================================================== */
+try {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(function () {});
+  }
+} catch (e) {}
 
 /* ===========================================================================
    CAZA-ERRORES
@@ -1126,6 +1179,16 @@ function pintar() {
   document.getElementById('checar-pista').textContent = sig ? sig.pista : 'Ya registraste todos tus movimientos';
   btn.onclick = sig ? function(){ registrar(sig); } : null;
   if (!sig) btn.disabled = true;
+
+  // El carril: la etiqueta de la izquierda solo tiene sentido si ese
+  // movimiento se puede descartar. En entrada y salida se apaga.
+  try {
+    var ci = document.getElementById('carril-izq');
+    if (ci) {
+      var puede = !!(YO && sig && seSalta(sig));
+      ci.style.visibility = puede ? '' : 'hidden';
+    }
+  } catch (e) {}
 
   // "Hoy no desayuno": deja de proponerlo y pasa al siguiente.
   var bs = document.getElementById('btn-saltar');
@@ -1969,6 +2032,114 @@ vaciarCola();
 /* ===========================================================================
    DE AQUÍ PARA ABAJO, NADA PUEDE TUMBAR LA PANTALLA
    =========================================================================== */
+
+/* ===========================================================================
+   DESLIZAR EL BOTÓN
+   ===========================================================================
+   Derecha  → registra el movimiento que toca (entrada, salida, descansos).
+   Izquierda → lo descarta, igual que "Hoy no desayuno".
+
+   Tocar el botón sigue funcionando como siempre: solo se toma como
+   deslizamiento si el dedo recorrió lo suficiente. Y si el movimiento no se
+   puede descartar (entrada y salida no se descartan), el botón regresa a su
+   lugar y lo dice, en vez de hacer algo a medias.
+
+   Va dentro de un try por si el aparato no maneja punteros: si esto falla,
+   los botones de siempre siguen ahí.
+   =========================================================================== */
+try {
+  (function () {
+    var carril = document.getElementById('carril');
+    var btn    = document.getElementById('btn-checar');
+    var etIzq  = document.getElementById('carril-izq');
+    var etDer  = document.getElementById('carril-der');
+    var ayuda  = document.getElementById('carril-ayuda');
+    if (!carril || !btn || !window.PointerEvent) return;
+
+    var UMBRAL = 88;      // píxeles para que cuente
+    var TOPE   = 130;     // hasta dónde se deja arrastrar
+    var x0 = 0, y0 = 0, dx = 0, activo = false, arrastro = false, idPtr = null;
+
+    function mover(px) {
+      btn.style.transform = px ? 'translateX(' + px + 'px)' : '';
+      etDer.classList.toggle('listo', px >=  UMBRAL);
+      etIzq.classList.toggle('listo', px <= -UMBRAL);
+    }
+
+    function soltar() {
+      carril.classList.remove('arrastrando');
+      carril.classList.add('soltando');
+      mover(0);
+      setTimeout(function () { carril.classList.remove('soltando'); }, 200);
+    }
+
+    btn.addEventListener('pointerdown', function (e) {
+      if (btn.disabled) return;
+      activo = true; arrastro = false; idPtr = e.pointerId;
+      x0 = e.clientX; y0 = e.clientY; dx = 0;
+      carril.classList.add('arrastrando');
+    });
+
+    btn.addEventListener('pointermove', function (e) {
+      if (!activo || e.pointerId !== idPtr) return;
+      var mx = e.clientX - x0, my = e.clientY - y0;
+
+      // Mientras el dedo vaya más de subida que de lado, es scroll: no se
+      // estorba. Solo se toma el control cuando el gesto es claramente
+      // horizontal.
+      if (!arrastro) {
+        if (Math.abs(mx) < 10 || Math.abs(mx) <= Math.abs(my)) return;
+        arrastro = true;
+        try { btn.setPointerCapture(idPtr); } catch (err) {}
+      }
+      e.preventDefault();
+      dx = Math.max(-TOPE, Math.min(TOPE, mx));
+      mover(dx);
+    });
+
+    function terminar(e) {
+      if (!activo || (e && e.pointerId !== idPtr)) return;
+      activo = false;
+      try { btn.releasePointerCapture(idPtr); } catch (err) {}
+      if (!arrastro) { carril.classList.remove('arrastrando'); return; }
+
+      var sig = siguienteMov();
+      var d = dx;
+      soltar();
+
+      if (!sig || !YO) return;
+
+      if (d >= UMBRAL) {
+        registrar(sig);
+      } else if (d <= -UMBRAL) {
+        if (seSalta(sig)) {
+          saltar(sig);
+        } else {
+          aviso('Tu ' + sig.nom.toLowerCase() + ' no se puede descartar. ' +
+                'Deslízalo a la derecha para registrarlo.', '', 4000);
+        }
+      }
+    }
+
+    btn.addEventListener('pointerup', terminar);
+    btn.addEventListener('pointercancel', terminar);
+
+    // El clic normal se cancela si hubo arrastre, para no registrar dos veces.
+    btn.addEventListener('click', function (e) {
+      if (arrastro) { e.preventDefault(); e.stopImmediatePropagation(); arrastro = false; }
+    }, true);
+
+    // La ayuda solo se enseña las primeras veces; después estorba.
+    try {
+      var vistas = parseInt(localStorage.getItem('em_carril_vistas') || '0', 10);
+      if (vistas < 4) {
+        ayuda.hidden = false;
+        localStorage.setItem('em_carril_vistas', String(vistas + 1));
+      }
+    } catch (err) {}
+  })();
+} catch (e) {}
+
 var btnAct = document.getElementById('btn-actualizar');
 var elEstadoAct = document.getElementById('estado-act');
 var _actTimer = null;
@@ -2014,9 +2185,11 @@ try {
   Actualizar.iniciar(VERSION, pintarActualizacion);
 } catch (e) { /* si el actualizador falla, la app sigue funcionando */ }
 
+/* El registro del service worker ya se hizo hasta arriba, a propósito.
+   Aquí solo queda escuchar sus avisos, que sí dependen de funciones de
+   esta pantalla. */
 try {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js').catch(function(){});
     navigator.serviceWorker.addEventListener('message', function(e){
       var d = e.data || {};
       if (d.type === 'COLA_ENVIADA' && d.enviadas) {
