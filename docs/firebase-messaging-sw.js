@@ -103,10 +103,18 @@ if (SDK_OK) {
     appId: "1:888222391494:web:3b310692d7aab6e76d8bc7"
   });
 
-  // El backend manda SOLO data (sin "notification") para que el aviso se
-  // muestre UNA vez, aquí, con nuestro ícono y nuestra vibración.
+  // ⚠️ AQUÍ NO SE PINTA NADA. Esa es toda la corrección del aviso doble.
+  //
+  // Desde que el backend manda el bloque "notification", la propia librería
+  // de Firebase dibuja el aviso en cuanto llega el mensaje. Este manejador
+  // ADEMÁS se sigue llamando porque el mensaje también trae "data", y como
+  // antes pintaba otro aviso, salían dos por cada alerta.
+  //
+  // Se queda solo con el acuse de recibo, que es lo único que la librería
+  // no hace por su cuenta.
   firebase.messaging().onBackgroundMessage(function (payload) {
-    return mostrarAviso(payload && payload.data);
+    var d = (payload && payload.data) || {};
+    return acusarRecibo(d.envio);
   });
 }
 
@@ -118,14 +126,22 @@ if (SDK_OK) {
    --------------------------------------------------------------------------- */
 if (!SDK_OK) {
   self.addEventListener('push', function (event) {
-    var d = {};
+    var j = {}, d = {};
     try {
-      var j = event.data ? event.data.json() : {};
+      j = event.data ? event.data.json() : {};
       d = j.data || j;              // FCM lo envuelve en .data
     } catch (e) {
       try { d = { body: event.data ? event.data.text() : '' }; } catch (err) {}
     }
-    event.waitUntil(mostrarAviso(d));
+    // Aquí SÍ se pinta: sin la librería no hay nadie más que lo haga. Se
+    // toman los textos del bloque notification si viene, y si no, de data.
+    var n = j.notification || {};
+    event.waitUntil(mostrarAviso({
+      title: n.title || d.title,
+      body:  n.body  || d.body,
+      url:   d.url,
+      envio: d.envio
+    }));
   });
 }
 
