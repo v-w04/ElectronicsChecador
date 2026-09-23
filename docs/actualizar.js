@@ -21,6 +21,7 @@ var Actualizar = (function () {
   var VERSION_LOCAL = '';       // la pone la pantalla al arrancar
   var _revisando = false;
   var _ultimaRevision = 0;
+  var VERSION_PUB = '';       // la que dice version.json
   var LS_RECARGA = 'em_recarga_marca';   // evita recargas en bucle
 
   /** Lee la versión publicada. Sin caché: es el único archivo que siempre
@@ -32,13 +33,28 @@ var Actualizar = (function () {
       .catch(function () { return null; });
   }
 
-  /** Tira caché y service worker, y recarga. */
-  function aplicar() {
-    // Marca para no entrar en bucle si algo sale mal.
+  /** Tira caché y service worker, y recarga.
+   *  @param {boolean} [aFuerza] salta el seguro contra bucles (botón de reparar) */
+  function aplicar(aFuerza) {
+    // Seguro contra bucles, por versión.
+    //
+    // Antes era un candado ciego de 60 segundos: si la recarga no lograba
+    // traer la versión nueva, al volver a intentarlo el candado lo frenaba,
+    // la pantalla se quedaba en "Bajando la versión..." y ahí se moría. Un
+    // teléfono podía quedarse atorado para siempre sin decir por qué.
+    //
+    // Ahora se cuentan los intentos DE ESA versión: tres, y se rinde
+    // avisando. Una versión distinta empieza de cero.
     try {
-      var marca = parseInt(localStorage.getItem(LS_RECARGA) || '0', 10);
-      if (Date.now() - marca < 60000) return Promise.resolve(false);
-      localStorage.setItem(LS_RECARGA, String(Date.now()));
+      var g = {};
+      try { g = JSON.parse(localStorage.getItem(LS_RECARGA) || '{}') || {}; } catch (e) { g = {}; }
+      if (!aFuerza) {
+        if (g.v === VERSION_PUB && (g.n || 0) >= 3) return Promise.resolve(false);
+        if (Date.now() - (g.t || 0) < 8000) return Promise.resolve(false);   // anti-rebote
+      }
+      localStorage.setItem(LS_RECARGA, JSON.stringify({
+        v: VERSION_PUB, t: Date.now(), n: (g.v === VERSION_PUB ? (g.n || 0) : 0) + 1
+      }));
     } catch (e) {}
 
     var pasos = [];
@@ -95,10 +111,17 @@ var Actualizar = (function () {
 
     return versionPublicada().then(function (pub) {
       if (!pub) { if (avisar) avisar('sinred'); return; }
+      VERSION_PUB = pub;
 
       if (VERSION_LOCAL && pub !== VERSION_LOCAL) {
         if (avisar) avisar('actualizando', pub);
-        return aplicar();
+        return aplicar().then(function (hizo) {
+          // aplicar() se niega si ya recargó hace menos de un minuto, para no
+          // entrar en bucle. Cuando eso pasaba, la pantalla se quedaba en
+          // "bajando versión..." para siempre y parecía colgada. Ahora lo dice
+          // y deja el botón libre para reintentar.
+          if (hizo === false && avisar) avisar('atorado', pub);
+        });
       }
 
       // Aunque el número coincida, se le pide al service worker que se
@@ -108,6 +131,8 @@ var Actualizar = (function () {
           if (r) r.update();
         }).catch(function () {});
       }
+      // Ya entró: se borra el contador de intentos.
+      try { localStorage.removeItem(LS_RECARGA); } catch (e) {}
       if (avisar) avisar('aldia', pub);
 
     }).catch(function () {
@@ -137,5 +162,15 @@ var Actualizar = (function () {
     window.addEventListener('online', function () { revisar(avisar, false); });
   }
 
-  return { iniciar: iniciar, revisar: revisar, aplicar: aplicar };
+  /**
+   * Reparar: borra TODO —caché, service workers, contador de intentos— y
+   * recarga. Es la salida para un teléfono que se quedó atorado y ya no
+   * puede salir solo. Lo único que no toca es el perfil de la persona.
+   */
+  function reparar() {
+    try { localStorage.removeItem(LS_RECARGA); } catch (e) {}
+    return aplicar(true);
+  }
+
+  return { iniciar: iniciar, revisar: revisar, aplicar: aplicar, reparar: reparar };
 })();

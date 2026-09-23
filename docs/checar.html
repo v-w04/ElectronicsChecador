@@ -91,6 +91,10 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   display:flex;align-items:center;gap:9px;background:var(--raised);color:var(--t2);
   border-top:1px solid var(--bd-sub)}
 .franja[hidden]{display:none}
+.franja #btn-reparar{margin-left:auto;flex:0 0 auto;border:0;border-radius:999px;
+  padding:6px 16px;background:#f85149;color:#fff;font-size:12.5px;font-weight:800;
+  cursor:pointer;font-family:inherit}
+.franja #btn-reparar:disabled{opacity:.6}
 .franja.ok{background:var(--ok-bg);color:var(--ok)}
 .franja.mal{background:var(--warn-bg);color:var(--warn)}
 .franja .rueda{width:15px;height:15px;flex:0 0 auto;border-radius:50%;
@@ -495,7 +499,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v730</span> · buscar actualización
+      <span id="pie">v731</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -580,7 +584,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v730';
+var VERSION = 'v731';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -2268,36 +2272,94 @@ function activarAlertas() {
  * de alta el aparato y después se manda: así el botón arregla el caso más
  * común en vez de nada más fallar.
  */
+/**
+ * Consigue el token de este aparato.
+ *
+ * `forzarNuevo` tira el que Firebase tiene guardado y pide uno desde cero.
+ * Hace falta porque la librería guarda el token en el propio teléfono y lo
+ * sigue entregando aunque ya no sirva. Eso pasa cada vez que la app se
+ * actualiza: el service worker se renueva, la suscripción de abajo se rehace
+ * y el token viejo queda muerto — pero la librería no se entera y lo vuelve
+ * a dar. Al mandar, FCM contesta 404 UNREGISTERED. Es justo lo que salió en
+ * el panel de alertas el 23-sep.
+ */
+function obtenerToken(forzarNuevo) {
+  return sdkFirebase()
+    .then(function () {
+      return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './fcm-push/' });
+    })
+    .then(function (reg) {
+      var m = firebase.messaging();
+      var antes = forzarNuevo ? m.deleteToken().catch(function () {}) : Promise.resolve();
+      return antes.then(function () {
+        return m.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+      });
+    })
+    .then(function (token) {
+      if (!token) throw new Error('este aparato no dio token de notificaciones');
+      return token;
+    });
+}
+
+/** Da de alta el token en el servidor y lo guarda aquí. */
+function registrarEnServidor(token) {
+  var anterior = ls(LS_TOKEN);
+  return gas('registrarPushToken',
+             [YO.pin, token, (anterior && anterior !== token) ? anterior : '', dispositivo()])
+    .then(function (r) {
+      if (!r || r.ok === false) throw new Error((r && r.message) || 'el servidor rechazó el registro');
+      ls(LS_TOKEN, token);
+      _diag.push = 'registrado';
+      return token;
+    });
+}
+
+/** ¿El error dice que el token ya no sirve? */
+function tokenMuerto(e) {
+  var m = String((e && e.message) || e || '');
+  return m.indexOf('UNREGISTERED') !== -1 || m.indexOf('NotRegistered') !== -1 ||
+         m.indexOf('404') !== -1 || m.indexOf('410') !== -1;
+}
+
+/**
+ * Probar = dar de alta el aparato y mandar. Y si FCM contesta que el token
+ * está muerto, tirarlo, sacar uno nuevo y volver a intentar UNA vez, solo.
+ * Antes se quedaba en el error y el empleado no tenía cómo salir de ahí.
+ */
 function probarAlerta() {
   var btn = document.getElementById('btn-alertas');
   if (navigator.onLine === false) { aviso('Necesitas señal para mandar la prueba.', 'warn', 4000); return; }
   btn.disabled = true;
-  aviso('Registrando este aparato...', '', 0);
 
-  sdkFirebase()
-    .then(function(){ return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope:'./fcm-push/' }); })
-    .then(function(reg){ return firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg }); })
-    .then(function(token){
-      if (!token) throw new Error('este aparato no dio token de notificaciones');
-      var anterior = ls(LS_TOKEN);
-      return gas('registrarPushToken', [YO.pin, token, (anterior && anterior !== token) ? anterior : '', dispositivo()])
-        .then(function(r){
-          if (!r || r.ok === false) throw new Error((r && r.message) || 'el servidor rechazó el registro');
-          ls(LS_TOKEN, token);
-          _diag.push = 'registrado';
-          aviso('Mandando la prueba...', '', 0);
-          return gas('testPushEmpleado', [YO.pin]);
-        });
+  function intento(forzarNuevo) {
+    aviso(forzarNuevo ? 'El registro estaba vencido, sacando uno nuevo...'
+                      : 'Registrando este aparato...', '', 0);
+    return obtenerToken(forzarNuevo)
+      .then(registrarEnServidor)
+      .then(function () {
+        aviso('Mandando la prueba...', '', 0);
+        return gas('testPushEmpleado', [YO.pin]);
+      })
+      .then(function (r) {
+        if (!r || r.ok === false) throw new Error((r && r.message || 'no salió').replace(/^[✅❌]\s*/, ''));
+        return true;
+      });
+  }
+
+  intento(false)
+    .catch(function (e) {
+      if (!tokenMuerto(e)) throw e;
+      return intento(true);          // una sola reintentada, con token nuevo
     })
-    .then(function(r){
-      if (!r || r.ok === false) throw new Error((r && r.message || 'no salió').replace(/^[✅❌]\s*/, ''));
+    .then(function () {
+      _diag.push = 'registrado';
       aviso('Listo, ya va en camino. Debe llegarte en unos segundos.', 'ok', 6000);
     })
-    .catch(function(e){
+    .catch(function (e) {
       _diag.push = 'falló: ' + (e && e.message || e);
       aviso('No se pudo: ' + (e && e.message || e), 'err', 9000);
     })
-    .then(function(){ btn.disabled = false; try { pintarAlertas(); } catch (err) {} });
+    .then(function () { btn.disabled = false; try { pintarAlertas(); } catch (err) {} });
 }
 
 function dispositivo() {
@@ -2327,19 +2389,16 @@ function revalidarToken() {
   if (_tokenMandado) return;
   _tokenMandado = true;
 
-  sdkFirebase()
-    .then(function(){ return navigator.serviceWorker.register('firebase-messaging-sw.js', { scope:'./fcm-push/' }); })
-    .then(function(reg){ return firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg }); })
-    .then(function(token){
-      if (!token) throw new Error('Firebase no dio token');
-      var anterior = ls(LS_TOKEN);
-      return gas('registrarPushToken', [YO.pin, token, (anterior && anterior !== token) ? anterior : '', dispositivo()])
-        .then(function(r){
-          if (!r || r.ok === false) throw new Error((r && r.message) || 'el servidor lo rechazó');
-          ls(LS_TOKEN, token);
-          _diag.push = 'registrado';
-          pintarAlertas();
-        });
+  // Si la app se actualizó desde el último registro, el token pudo morir con
+  // el service worker anterior. Se pide uno nuevo de una vez, en lugar de
+  // esperar a que falle una alerta de verdad y nadie se entere.
+  var trasActualizar = ls('em_push_version') !== VERSION;
+
+  obtenerToken(trasActualizar)
+    .then(registrarEnServidor)
+    .then(function () {
+      ls('em_push_version', VERSION);
+      pintarAlertas();
     })
     .catch(function(e){
       // No se grita, pero queda escrito: la tarjeta de alertas lo enseña.
@@ -2553,6 +2612,24 @@ function pintarActualizacion(estado, version) {
   }
   if (estado === 'sinred') {
     txt = 'Sin señal: no pude revisar si hay versión nueva'; clase = 'mal';
+  }
+  // La actualización no logró entrar después de varios intentos. En vez de
+  // quedarse en "Bajando la versión..." para siempre —que es lo que parecía
+  // un cuelgue— se dice y se ofrece la salida.
+  if (estado === 'atorado') {
+    elEstadoAct.hidden = false;
+    elEstadoAct.className = 'franja mal';
+    elEstadoAct.innerHTML =
+      '<span>La versión ' + (version || '') + ' no logró entrar.</span>' +
+      '<button type="button" id="btn-reparar">Reparar</button>';
+    var br = document.getElementById('btn-reparar');
+    if (br) br.onclick = function () {
+      br.disabled = true;
+      br.textContent = 'Reparando...';
+      Actualizar.reparar();
+    };
+    if (btnAct) btnAct.disabled = false;
+    return;
   }
 
   if (!txt) { elEstadoAct.hidden = true; return; }
