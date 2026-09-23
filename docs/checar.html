@@ -154,6 +154,33 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .checar:disabled{opacity:.55;box-shadow:none}
 .checar.salida{background:linear-gradient(135deg,#8c2b26,#c93c34)}
 
+/* alerta recibida con la app abierta */
+.alerta-viva{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  padding:calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom));
+  background:rgba(1,4,9,.72);backdrop-filter:blur(6px)}
+.alerta-viva.ver{display:flex}
+.alerta-viva .caja{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bd);
+  border-radius:24px;padding:30px 26px 24px;text-align:center;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);animation:brinca .32s cubic-bezier(.2,1.3,.4,1)}
+@keyframes brinca{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+.alerta-viva .campanita{font-size:46px;line-height:1;margin-bottom:12px}
+.alerta-viva h3{margin:0 0 8px;font-size:21px;font-weight:800;letter-spacing:-.02em;color:var(--t1)}
+.alerta-viva p{margin:0 0 22px;font-size:15.5px;line-height:1.5;color:var(--t2)}
+.alerta-viva button{width:100%;border:0;border-radius:15px;padding:15px;cursor:pointer;
+  background:var(--brand);color:#fff;font-size:15.5px;font-weight:700;font-family:inherit}
+
+/* los pasos de la tarjeta de alertas */
+.pasos{margin:14px 0 4px;border:1px solid var(--bd-sub);border-radius:14px;overflow:hidden}
+.pasos .paso{display:flex;align-items:flex-start;gap:11px;padding:11px 14px;
+  border-top:1px solid var(--bd-sub);font-size:13.5px;line-height:1.4}
+.pasos .paso:first-child{border-top:0}
+.pasos .marca{flex:0 0 auto;width:18px;text-align:center;font-size:14px}
+.pasos .paso b{display:block;color:var(--t1);font-weight:700;font-size:12.5px;
+  letter-spacing:.02em;margin-bottom:1px}
+.pasos .paso span{color:var(--tm);word-break:break-word}
+.pasos .bien b{color:#3fb950}
+.pasos .mal  b{color:#f85149}
+
 /* carril del deslizamiento
    ---------------------------------------------------------------------------
    El botón se arrastra sobre dos etiquetas fijas. A la derecha "Registrar",
@@ -468,7 +495,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v727</span> · buscar actualización
+      <span id="pie">v728</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -492,10 +519,26 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
 </div>
 
+<!-- Alerta recibida con la app ABIERTA. No es una notificación del sistema:
+     sería raro recibir un aviso de la pantalla que estás mirando. -->
+<div class="alerta-viva" id="alerta-viva">
+  <div class="caja">
+    <div class="campanita">🔔</div>
+    <h3 id="alerta-viva-tit">Alerta</h3>
+    <p id="alerta-viva-txt"></p>
+    <button type="button" id="alerta-viva-ok">Entendido</button>
+  </div>
+</div>
+
 <div class="fondo" id="fondo-alertas">
   <div class="hoja">
     <h2>Alertas <small id="alertas-sub">&mdash;</small></h2>
     <p class="nota" id="alertas-tit">Avisos de entrada, comida y salida en este aparato.</p>
+
+    <!-- Qué está pasando, paso por paso. Antes todo ocurría a oscuras y
+         cuando algo fallaba el empleado solo veía que "no pasaba nada". -->
+    <div class="pasos" id="alertas-pasos"></div>
+
     <button class="opcion" id="btn-alertas" type="button">Activar</button>
     <button class="cerrar" id="cerrar-alertas" type="button">Cerrar</button>
   </div>
@@ -532,7 +575,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v727';
+var VERSION = 'v728';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1936,7 +1979,51 @@ function sdkFirebase() {
     .then(function(){
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       _sdk = true;
+      escucharEnPrimerPlano();
     });
+}
+
+/* ===========================================================================
+   ALERTAS CON LA APP ABIERTA
+   ===========================================================================
+   Firebase reparte las notificaciones por DOS caminos distintos:
+
+     · app cerrada o en segundo plano → el service worker (firebase-messaging-sw.js)
+     · app ABIERTA y a la vista       → aquí, con onMessage
+
+   El segundo no existía. El mensaje llegaba, la librería lo recogía y lo
+   tiraba porque nadie lo escuchaba. Resultado: cada vez que alguien probaba
+   las alertas —viendo la app, claro— no pasaba absolutamente nada, y en la
+   bitácora quedaba "FCM 200, sin acuse". El 23-sep quedó negro sobre blanco:
+   el mismo token acusó recibo a las 14:21 con la app cerrada y no acusó a
+   las 14:55 con la app abierta.
+
+   Con la app a la vista NO se pinta una notificación del sistema: sería raro
+   recibir un aviso de la pantalla que estás mirando. Se enseña dentro, en
+   grande, y se acusa recibo igual para que la bitácora diga la verdad.
+   =========================================================================== */
+var _escuchando = false;
+function escucharEnPrimerPlano() {
+  if (_escuchando || !_sdk) return;
+  try {
+    firebase.messaging().onMessage(function (payload) {
+      var d = (payload && payload.data) || {};
+      avisoAlerta(d.title || 'Checador', d.body || '');
+      if (d.envio) gas('confirmarEntregaPush', [d.envio]).catch(function () {});
+    });
+    _escuchando = true;
+  } catch (e) {}
+}
+
+/** El aviso de una alerta recibida con la app abierta. Grande y que no se
+ *  confunda con los mensajitos de siempre. */
+function avisoAlerta(titulo, cuerpo) {
+  var caja = document.getElementById('alerta-viva');
+  if (!caja) { aviso(titulo + ' · ' + cuerpo, 'ok', 9000); return; }
+  document.getElementById('alerta-viva-tit').textContent = titulo;
+  document.getElementById('alerta-viva-txt').textContent = cuerpo;
+  caja.classList.add('ver');
+  try { if (navigator.vibrate) navigator.vibrate([400, 150, 400]); } catch (e) {}
 }
 
 function soportaPush() {
@@ -1950,11 +2037,67 @@ function esIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
 var fondoAlertas = document.getElementById('fondo-alertas');
 document.getElementById('cerrar-alertas').onclick = function(){ fondoAlertas.classList.remove('ver'); };
+
+// El aviso grande de una alerta recibida con la app abierta.
+(function () {
+  var caja = document.getElementById('alerta-viva');
+  var ok = document.getElementById('alerta-viva-ok');
+  if (!caja || !ok) return;
+  function cerrar(){ caja.classList.remove('ver'); }
+  ok.onclick = cerrar;
+  caja.onclick = function (e) { if (e.target === caja) cerrar(); };
+})();
 document.getElementById('btn-campana').onclick = function(){
   if (!YO) { abrirGente(); return; }
   pintarAlertas();
   fondoAlertas.classList.add('ver');
 };
+
+/**
+ * Los tres pasos que tienen que estar bien para recibir una alerta, a la
+ * vista. Antes todo esto ocurría a oscuras: si algo fallaba, el empleado
+ * solo veía que "no pasaba nada" y no había forma de saber en cuál de los
+ * tres se rompió.
+ */
+function pintarPasosAlertas() {
+  var caja = document.getElementById('alertas-pasos');
+  if (!caja) return;
+
+  function paso(clase, marca, titulo, detalle) {
+    return '<div class="paso ' + clase + '"><span class="marca">' + marca + '</span>' +
+           '<div><b>' + titulo + '</b><span>' + detalle + '</span></div></div>';
+  }
+
+  var html = '';
+
+  // 1) Permiso del aparato
+  var p = Notification.permission;
+  html += p === 'granted' ? paso('bien', '✓', 'PERMISO DEL APARATO', 'concedido')
+        : p === 'denied'  ? paso('mal', '✕', 'PERMISO DEL APARATO',
+              esIOS() ? 'bloqueado — Ajustes › Notificaciones › Checador'
+                      : 'bloqueado — Ajustes del sitio › Notificaciones')
+        : paso('mal', '·', 'PERMISO DEL APARATO', 'sin pedir todavía');
+
+  // 2) Alta en el servidor
+  var tk = ls(LS_TOKEN);
+  html += tk ? paso('bien', '✓', 'ESTE APARATO', 'dado de alta · ' + dispositivo())
+             : paso('mal', '✕', 'ESTE APARATO', 'no está dado de alta');
+
+  // 3) Cómo salió el último intento
+  if (_diag.push === 'registrado') {
+    html += paso('bien', '✓', 'ÚLTIMO INTENTO', 'el servidor lo aceptó');
+  } else if (_diag.push && _diag.push.indexOf('falló') === 0) {
+    html += paso('mal', '✕', 'ÚLTIMO INTENTO', _diag.push.replace('falló: ', ''));
+  } else {
+    html += paso('', '·', 'ÚLTIMO INTENTO', 'todavía no se ha intentado');
+  }
+
+  // Lo que más confunde: probar con la app abierta.
+  html += paso('', 'ℹ️', 'AL PROBAR',
+    'con la app abierta el aviso sale aquí dentro, no en la pantalla del celular');
+
+  caja.innerHTML = html;
+}
 
 function pintarAlertas() {
   var campana = document.getElementById('btn-campana');
@@ -1973,6 +2116,7 @@ function pintarAlertas() {
     return;
   }
   btn.hidden = false;
+  pintarPasosAlertas();
   var token = ls(LS_TOKEN);
   if (Notification.permission === 'granted' && token) {
     campana.className = 'icono activo';
@@ -1982,7 +2126,7 @@ function pintarAlertas() {
     if (_diag.push && _diag.push.indexOf('falló') === 0) {
       campana.className = 'icono apagado';
       tit.textContent = 'Algo falla al dar de alta este aparato.';
-      sub.textContent = _diag.push;
+      sub.textContent = 'con problema';
     } else {
       sub.textContent = 'activas';
     }
