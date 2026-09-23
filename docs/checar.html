@@ -495,7 +495,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v728</span> · buscar actualización
+      <span id="pie">v729</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -540,6 +540,11 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
     <div class="pasos" id="alertas-pasos"></div>
 
     <button class="opcion" id="btn-alertas" type="button">Activar</button>
+    <!-- Prueba LOCAL: pinta una notificación desde el propio celular, sin
+         pasar por internet, por Firebase ni por el servidor. Separa de un
+         golpe "el aparato no sabe mostrar notificaciones" de "el mensaje no
+         llegó". Sin esto uno se queda adivinando cuál de los dos es. -->
+    <button class="opcion" id="btn-alertas-local" type="button">Probar aquí mismo, sin internet</button>
     <button class="cerrar" id="cerrar-alertas" type="button">Cerrar</button>
   </div>
 </div>
@@ -575,7 +580,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v728';
+var VERSION = 'v729';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -794,7 +799,7 @@ function vaciarCola() {
    La base es SUYA, distinta de la de la cola de checadas: si compartieran
    base, subirle la versión a una rompería a la otra.
    =========================================================================== */
-var _diag = { ls: '?', idb: '?' };   // qué se encontró al arrancar
+var _diag = { ls: '?', idb: '?', sw: '' };   // qué se encontró al arrancar
 
 var PDB_NAME = 'em_checar_perfil';
 var PDB_STORE = 'perfil';
@@ -2038,6 +2043,8 @@ function esIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 var fondoAlertas = document.getElementById('fondo-alertas');
 document.getElementById('cerrar-alertas').onclick = function(){ fondoAlertas.classList.remove('ver'); };
 
+document.getElementById('btn-alertas-local').onclick = probarAlertaLocal;
+
 // El aviso grande de una alerta recibida con la app abierta.
 (function () {
   var caja = document.getElementById('alerta-viva');
@@ -2092,11 +2099,87 @@ function pintarPasosAlertas() {
     html += paso('', '·', 'ÚLTIMO INTENTO', 'todavía no se ha intentado');
   }
 
+  // 4) El service worker que PINTA las notificaciones. Si no está activo,
+  //    no importa que el mensaje llegue: nadie lo dibuja.
+  html += paso(_diag.sw === 'activo' ? 'bien' : (_diag.sw ? 'mal' : ''),
+               _diag.sw === 'activo' ? '✓' : (_diag.sw ? '✕' : '·'),
+               'QUIEN PINTA LOS AVISOS', _diag.sw || 'revisando...');
+
   // Lo que más confunde: probar con la app abierta.
   html += paso('', 'ℹ️', 'AL PROBAR',
     'con la app abierta el aviso sale aquí dentro, no en la pantalla del celular');
 
   caja.innerHTML = html;
+  revisarServiceWorkerPush();
+}
+
+/**
+ * Estado real del service worker de notificaciones, tal como lo ve ESTE
+ * aparato. Es la pieza que dibuja el aviso: si está "esperando" o no existe,
+ * Firebase puede aceptar el mensaje y en el teléfono no aparece nada — que
+ * es exactamente el síntoma que llevamos persiguiendo.
+ */
+var _swRevisando = false;
+function revisarServiceWorkerPush() {
+  if (!('serviceWorker' in navigator)) { _diag.sw = 'este navegador no tiene'; return; }
+  // OJO: pintarPasosAlertas() llama aquí, y aquí se vuelve a pintar cuando
+  // cambia el estado. Sin este candado se llaman en círculo para siempre y
+  // la app se congela. Ya pasó.
+  if (_swRevisando) return;
+  _swRevisando = true;
+
+  navigator.serviceWorker.getRegistrations().then(function (regs) {
+    var r = null, antes = _diag.sw;
+    regs.forEach(function (x) { if (x.scope.indexOf('fcm-push') !== -1) r = x; });
+    if (!r) { _diag.sw = 'NO está registrado'; }
+    else if (r.active)     _diag.sw = 'activo';
+    else if (r.waiting)    _diag.sw = 'esperando a que cierres la app';
+    else if (r.installing) _diag.sw = 'instalándose';
+    else                   _diag.sw = 'registrado pero sin arrancar';
+
+    _swRevisando = false;
+    // Solo se repinta si el dato CAMBIÓ. Repintar siempre era la otra mitad
+    // del círculo.
+    if (_diag.sw !== antes) {
+      var abierta = document.getElementById('fondo-alertas');
+      if (abierta && abierta.classList.contains('ver')) pintarPasosAlertas();
+    }
+  }).catch(function (e) {
+    _swRevisando = false;
+    _diag.sw = 'error: ' + e.message;
+  });
+}
+
+/**
+ * Pinta una notificación DESDE ESTE CELULAR, sin internet de por medio.
+ * Si esto no aparece, el problema no es el servidor ni Firebase: es que el
+ * aparato no está mostrando notificaciones de esta app, y hay que verlo en
+ * los ajustes del teléfono.
+ */
+function probarAlertaLocal() {
+  var btn = document.getElementById('btn-alertas-local');
+  if (!soportaPush()) { aviso('Este aparato no maneja notificaciones.', 'err', 5000); return; }
+  if (Notification.permission !== 'granted') {
+    Notification.requestPermission().then(function () { pintarAlertas(); });
+    return;
+  }
+  btn.disabled = true;
+  navigator.serviceWorker.getRegistrations().then(function (regs) {
+    var r = null;
+    regs.forEach(function (x) { if (x.scope.indexOf('fcm-push') !== -1) r = x; });
+    if (!r) r = regs[0];
+    if (!r) throw new Error('no hay service worker registrado');
+    return r.showNotification('🔔 Prueba local · ' + new Date().toTimeString().slice(0,8), {
+      body: 'Si ves esto, tu celular SÍ sabe mostrar las alertas del Checador.',
+      icon: 'icon-192.png', badge: 'icon-192.png',
+      vibrate: [400, 150, 400], tag: 'checador-local', renotify: true
+    });
+  }).then(function () {
+    aviso('Mandada desde este mismo celular. Si NO la ves en tu pantalla, ' +
+          'el problema está en los ajustes del teléfono, no en el servidor.', 'ok', 10000);
+  }).catch(function (e) {
+    aviso('No se pudo ni siquiera aquí: ' + (e && e.message || e), 'err', 9000);
+  }).then(function () { btn.disabled = false; });
 }
 
 function pintarAlertas() {
