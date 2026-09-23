@@ -26,7 +26,11 @@ echo          limpio
 
 call :BUSCARGIT
 if errorlevel 1 goto NOGIT
-if exist ".git\index.lock" del /f /q ".git\index.lock" >nul 2>&1
+REM Candados de git que quedan cuando un proceso muere a medias.
+REM Antes solo se borraba index.lock, pero HEAD.lock tumbaba el commit.
+del /f /q ".git\index.lock" ".git\HEAD.lock" ".git\config.lock" >nul 2>&1
+del /f /q ".git\objects\maintenance.lock" >nul 2>&1
+del /f /q ".git\refs\heads\*.lock" >nul 2>&1
 
 echo   %AZUL%[2/2]%FIN%  GitHub . . . . . . . . . . . . . . .
 "!GIT!" status --porcelain > "%TEMP%\chk_s.txt" 2>nul
@@ -34,9 +38,23 @@ set CAMBIOS=0
 for /f %%C in ('find /c /v "" ^< "%TEMP%\chk_s.txt"') do set CAMBIOS=%%C
 del "%TEMP%\chk_s.txt" >nul 2>&1
 
+REM Commits ya hechos pero sin subir. Sin esto, con el arbol limpio el
+REM bat decia "sin cambios" y se saltaba el push: la version se quedaba
+REM en la compu y los celulares nunca la veian.
+set PENDIENTES=0
+"!GIT!" rev-list --count @{u}..HEAD > "%TEMP%\chk_p.txt" 2>nul
+if exist "%TEMP%\chk_p.txt" set /p PENDIENTES=<"%TEMP%\chk_p.txt"
+del "%TEMP%\chk_p.txt" >nul 2>&1
+if not defined PENDIENTES set PENDIENTES=0
+
 if "!CAMBIOS!"=="0" (
-    echo          sin cambios
-    goto FIN
+    if "!PENDIENTES!"=="0" (
+        echo          sin cambios
+        goto FIN
+    )
+    "!GIT!" push -q origin %GH_BRANCH%
+    if errorlevel 1 goto PUSHFAIL
+    goto VERIFICA
 )
 "!GIT!" status --short
 echo.
@@ -45,9 +63,26 @@ set /p "MSG=   Mensaje [Enter = automatico]: "
 if "!MSG!"=="" set "MSG=%MSG_DEFAULT%"
 "!GIT!" add -A
 "!GIT!" commit -q -m "!MSG!"
+if errorlevel 1 goto COMMITFAIL
 "!GIT!" push -q origin %GH_BRANCH%
 if errorlevel 1 goto PUSHFAIL
-echo          subido
+
+:VERIFICA
+REM Verde solo si es verdad. Se compara lo que quedo en GitHub contra lo
+REM que hay en esta carpeta. Antes el bat cantaba "subido" aunque el
+REM commit hubiera tronado, y la version se quedaba sin publicar.
+set LOCAL=
+set REMOTO=
+"!GIT!" rev-parse HEAD > "%TEMP%\chk_l.txt" 2>nul
+if exist "%TEMP%\chk_l.txt" set /p LOCAL=<"%TEMP%\chk_l.txt"
+del "%TEMP%\chk_l.txt" >nul 2>&1
+"!GIT!" ls-remote origin %GH_BRANCH% > "%TEMP%\chk_r.txt" 2>nul
+if exist "%TEMP%\chk_r.txt" set /p REMOTO=<"%TEMP%\chk_r.txt"
+del "%TEMP%\chk_r.txt" >nul 2>&1
+if not defined LOCAL goto NOCUADRA
+if not defined REMOTO goto NOCUADRA
+if /i not "!LOCAL:~0,10!"=="!REMOTO:~0,10!" goto NOCUADRA
+echo          subido y verificado
 
 :FIN
 echo.
@@ -76,6 +111,22 @@ exit /b 1
 echo.
 echo   %ROJO%x  FALLO EL PUSH%FIN%
 echo      Corre 0-ACTUALIZAR.bat y repite
+echo.
+pause
+exit /b 1
+
+:COMMITFAIL
+echo.
+echo   %ROJO%x  FALLO EL COMMIT - no se subio nada%FIN%
+echo      Cierra otras ventanas de git y repite
+echo.
+pause
+exit /b 1
+
+:NOCUADRA
+echo.
+echo   %ROJO%x  GITHUB NO QUEDO IGUAL QUE TU CARPETA%FIN%
+echo      Repite el bat; si sigue, corre 0-ACTUALIZAR.bat
 echo.
 pause
 exit /b 1
