@@ -434,6 +434,53 @@ button{font-family:inherit}
 }
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ===========================================================================
+   TODO LO QUE SE TOCA, DE 44px PARA ARRIBA
+   ===========================================================================
+   Medido con el navegador, no a ojo: las pestañas medían 31px de alto, los
+   filtros 33, el botón "Poner lugares" 33 y la equis 32. El mínimo para
+   tocar con el dedo sin fallar son 44px, y en tablet conviene 50. Por eso
+   se sentía todo chiquito y costaba picarle.
+
+   Va al FINAL del <style> a propósito: con la misma especificidad gana la
+   última regla, y así no hay que pelear con cada una por separado.
+   ========================================================================= */
+.tabs a,.btn,.filtro,.chip,.tirar,.equis,.pend .btn,.lug-n{min-height:46px}
+.tabs a{display:inline-flex;align-items:center;font-size:15px;padding:0 18px}
+.btn{font-size:15.5px;padding:0 20px;display:inline-flex;align-items:center;
+  justify-content:center}
+.btn.chico{font-size:14.5px;padding:0 16px;min-height:44px}
+.filtro{font-size:14.5px;padding:0 18px;display:inline-flex;align-items:center}
+.tirar,.equis{width:46px;display:inline-flex;align-items:center;justify-content:center}
+.lug-quien{min-height:56px}
+.lug-n{font-size:17px}
+
+/* Al crecer los botones dejaron de caber en una fila y la pantalla se
+   corria de lado. En pantalla angosta se apilan a lo ancho, que ademas es
+   mas facil de picar. */
+.cab{flex-wrap:wrap}
+.acciones-cab{flex-wrap:wrap}
+@media (max-width:700px){
+  .acciones-cab{width:100%;gap:9px}
+  .acciones-cab .btn{flex:1 1 100%}
+  .pend{flex-wrap:wrap}
+  .pend .cuerpo{flex:1 1 calc(100% - 54px)}
+  .pend .btn{flex:1 1 100%;margin-top:4px}
+  .tabs{gap:5px}
+  .tabs a{padding:0 14px;font-size:14.5px}
+}
+
+@media (min-width:701px){
+  .tabs a,.btn,.filtro,.chip,.tirar,.equis,.pend .btn,.lug-n{min-height:50px}
+  .tabs a{font-size:16px;padding:0 22px}
+  .btn{font-size:17px;padding:0 24px}
+  .btn.chico{font-size:15px;min-height:48px}
+  .filtro{font-size:15.5px;padding:0 20px}
+  .tirar,.equis{width:50px}
+  .lug-quien{min-height:62px}
+  .lug-n{font-size:18px;padding:16px 0}
+}
 </style>
 </head>
 <body>
@@ -454,7 +501,7 @@ button{font-family:inherit}
   <div class="encabezado">
     <div>
       <h1>Tablero de juegos</h1>
-      <p>Quién gana qué en la oficina. Cada partida queda guardada.</p>
+      <p>Quién gana qué en la oficina.</p>
     </div>
     <div class="acciones-cab">
       <button class="btn claro" id="btn-limpiar" type="button">Limpiar tablero</button>
@@ -527,8 +574,7 @@ button{font-family:inherit}
 
     <div class="campo" id="m-rondas-campo" hidden>
       <label id="m-rondas-label">¿Cuántas carreras?</label>
-      <p class="pista-campo">Se guardan sin lugares. Los pones después, con calma,
-         desde <b>Pendientes de lugares</b>.</p>
+      <p class="pista-campo">Se guardan sin lugares. Los pones después.</p>
       <div class="filtros" id="m-rondas"></div>
     </div>
 
@@ -555,8 +601,8 @@ button{font-family:inherit}
       <button class="equis" id="lug-equis" type="button" aria-label="Cerrar">&times;</button>
     </div>
 
-    <p class="pista-campo">Toca a cada quien y elige su lugar. Son 12 porque
-       los que faltan eran computadora o gente por internet.</p>
+    <p class="pista-campo">Toca a cada quien y elige su lugar. Son 12: los que
+       falten eran computadora.</p>
 
     <div id="lug-lista"></div>
     <p class="sub" id="lug-cuenta"></p>
@@ -1131,6 +1177,7 @@ function borrar(par) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     PARTIDAS = PARTIDAS.filter(function (p) { return p.id !== par.id; });
     pintarTodo();
+    guardarEstado();
     aviso('Partida borrada.', 'ok');
   }).catch(function (e) {
     aviso('No se pudo borrar: ' + e.message, 'err');
@@ -1487,6 +1534,7 @@ document.getElementById('lug-guardar').onclick = function () {
     fondoLug.classList.remove('ver');
     aviso('\u2713 Lugares guardados.', 'ok');
     pintarTodo();
+    guardarEstado();
   }).catch(function (e) {
     aviso('No se pudieron guardar: ' + e.message, 'err');
   }).then(function () {
@@ -1562,31 +1610,89 @@ document.getElementById('m-guardar').onclick = function () {
 /* ===========================================================================
    CARGA
    =========================================================================== */
+/* ===========================================================================
+   EL TABLERO SE PINTA DE INMEDIATO
+   ===========================================================================
+   Antes la pantalla se quedaba en blanco con un "Cargando el tablero..."
+   hasta que Apps Script contestaba. Apps Script tarda uno o dos segundos
+   SIEMPRE, por bueno que sea el codigo: es un servidor que despierta. No
+   hay forma de que eso se sienta inmediato... si se espera a que conteste.
+
+   Asi que no se espera. Lo ultimo que se vio se guarda en el aparato y se
+   pinta en cuanto abre la pantalla, sin red de por medio. La llamada al
+   servidor sigue su curso y cuando llega, repinta con lo bueno. En la
+   practica la diferencia son cero o una partida, asi que casi nunca se
+   nota el cambio — pero el tablero ya estaba ahi desde el primer instante.
+   ========================================================================= */
+var LS_TABLERO = 'em_juegos_tablero';
+
+function guardarTablero(r) {
+  try {
+    localStorage.setItem(LS_TABLERO, JSON.stringify({
+      cuando: Date.now(),
+      juegos: r.juegos || [], jugadores: r.jugadores || [],
+      partidas: r.partidas || [], avatares: r.avatares || {},
+      tableroDesde: r.tableroDesde || '', hayIntranet: !!r.hayIntranet
+    }));
+  } catch (e) { /* sin espacio: ni modo, se vive sin cache */ }
+}
+
+function usarTablero(r) {
+  JUEGOS = r.juegos || [];
+  JUGADORES = r.jugadores || [];
+  ponerLigaSite(r.hayIntranet);
+  if (r.avatares) {
+    AVATARES = r.avatares;
+    try { localStorage.setItem('em_checar_avatares', JSON.stringify(AVATARES)); } catch (e) {}
+  }
+  PARTIDAS = r.partidas || [];
+  tableroDesde = r.tableroDesde || '';
+  document.getElementById('filtro-jugador').innerHTML = '';
+  pintarTodo();
+}
+
+/** Vuelve a guardar el cache con lo que hay ahora en memoria. Se llama
+ *  despues de cada cambio, para que la proxima apertura ya lo traiga. */
+function guardarEstado() {
+  guardarTablero({ juegos: JUEGOS, jugadores: JUGADORES, partidas: PARTIDAS,
+                   avatares: AVATARES, tableroDesde: tableroDesde,
+                   hayIntranet: true });
+}
+
+/** Pinta lo ultimo que se vio, sin esperar al servidor. */
+function pintarDeLoGuardado() {
+  try {
+    var g = JSON.parse(localStorage.getItem(LS_TABLERO) || 'null');
+    if (!g || !g.juegos || !g.juegos.length) return false;
+    usarTablero(g);
+    return true;
+  } catch (e) { return false; }
+}
+
 function cargar() {
-  aviso('Cargando el tablero…', '', 0);
+  var yaHabia = pintarDeLoGuardado();
+  // Solo se avisa si la pantalla esta en blanco. Si ya hay tablero, que se
+  // refresque en silencio: nadie necesita ver "cargando" sobre algo que ya
+  // puede leer.
+  if (!yaHabia) aviso('Cargando el tablero…', '', 0);
+
   gas('getJuegosTablero', [LIMITE_HISTORICO])
     .then(function (r) {
       if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
-      JUEGOS = r.juegos || [];
-      JUGADORES = r.jugadores || [];
-      ponerLigaSite(r.hayIntranet);
-      if (r.avatares) {
-        AVATARES = r.avatares;
-        try { localStorage.setItem('em_checar_avatares', JSON.stringify(AVATARES)); } catch (e) {}
-      }
-      PARTIDAS = r.partidas || [];
-      tableroDesde = r.tableroDesde || '';
-      document.getElementById('filtro-jugador').innerHTML = '';
-      pintarTodo();
-      quitarAviso();          // ya cargo: fuera el "Cargando el tablero..."
+      usarTablero(r);
+      guardarTablero(r);
+      quitarAviso();
     })
     .catch(function (e) {
       var msg = e.message || '';
       if (msg.indexOf('No permitida') !== -1) {
         aviso('Falta subir el backend de juegos: corre 5-SUBIR-TODO.bat y publica la versión nueva.', 'err');
       } else {
-        aviso('No pude cargar el tablero: ' + msg, 'err');
+        aviso('No pude actualizar el tablero: ' + msg, 'err');
       }
+      // Si ya se habia pintado lo guardado, se deja: es viejo pero es real.
+      // Los de mentiras solo tienen sentido con la pantalla en blanco.
+      if (JUEGOS.length) return;
       JUEGOS = [{ juego: 'Mario Kart', icono: '🏁', modo: 'POSICION', activo: true },
                 { juego: 'Smash Bros', icono: '🥊', modo: 'POSICION', activo: true }];
       pintarTodo();
@@ -1597,7 +1703,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v744');
+Actualizar.iniciar('v745');
 </script>
 </body>
 </html>
