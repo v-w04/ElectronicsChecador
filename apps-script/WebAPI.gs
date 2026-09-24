@@ -88,6 +88,7 @@ function _funcionesExpuestas() {
 
     // Tablero de juegos
     registrarPartidas:        registrarPartidas,
+    actualizarPosiciones:     actualizarPosiciones,
     getJuegosTablero:         getJuegosTablero,
     registrarPartida:         registrarPartida,
     borrarPartida:            borrarPartida,

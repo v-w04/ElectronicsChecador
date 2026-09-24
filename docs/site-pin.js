@@ -120,12 +120,15 @@ var SitePin = (function () {
       /* El boton de QR. Hereda currentColor, asi que se ve bien en la
          pantalla oscura y en la clara sin dos juegos de reglas. */
       '.site-qr{margin-left:auto;flex:0 0 auto;display:inline-flex;' +
-        'align-items:center;justify-content:center;width:36px;height:36px;padding:0;' +
-        'border:1px solid currentColor;border-radius:11px;background:transparent;' +
-        'color:inherit;opacity:.62;cursor:pointer;text-decoration:none;' +
+        'align-items:center;justify-content:center;gap:7px;' +
+        'padding:9px 15px;min-height:40px;' +
+        'border:1px solid currentColor;border-radius:999px;background:transparent;' +
+        'color:inherit;opacity:.7;cursor:pointer;text-decoration:none;' +
+        'font-family:inherit;font-size:14px;font-weight:700;letter-spacing:-.01em;' +
+        'line-height:1;white-space:nowrap;' +
         '-webkit-tap-highlight-color:transparent;' +
         'transition:opacity .15s ease,transform .1s ease}' +
-      '.site-qr svg{width:21px;height:21px;display:block;fill:currentColor}' +
+      '.site-qr svg{width:19px;height:19px;display:block;flex:0 0 auto;fill:currentColor}' +
       '.site-qr svg rect{fill:none;stroke:currentColor;stroke-width:1.7}' +
       '.site-qr svg rect.n{fill:currentColor;stroke:none}' +
       '.site-qr:hover,.site-qr:focus-visible{opacity:1}' +
@@ -297,7 +300,10 @@ var SitePin = (function () {
     _boton.setAttribute('tabindex', '0');
     _boton.setAttribute('title', 'Checador del site');
     _boton.setAttribute('aria-label', 'Checador del site');
-    _boton.innerHTML = QR_SVG;
+    // Antes era solo el dibujo del QR a 36px: en el celular se veía
+    // minúsculo y en la tablet ni se encontraba. Ahora dice "Site" — una
+    // palabra se lee a cualquier tamaño y en cualquier pantalla.
+    _boton.innerHTML = QR_SVG + '<span>Site</span>';
     _boton.onkeydown = function (e) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _boton.onclick(e); }
     };

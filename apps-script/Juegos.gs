@@ -294,6 +294,68 @@ function registrarPartidas(lista) {
 }
 
 /** Borra una partida completa (todas sus filas). Para corregir un dedazo. */
+/**
+ * PONERLE LUGARES A UNA PARTIDA YA GUARDADA.
+ *
+ * La partida se registra primero con los oponentes y sin lugares: en el
+ * momento nadie quiere estar tecleando posiciones. Despues se entra y se
+ * llenan. Esto escribe la columna Posicion de las filas de esa partida.
+ *
+ * SIEMPRE se ofrecen 12 lugares aunque jueguen tres: en Mario Kart corren
+ * doce y los que no aparecen aqui eran computadora o gente por internet.
+ *
+ * @param {string} idPartida  el ID que amarra las filas
+ * @param {Array}  lugares    [{id:'55', posicion:3}, ...]. Un jugador sin
+ *                            posicion, o con posicion nula, deja su celda
+ *                            vacia: la partida puede llenarse a medias.
+ */
+function actualizarPosiciones(idPartida, lugares) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); }
+  catch (e) { return { ok: false, message: 'El sistema esta ocupado, intenta otra vez.' }; }
+  try {
+    if (!idPartida) return { ok: false, message: 'Falta el ID de la partida' };
+    var sheet = crearHojaPartidas();
+    if (sheet.getLastRow() < 2) return { ok: false, message: 'No hay partidas' };
+
+    var mapa = {};
+    (lugares || []).forEach(function (x) {
+      if (!x) return;
+      var pos = (x.posicion === '' || x.posicion === null || x.posicion === undefined)
+                ? '' : Number(x.posicion);
+      if (pos !== '' && (isNaN(pos) || pos < 1 || pos > 12)) pos = '';
+      mapa[_normId(x.id)] = pos;
+    });
+
+    // Se leen las columnas 1 (ID Partida) y 6 (ID Jugador) de un jalon, y se
+    // escribe solo la 8. Nada de una llamada por fila.
+    var n = sheet.getLastRow() - 1;
+    var ids   = sheet.getRange(2, 1, n, 1).getValues();
+    var quien = sheet.getRange(2, 6, n, 1).getValues();
+    var pos   = sheet.getRange(2, 8, n, 1).getValues();
+
+    var tocadas = 0;
+    for (var i = 0; i < n; i++) {
+      if ((ids[i][0] || '').toString() !== idPartida) continue;
+      var k = _normId(quien[i][0]);
+      if (!(k in mapa)) continue;
+      pos[i][0] = mapa[k];
+      tocadas++;
+    }
+    if (!tocadas) return { ok: false, message: 'Esa partida ya no existe' };
+
+    sheet.getRange(2, 8, n, 1).setValues(pos);
+    Logger.log('\ud83c\udfc1 Lugares de ' + idPartida + ': ' + tocadas + ' filas');
+    return { ok: true, filas: tocadas, message: 'Lugares guardados' };
+
+  } catch (e) {
+    Logger.log('\u274c actualizarPosiciones: ' + e.message);
+    return { ok: false, message: e.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+}
+
 function borrarPartida(idPartida) {
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);

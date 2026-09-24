@@ -136,6 +136,44 @@ button{font-family:inherit}
   border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700;cursor:pointer}
 .filtro.on{background:var(--tinta);color:#fff;border-color:var(--tinta)}
 
+/* --- pendientes de lugares y la hoja para ponerlos --- */
+.pista-campo{margin:6px 0 0;font-size:12.5px;color:var(--tinta-3);line-height:1.45}
+.panel.pendientes{border-color:var(--naranja);background:rgba(255,159,10,.06)}
+.pend{display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid var(--linea)}
+.pend:first-child{border-top:0}
+.pend .ico{width:42px;height:42px;border-radius:var(--r-chico);flex:0 0 auto;display:flex;
+  align-items:center;justify-content:center;font-size:21px;background:var(--fondo)}
+.pend .cuerpo{flex:1;min-width:0}
+.pend .j{font-weight:800;font-size:15px;color:var(--tinta)}
+.pend .q{font-size:12.5px;color:var(--tinta-3);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pend .btn{flex:0 0 auto}
+
+.lug-fila{border-top:1px solid var(--linea);padding:4px 0}
+.lug-fila:first-child{border-top:0}
+.lug-quien{display:flex;align-items:center;gap:11px;width:100%;padding:10px 4px;
+  border:0;background:transparent;cursor:pointer;font-family:inherit;text-align:left}
+.lug-quien .avat{width:38px;height:38px;border-radius:50%;overflow:hidden;flex:0 0 auto;
+  background:var(--fondo)}
+.lug-quien .avat img{width:100%;height:100%;display:block}
+.lug-quien .nm{flex:1;min-width:0;font-weight:700;font-size:15px;color:var(--tinta);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lug-quien .puesto{flex:0 0 auto;font-size:12.5px;font-weight:800;color:var(--tinta-3);
+  border:1px solid var(--linea);border-radius:999px;padding:5px 11px;background:var(--panel)}
+.lug-quien .puesto.tiene{color:#fff;border-color:transparent;background:var(--tinta)}
+.lug-quien .puesto.p1{background:var(--oro);color:#4a3400}
+.lug-quien .puesto.p2{background:#9aa3ab}
+.lug-quien .puesto.p3{background:#c1703a}
+.lug-fila.abierto .lug-quien{background:var(--fondo);border-radius:var(--r-chico)}
+
+.lug-rejilla{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;padding:4px 4px 12px}
+.lug-rejilla .lug-n{border:1px solid var(--linea);background:var(--panel);color:var(--tinta);
+  border-radius:var(--r-chico);padding:13px 0;font-size:16px;font-weight:800;cursor:pointer;
+  font-family:inherit;-webkit-tap-highlight-color:transparent}
+.lug-rejilla .lug-n:active{transform:scale(.94)}
+.lug-rejilla .lug-n.mio{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.lug-rejilla .lug-n.tomado{opacity:.4}
+
 /* --- tabla de posiciones --- */
 .tabla{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 
@@ -426,6 +464,18 @@ button{font-family:inherit}
 
   <div class="juegos" id="juegos"></div>
 
+  <!-- Partidas registradas a las que todavía no se les ponen los lugares.
+       Va ARRIBA del tablero a propósito: si queda abajo se olvidan. -->
+  <section class="panel pendientes" id="panel-pendientes" hidden>
+    <div class="cab">
+      <div>
+        <h2>Pendientes de lugares</h2>
+        <p class="sub" id="sub-pendientes"></p>
+      </div>
+    </div>
+    <div id="lista-pendientes"></div>
+  </section>
+
   <section class="panel">
     <div class="cab">
       <div>
@@ -471,18 +521,15 @@ button{font-family:inherit}
     </div>
 
     <div class="campo">
-      <label>Quién jugó <span style="text-transform:none;letter-spacing:0;font-weight:400">(en el orden que llegaron)</span></label>
+      <label>Quiénes jugaron <span style="text-transform:none;letter-spacing:0;font-weight:400">(hasta 8)</span></label>
       <div class="chips" id="m-chips"></div>
     </div>
 
     <div class="campo" id="m-rondas-campo" hidden>
       <label id="m-rondas-label">¿Cuántas carreras?</label>
+      <p class="pista-campo">Se guardan sin lugares. Los pones después, con calma,
+         desde <b>Pendientes de lugares</b>.</p>
       <div class="filtros" id="m-rondas"></div>
-    </div>
-
-    <div class="campo" id="m-podio-campo" hidden>
-      <label id="m-podio-label">Resultado</label>
-      <div id="m-podio"></div>
     </div>
 
     <div class="campo">
@@ -493,6 +540,29 @@ button{font-family:inherit}
     <div class="acciones">
       <button class="btn claro" id="m-descartar" type="button">Descartar</button>
       <button class="btn rojo" id="m-guardar" type="button">Guardar partida</button>
+    </div>
+  </div>
+</div>
+
+<!-- Paso 2: ponerle los lugares a una partida ya registrada. -->
+<div class="fondo" id="fondo-lugares">
+  <div class="modal">
+    <div class="cab-modal">
+      <div>
+        <h3 id="lug-titulo">Lugares</h3>
+        <p class="sub" id="lug-sub"></p>
+      </div>
+      <button class="equis" id="lug-equis" type="button" aria-label="Cerrar">&times;</button>
+    </div>
+
+    <p class="pista-campo">Toca a cada quien y elige su lugar. Son 12 porque
+       los que faltan eran computadora o gente por internet.</p>
+
+    <div id="lug-lista"></div>
+    <p class="sub" id="lug-cuenta"></p>
+
+    <div class="acciones">
+      <button class="btn rojo" id="lug-guardar" type="button">Guardar lugares</button>
     </div>
   </div>
 </div>
@@ -540,6 +610,10 @@ var JUEGOS = [];
    y a 3,000 partidas casi 2 MB. 600 filas son como mes y medio, de sobra
    para lo que se ve en pantalla. */
 var LIMITE_HISTORICO = 600;
+
+/* Cuantos caben en una partida. En Mario Kart corren 12, pero de nosotros
+   entran a lo mucho 8: el resto son computadora o gente por internet. */
+var MAX_JUGADORES = 8;
 
 var JUGADORES = [];
 var AVATARES = (function(){ try { return JSON.parse(localStorage.getItem('em_checar_avatares')) || {}; } catch(e){ return {}; } })();
@@ -592,7 +666,6 @@ function guardarBorrador() {
       nota:  (document.getElementById('m-nota')  || {}).value || '',
       seleccion: seleccion,
       nRondas: nRondas,
-      ordenes: ordenes
     }));
     localStorage.setItem(LS_ACTIVOS, JSON.stringify(seleccion));
   } catch (e) {}
@@ -607,7 +680,6 @@ function tirarBorrador() {
   try { localStorage.removeItem(LS_BORRADOR); } catch (e) {}
   seleccion = [];
   nRondas = 1;
-  ordenes = [];
 }
 
 function jugadoresDeSiempre() {
@@ -833,6 +905,55 @@ function nuevoJuego() {
 /* ===========================================================================
    POSICIONES
    =========================================================================== */
+/**
+ * \u00bfEsta partida todavia no tiene lugares?
+ *
+ * IMPORTANTE para el marcador: pintarTabla y rachaDe daban por ganador al
+ * PRIMERO del arreglo, no al que tiene posicion 1. Con los lugares vacios
+ * eso le habria regalado la victoria a quien apareciera primero en la hoja.
+ * Por eso estas partidas se quedan FUERA del ranking hasta que se llenen.
+ */
+function sinLugares(par) {
+  return (par.jugadores || []).every(function (j) {
+    return j.posicion === null || j.posicion === undefined || j.posicion === '';
+  });
+}
+
+function pintarPendientes() {
+  var panel = document.getElementById('panel-pendientes');
+  var cont  = document.getElementById('lista-pendientes');
+  var lista = partidasAgrupadas(function () { return true; }).filter(sinLugares);
+
+  panel.hidden = !lista.length;
+  if (!lista.length) return;
+
+  document.getElementById('sub-pendientes').textContent =
+    lista.length === 1 ? 'Una partida sin lugares'
+                       : lista.length + ' partidas sin lugares';
+
+  cont.innerHTML = '';
+  lista.slice(0, 30).forEach(function (par) {
+    var d = document.createElement('div');
+    d.className = 'pend';
+    var quienes = (par.jugadores || []).map(function (j) { return cortito(j.jugador); }).join(', ');
+    d.innerHTML =
+      '<div class="ico" style="background:' + colorDe(par.juego) + '">' +
+        (esImagen(iconoDe(par.juego)) ? imagenDe(iconoDe(par.juego))
+                                      : (arteDe(par.juego) || iconoDe(par.juego))) + '</div>' +
+      '<div class="cuerpo">' +
+        '<div class="j">' + par.juego + (par.nota ? ' \u00b7 ' + par.nota : '') + '</div>' +
+        '<div class="q">' + quienes + ' \u00b7 ' + fechaBonita(par.fecha) + ' ' + par.hora + '</div>' +
+      '</div>';
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn rojo chico';
+    b.textContent = 'Poner lugares';
+    b.onclick = function () { abrirLugares(par); };
+    d.appendChild(b);
+    cont.appendChild(d);
+  });
+}
+
 function partidasAgrupadas(filtro) {
   var mapa = {};
   PARTIDAS.forEach(function (p) {
@@ -901,13 +1022,22 @@ function pintarTabla() {
       if (corteDeHoy() && (p.hora || '') < corteDeHoy()) return false;
     }
     return true;
+  }).filter(function (par) {
+    return !sinLugares(par);   // las que aun no tienen lugares no cuentan
   }).forEach(function (par) {
     par.jugadores.forEach(function (j, idx) {
       var k = j.jugador || j.idJugador;
       if (!stats[k]) stats[k] = { nombre: k, jugadas: 0, ganadas: 0, podios: 0, puntos: 0 };
       stats[k].jugadas++;
-      if (idx === 0) stats[k].ganadas++;
-      if (idx < 3) stats[k].podios++;
+      // Por el LUGAR, no por el orden del arreglo. Alguien puede quedar 5\u00b0
+      // de doce y seguir siendo el primero de los que jugaron aqui: gana
+      // quien tenga el mejor lugar de la partida.
+      var pos = Number(j.posicion);
+      var mejor = Math.min.apply(null, par.jugadores
+        .map(function (x) { return Number(x.posicion); })
+        .filter(function (v) { return v > 0; }));
+      if (pos > 0 && pos === mejor) stats[k].ganadas++;
+      if (pos > 0 && pos <= 3) stats[k].podios++;
       stats[k].puntos += (j.puntos || 0);
     });
   });
@@ -965,13 +1095,22 @@ function rachaDe(nombre) {
     if (juegoSel && p.juego !== juegoSel) return false;
     return true;
   }).filter(function (par) {
+    if (sinLugares(par)) return false;   // sin lugares no hay racha que contar
     return par.jugadores.some(function (j) { return j.jugador === nombre; });
   });
 
   // partidasAgrupadas devuelve de la más nueva a la más vieja.
   var tipo = null, n = 0;
   for (var i = 0; i < suyas.length; i++) {
-    var gano = (suyas[i].jugadores[0] || {}).jugador === nombre;
+    // Gana quien tenga el mejor lugar de esa partida, no el primero del
+    // arreglo: con doce lugares el ganador puede ser el 3\u00b0 si los dos de
+    // arriba eran computadora.
+    var mejor = Math.min.apply(null, suyas[i].jugadores
+      .map(function (x) { return Number(x.posicion); })
+      .filter(function (v) { return v > 0; }));
+    var gano = suyas[i].jugadores.some(function (x) {
+      return x.jugador === nombre && Number(x.posicion) === mejor;
+    });
     var esta = gano ? 'gana' : 'pierde';
     if (tipo === null) { tipo = esta; n = 1; }
     else if (tipo === esta) { n++; }
@@ -1033,6 +1172,7 @@ function pintarHistorico() {
     return;
   }
 
+  lista = lista.filter(function (par) { return !sinLugares(par); });
   lista.slice(0, 20).forEach(function (par) {
     var d = document.createElement('div');
     d.className = 'partida';
@@ -1059,7 +1199,7 @@ function pintarHistorico() {
   });
 }
 
-function pintarTodo() { pintarJuegos(); pintarTabla(); pintarHistorico(); }
+function pintarTodo() { pintarPendientes(); pintarJuegos(); pintarTabla(); pintarHistorico(); }
 
 /* ===========================================================================
    MODAL: REGISTRAR PARTIDA
@@ -1127,14 +1267,10 @@ function abrirModal() {
   // siempre ya marcados.
   seleccion = (b && b.seleccion) ? b.seleccion.slice() : jugadoresDeSiempre().slice();
   nRondas   = (b && b.nRondas) ? b.nRondas : 1;
-  ordenes   = (b && b.ordenes) ? b.ordenes.map(function (o) { return o.slice(); }) : [];
 
   // Los que ya no están en la lista de la app se caen solos.
   var validos = JUGADORES.map(function (j) { return j.id; });
   seleccion = seleccion.filter(function (id) { return validos.indexOf(id) !== -1; });
-  ordenes = ordenes.map(function (o) {
-    return o.filter(function (id) { return seleccion.indexOf(id) !== -1; });
-  });
 
   var selJ = document.getElementById('m-juego');
   selJ.innerHTML = JUEGOS.filter(function (j) { return j.activo; }).map(function (j) {
@@ -1168,13 +1304,15 @@ function abrirModal() {
       '<span class="nm">' + cortito(j.nombre) + '</span>';
     c.onclick = function () {
       var i = seleccion.indexOf(j.id);
-      if (i === -1) { seleccion.push(j.id); c.classList.add('on'); }
-      else {
+      if (i === -1) {
+        if (seleccion.length >= MAX_JUGADORES) {
+          aviso('Caben ' + MAX_JUGADORES + ' por partida.', 'err');
+          return;
+        }
+        seleccion.push(j.id); c.classList.add('on');
+      } else {
         seleccion.splice(i, 1);
         c.classList.remove('on');
-        ordenes = ordenes.map(function (o) {
-          return o.filter(function (x) { return x !== j.id; });
-        });
       }
       pintarPodio();
       guardarBorrador();
@@ -1191,15 +1329,15 @@ function cerrarModal() { guardarBorrador(); fondo.classList.remove('ver'); }
 /* ===========================================================================
    CARRERAS
    ===========================================================================
-   Una sesión son varias carreras. Se elige cuántas y en cada una se van
-   tocando las caras en el orden en que llegaron: primera que toques, primer
-   lugar. Volver a tocarla la saca.
+   Una sesión son varias carreras: se elige cuántas y se guardan todas de
+   un jalón, con los mismos jugadores y SIN lugares. Cada carrera es su
+   propia partida, así que los marcadores cuentan bien — cuatro carreras
+   son cuatro ganadas o perdidas, no una.
 
-   Cada carrera se guarda como su propia partida, así que los marcadores
-   cuentan bien: cuatro carreras son cuatro ganadas o perdidas, no una.
+   Los lugares se ponen después, desde "Pendientes de lugares". Poner el
+   resultado con el control en la mano nunca funcionó.
    =========================================================================== */
 var nRondas = 1;
-var ordenes = [];   // ordenes[i] = [idJugador, ...] en orden de llegada
 
 /** Cómo se llama una ronda según el juego: carreras, rondas o peleas. */
 function palabraRonda(plural) {
@@ -1209,16 +1347,16 @@ function palabraRonda(plural) {
   return plural ? 'rondas' : 'Ronda';
 }
 
+/**
+ * El selector de cuantas carreras. Lo unico que queda del paso 1: los
+ * lugares ya no se piden aqui.
+ */
 function pintarPodio() {
   var campoR = document.getElementById('m-rondas-campo');
-  var campo  = document.getElementById('m-podio-campo');
-  var podio  = document.getElementById('m-podio');
-
-  campoR.hidden = campo.hidden = (seleccion.length === 0);
+  campoR.hidden = (seleccion.length === 0);
   if (!seleccion.length) return;
 
-  // Cuántas
-  document.getElementById('m-rondas-label').textContent = '¿Cuántas ' + palabraRonda(true) + '?';
+  document.getElementById('m-rondas-label').textContent = '\u00bfCu\u00e1ntas ' + palabraRonda(true) + '?';
   var cr = document.getElementById('m-rondas');
   cr.innerHTML = '';
   [1,2,3,4,5,6,8,12].forEach(function (n) {
@@ -1226,91 +1364,150 @@ function pintarPodio() {
     b.type = 'button';
     b.className = 'filtro' + (nRondas === n ? ' on' : '');
     b.textContent = n;
-    b.onclick = function () {
-      nRondas = n;
-      ordenes = ordenes.slice(0, n);
-      pintarPodio();
-      guardarBorrador();
-    };
+    b.onclick = function () { nRondas = n; pintarPodio(); guardarBorrador(); };
     cr.appendChild(b);
   });
-
-  // El resultado de cada una
-  document.getElementById('m-podio-label').textContent =
-    'Resultado de cada ' + palabraRonda(false).toLowerCase();
-  podio.innerHTML = '';
-
-  for (var i = 0; i < nRondas; i++) {
-    if (!ordenes[i]) ordenes[i] = [];
-    podio.appendChild(bloqueRonda(i));
-  }
 }
 
-function bloqueRonda(i) {
-  var orden = ordenes[i];
-  var d = document.createElement('div');
-  d.className = 'ronda';
+/* ===========================================================================
+   PASO 2 \u2014 PONERLE LUGARES A UNA PARTIDA
+   ===========================================================================
+   Se toca a un jugador y se abre el 1 al 12. SIEMPRE doce, jueguen tres o
+   seis: en Mario Kart corren doce y los lugares que quedan sueltos eran
+   computadora o gente por internet.
 
-  var cab = document.createElement('div');
-  cab.className = 'cab-r';
-  cab.innerHTML = '<b>' + palabraRonda(false) + ' ' + (i + 1) + '</b>' +
-    '<span class="pista">' +
-      (orden.length === seleccion.length ? '✓ completa'
-        : 'toca en el orden en que llegaron') + '</span>';
-  if (orden.length) {
-    var limpiar = document.createElement('button');
-    limpiar.type = 'button';
-    limpiar.textContent = 'limpiar';
-    limpiar.onclick = function () { ordenes[i] = []; pintarPodio(); guardarBorrador(); };
-    cab.appendChild(limpiar);
-  }
-  d.appendChild(cab);
+   Un lugar solo puede ser de uno. Si se le da a alguien un lugar que ya
+   tenia otro, se lo quita \u2014 es lo que uno espera al corregir un dedazo.
 
-  var pista = document.createElement('div');
-  pista.className = 'pista-caras';
+   No hace falta llenar todos: se puede guardar a medias y volver luego.
+   =========================================================================== */
+var LUGARES = 12;
+var parEnEdicion = null;      // la partida que se esta llenando
+var lugarDe = {};             // { idJugador: 1..12 }
+var abiertoJugador = null;    // a quien se le esta eligiendo lugar
 
-  seleccion.forEach(function (id) {
-    var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id, area: '' };
-    var lugar = orden.indexOf(id) + 1;   // 0 si no está
+var fondoLug = document.getElementById('fondo-lugares');
+document.getElementById('lug-equis').onclick = function () { fondoLug.classList.remove('ver'); };
+fondoLug.onclick = function (e) { if (e.target === fondoLug) fondoLug.classList.remove('ver'); };
 
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'corredor' + (lugar ? ' puesto p' + lugar : '');
-    b.innerHTML =
-      (lugar ? '<span class="lug">' + lugar + '°</span>' : '') +
-      '<span class="c"><img alt="" loading="lazy" src="' +
-        avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) +
-        '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
-      '<span class="n">' + cortito(j.nombre) + '</span>';
-    b.onclick = function () {
-      var k = orden.indexOf(id);
-      if (k === -1) orden.push(id); else orden.splice(k, 1);
-      pintarPodio();
-      guardarBorrador();
+function abrirLugares(par) {
+  parEnEdicion = par;
+  lugarDe = {};
+  abiertoJugador = null;
+  (par.jugadores || []).forEach(function (j) {
+    if (j.posicion != null && j.posicion !== '') lugarDe[j.idJugador] = Number(j.posicion);
+  });
+  document.getElementById('lug-titulo').textContent = par.juego;
+  document.getElementById('lug-sub').textContent =
+    (par.nota ? par.nota + ' \u00b7 ' : '') + fechaBonita(par.fecha) + ' ' + par.hora;
+  pintarLugares();
+  fondoLug.classList.add('ver');
+}
+
+function pintarLugares() {
+  var cont = document.getElementById('lug-lista');
+  cont.innerHTML = '';
+
+  (parEnEdicion.jugadores || []).forEach(function (j) {
+    var fila = document.createElement('div');
+    fila.className = 'lug-fila' + (abiertoJugador === j.idJugador ? ' abierto' : '');
+
+    var cab = document.createElement('button');
+    cab.type = 'button';
+    cab.className = 'lug-quien';
+    var puesto = lugarDe[j.idJugador];
+    cab.innerHTML =
+      '<span class="avat"><img alt="" loading="lazy" src="' +
+        avatarUrl(j.jugador, avArea(j.jugador), AVATARES[j.jugador]) + '"></span>' +
+      '<span class="nm">' + cortito(j.jugador) + '</span>' +
+      '<span class="puesto' + (puesto ? ' tiene p' + (puesto <= 3 ? puesto : 'x') : '') + '">' +
+        (puesto ? puesto + '\u00b0' : 'Sin lugar') + '</span>';
+    cab.onclick = function () {
+      abiertoJugador = (abiertoJugador === j.idJugador) ? null : j.idJugador;
+      pintarLugares();
     };
-    pista.appendChild(b);
+    fila.appendChild(cab);
+
+    if (abiertoJugador === j.idJugador) {
+      var rej = document.createElement('div');
+      rej.className = 'lug-rejilla';
+      for (var n = 1; n <= LUGARES; n++) {
+        (function (n) {
+          var duenio = null;
+          for (var k in lugarDe) if (lugarDe[k] === n) duenio = k;
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'lug-n' +
+            (lugarDe[j.idJugador] === n ? ' mio' : (duenio ? ' tomado' : ''));
+          b.textContent = n;
+          b.title = duenio && duenio !== j.idJugador ? 'Ahorita es de otro' : '';
+          b.onclick = function () {
+            if (lugarDe[j.idJugador] === n) { delete lugarDe[j.idJugador]; }
+            else {
+              // Un lugar es de uno solo: si ya era de alguien, se lo quita.
+              for (var k in lugarDe) if (lugarDe[k] === n) delete lugarDe[k];
+              lugarDe[j.idJugador] = n;
+            }
+            abiertoJugador = null;
+            pintarLugares();
+          };
+          rej.appendChild(b);
+        })(n);
+      }
+      fila.appendChild(rej);
+    }
+    cont.appendChild(fila);
   });
 
-  d.appendChild(pista);
-  return d;
+  var puestos = Object.keys(lugarDe).length;
+  var total = (parEnEdicion.jugadores || []).length;
+  document.getElementById('lug-cuenta').textContent =
+    puestos + ' de ' + total + ' con lugar' +
+    (puestos < total ? ' \u00b7 puedes guardar a medias y seguir luego' : '');
 }
+
+document.getElementById('lug-guardar').onclick = function () {
+  var btn = this;
+  var par = parEnEdicion;
+  btn.disabled = true;
+  btn.textContent = 'Guardando\u2026';
+
+  var lista = (par.jugadores || []).map(function (j) {
+    return { id: j.idJugador, posicion: lugarDe[j.idJugador] || '' };
+  });
+
+  gas('actualizarPosiciones', [par.id, lista]).then(function (r) {
+    if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
+    // Se refleja en memoria para no volver a bajar todo el historico.
+    PARTIDAS.forEach(function (f) {
+      if (f.id !== par.id) return;
+      var v = lugarDe[f.idJugador];
+      f.posicion = (v === undefined) ? null : v;
+    });
+    fondoLug.classList.remove('ver');
+    aviso('\u2713 Lugares guardados.', 'ok');
+    pintarTodo();
+  }).catch(function (e) {
+    aviso('No se pudieron guardar: ' + e.message, 'err');
+  }).then(function () {
+    btn.disabled = false;
+    btn.textContent = 'Guardar lugares';
+  });
+};
 
 
 document.getElementById('m-guardar').onclick = function () {
   if (seleccion.length < 2) { aviso('Elige al menos dos jugadores.', 'err'); return; }
-
-  // Cada carrera tiene que estar completa: si falta alguien no se sabe en
-  // qué lugar quedó, y el marcador saldría mal.
-  var incompletas = [];
-  for (var i = 0; i < nRondas; i++) {
-    if (!ordenes[i] || ordenes[i].length !== seleccion.length) incompletas.push(i + 1);
-  }
-  if (incompletas.length) {
-    aviso('Falta el resultado de ' + palabraRonda(incompletas.length > 1) + ' ' +
-          incompletas.join(', ') + '.', 'err');
-    return;
+  if (seleccion.length > MAX_JUGADORES) {
+    aviso('Máximo ' + MAX_JUGADORES + ' jugadores por partida.', 'err'); return;
   }
 
+  // AQUÍ YA NO SE PIDEN LOS LUGARES.
+  //
+  // Antes, para registrar había que ir poniendo quién quedó en qué lugar
+  // carrera por carrera, ahí mismo. Nadie quiere hacer eso con el control
+  // en la mano. Ahora se registra quién jugó y ya; los lugares se ponen
+  // después desde "Pendientes de lugares", con calma.
   var btn = this;
   btn.disabled = true;
   btn.textContent = 'Guardando...';
@@ -1327,9 +1524,10 @@ document.getElementById('m-guardar').onclick = function () {
       fecha: fecha,
       nota: (nRondas > 1 ? una + ' ' + (r + 1) + ' de ' + nRondas : '') +
             (nota ? (nRondas > 1 ? ' · ' : '') + nota : ''),
-      jugadores: ordenes[r].map(function (id, k) {
+      // Sin posición: la celda queda vacía y la partida sale en pendientes.
+      jugadores: seleccion.map(function (id) {
         var j = JUGADORES.filter(function (x) { return x.id === id; })[0] || { nombre: id };
-        return { id: id, nombre: j.nombre, posicion: k + 1, puntos: '' };
+        return { id: id, nombre: j.nombre, posicion: '', puntos: '' };
       })
     });
   }
@@ -1399,7 +1597,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v743');
+Actualizar.iniciar('v744');
 </script>
 </body>
 </html>
