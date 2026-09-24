@@ -610,8 +610,40 @@ function jugadoresDeSiempre() {
 }
 
 var elAviso = document.getElementById('aviso');
-function aviso(t, clase) { elAviso.className = 'ver ' + (clase || ''); elAviso.textContent = t; }
-function quitarAviso(ms) { setTimeout(function () { elAviso.className = ''; }, ms || 4000); }
+var _avisoTimer = null;
+
+/* ---------------------------------------------------------------------------
+   NINGUN AVISO SE QUEDA COLGADO. NUNCA.
+   ---------------------------------------------------------------------------
+   Aqui era peor que en el checador: aviso() no recibia duracion, o sea que
+   TODOS se quedaban hasta que alguien llamara quitarAviso() — y la mitad de
+   las llamadas no lo hacia. Un "No se pudo borrar" o un "Cargando el
+   tablero..." se quedaba pegado en la pantalla el resto del rato.
+
+   Ahora todos se van solos. El tercer argumento es opcional:
+     aviso('texto')            → 4 segundos
+     aviso('texto', 'err')     → 6 segundos (los errores dan tiempo de leerse)
+     aviso('texto', '', 0)     → "en curso": 12 segundos y se rinde diciendolo
+   ------------------------------------------------------------------------- */
+var AVISO_TOPE = 12000;
+
+function aviso(t, clase, ms) {
+  clearTimeout(_avisoTimer);
+  elAviso.className = 'ver ' + (clase || '');
+  elAviso.textContent = t;
+
+  if (ms === 0) {
+    _avisoTimer = setTimeout(function () {
+      aviso('Esta tardando mas de lo normal. Revisa tu senal.', 'err', 5000);
+    }, AVISO_TOPE);
+    return;
+  }
+  if (ms === undefined) ms = (clase === 'err') ? 6000 : 4000;
+  _avisoTimer = setTimeout(quitarAviso, Math.min(ms, 10000));
+}
+
+/** Quita el aviso ya. Se queda por las llamadas que ya existian. */
+function quitarAviso() { clearTimeout(_avisoTimer); elAviso.className = ''; }
 
 
 /* ===========================================================================
@@ -782,11 +814,11 @@ function nuevoJuego() {
   var nombre = prompt('¿Qué juego agregamos?');
   if (!nombre) return;
   var icono = prompt('Un emoji para su caja (Enter para 🎮)') || '🎮';
-  aviso('Agregando ' + nombre + '...');
+  aviso('Agregando ' + nombre + '…', '', 0);
   gas('agregarJuego', [nombre, icono, 'POSICION'])
     .then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
-      aviso('✓ ' + r.message, 'ok'); quitarAviso();
+      aviso('✓ ' + r.message, 'ok');
       cargar();
     })
     .catch(function (e) { aviso('No se pudo agregar: ' + e.message, 'err'); });
@@ -949,13 +981,12 @@ function borrar(par) {
   if (!confirm('¿Borrar esta partida?\n\n' + par.juego + ' · ' + fechaBonita(par.fecha) +
                ' ' + (par.hora || '') + '\n' + quienes + '\n\nNo se puede deshacer.')) return;
 
-  aviso('Borrando...');
+  aviso('Borrando…', '', 0);
   gas('borrarPartida', [par.id]).then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     PARTIDAS = PARTIDAS.filter(function (p) { return p.id !== par.id; });
     pintarTodo();
     aviso('Partida borrada.', 'ok');
-    quitarAviso(3000);
   }).catch(function (e) {
     aviso('No se pudo borrar: ' + e.message, 'err');
   });
@@ -1043,7 +1074,6 @@ document.getElementById('btn-limpiar').onclick = function () {
       tableroDesde = '';
       pintarTodo();
       aviso('Tablero reabierto: cuenta todo el día otra vez.', 'ok');
-      quitarAviso(3500);
     }).catch(function (e) {
       aviso('No se pudo reabrir: ' + e.message, 'err');
     }).then(function () { btn.disabled = false; });
@@ -1057,7 +1087,6 @@ document.getElementById('btn-limpiar').onclick = function () {
     periodo = 'hoy';
     pintarTodo();
     aviso('Tablero limpio. Las partidas siguen en el histórico.', 'ok');
-    quitarAviso(4000);
   }).catch(function (e) {
     aviso('No se pudo limpiar: ' + e.message, 'err');
   }).then(function () { btn.disabled = false; });
@@ -1069,7 +1098,6 @@ document.getElementById('m-descartar').onclick = function () {
   tirarBorrador();
   cerrarModal();
   aviso('Partida descartada.', 'ok');
-  quitarAviso(2500);
 };
 document.getElementById('m-equis').onclick = cerrarModal;
 ['m-juego','m-fecha','m-nota'].forEach(function (id) {
@@ -1315,7 +1343,6 @@ document.getElementById('m-guardar').onclick = function () {
     fondo.classList.remove('ver');
     aviso('✓ ' + guardadas + ' ' + (guardadas === 1 ? una.toLowerCase() : palabraRonda(true)) +
           ' de ' + juego + ' guardada' + (guardadas === 1 ? '' : 's') + '.', 'ok');
-    quitarAviso(6000);
     juegoSel = juego;
     cargar();
   })
@@ -1331,7 +1358,7 @@ document.getElementById('m-guardar').onclick = function () {
    CARGA
    =========================================================================== */
 function cargar() {
-  aviso('Cargando el tablero...');
+  aviso('Cargando el tablero…', '', 0);
   gas('getJuegosTablero', [])
     .then(function (r) {
       if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
@@ -1346,7 +1373,7 @@ function cargar() {
       tableroDesde = r.tableroDesde || '';
       document.getElementById('filtro-jugador').innerHTML = '';
       pintarTodo();
-      quitarAviso(600);
+      quitarAviso();          // ya cargo: fuera el "Cargando el tablero..."
     })
     .catch(function (e) {
       var msg = e.message || '';
@@ -1365,7 +1392,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v741');
+Actualizar.iniciar('v742');
 </script>
 </body>
 </html>

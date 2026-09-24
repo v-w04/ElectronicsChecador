@@ -92,10 +92,13 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .icono.puesto{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
 .icono.activo{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
 .icono.apagado{opacity:.55}
-/* Flotante DEBAJO de la cabecera, no dentro: antes le sumaba ~35px de alto
-   al header y empujaba el reloj y el boton de checar. */
-.franja{position:absolute;left:0;right:0;top:100%;z-index:1;
-  padding:9px 16px;font-size:13px;font-weight:600;
+/* La franja va EN EL FLUJO, ocupando su lugar, a proposito.
+   Se intento flotante para que no empujara y resultó peor: tapaba el reloj
+   y el estado del día. Ahora solo sale en los dos casos en que de verdad
+   tiene que estorbar — bajando la versión y versión atorada —, que son
+   estados que duran y traen botón. Lo efímero ("ya estás al día", "sin
+   señal") se fue al aviso flotante, que ni empuja ni tapa. */
+.franja{margin:0 -16px;padding:9px 16px;font-size:13px;font-weight:600;
   display:flex;align-items:center;gap:9px;background:var(--raised);color:var(--t2);
   border-top:1px solid var(--bd-sub)}
 .franja[hidden]{display:none}
@@ -519,7 +522,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v741</span> · buscar actualización
+      <span id="pie">v742</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -621,7 +624,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v741';
+var VERSION = 'v742';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -743,11 +746,41 @@ function gas(fn, args) {
 
 var elAviso = document.getElementById('aviso');
 var _avisoTimer = null;
+
+/* ---------------------------------------------------------------------------
+   NINGUN AVISO SE QUEDA COLGADO. NUNCA.
+   ---------------------------------------------------------------------------
+   Antes, pasar ms = 0 queria decir "dejalo hasta que algo lo reemplace". La
+   idea era para los "Registrando..." mientras se espera al servidor. El
+   problema: si la respuesta NO llega — sin senal, el fetch se queda colgado y
+   ni resuelve ni falla — nadie lo reemplazaba nunca y el mensaje se quedaba
+   pegado en la pantalla para siempre. Justo lo que pasa al abrir la app sin
+   internet.
+
+   Ahora ms = 0 sigue queriendo decir "en curso", pero con plazo: a los 12
+   segundos se rinde solo y lo dice, en vez de congelarse.
+   ------------------------------------------------------------------------- */
+var AVISO_TOPE = 12000;
+
 function aviso(txt, clase, ms) {
   clearTimeout(_avisoTimer);
   elAviso.className = 'ver ' + (clase || '');
   elAviso.textContent = txt;
-  if (ms) _avisoTimer = setTimeout(function(){ elAviso.className = ''; }, ms);
+
+  if (ms > 0) {
+    _avisoTimer = setTimeout(quitarAviso, Math.min(ms, 10000));
+    return;
+  }
+  // "En curso": plazo de seguridad.
+  _avisoTimer = setTimeout(function () {
+    aviso('Esta tardando mas de lo normal. Revisa tu senal.', 'warn', 5000);
+  }, AVISO_TOPE);
+}
+
+/** Quita el aviso ya. */
+function quitarAviso() {
+  clearTimeout(_avisoTimer);
+  elAviso.className = '';
 }
 
 /* ===========================================================================
@@ -1483,7 +1516,7 @@ function borrarChecada(c) {
   if (navigator.onLine === false) { aviso('Necesitas señal para borrar.', 'warn', 4000); return; }
 
   fondoCorregir.classList.remove('ver');
-  aviso('Borrando...', '', 0);
+  aviso('Borrando…', '', 0);
   gas('borrarChecadaPropia', [YO.pin, c.hora, c.tipo]).then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     HOY.checadas = HOY.checadas.filter(function (x) {
@@ -1548,7 +1581,7 @@ function pintarExcepcion() {
 function marcarDia(t) {
   if (navigator.onLine === false) { aviso('Necesitas señal para marcar el día.', 'warn', 4000); return; }
   fondoDia.classList.remove('ver');
-  aviso('Registrando...', '', 0);
+  aviso('Registrando…', '', 0);
   gas('guardarExcepcionDia', [YO.pin, t.tipo]).then(function(r){
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     EXC = { fecha: hoyStr(), tipo: t.tipo, global: t.tipo === 'FESTIVO' };
@@ -1898,7 +1931,7 @@ function registrar(mov) {
     return;
   }
 
-  aviso('Registrando...', '', 0);
+  aviso('Registrando…', '', 0);
   gas('guardarChecadaChofer', [datos]).then(function(r){
     if (!r || r.error) throw new Error((r && r.message) || 'el servidor no la aceptó');
 
@@ -2097,7 +2130,7 @@ function escucharEnPrimerPlano() {
  *  confunda con los mensajitos de siempre. */
 function avisoAlerta(titulo, cuerpo) {
   var caja = document.getElementById('alerta-viva');
-  if (!caja) { aviso(titulo + ' · ' + cuerpo, 'ok', 9000); return; }
+  if (!caja) { aviso(titulo + ' · ' + cuerpo, '', 9000); return; }
   document.getElementById('alerta-viva-tit').textContent = titulo;
   document.getElementById('alerta-viva-txt').textContent = cuerpo;
   caja.classList.add('ver');
@@ -2248,8 +2281,8 @@ function probarAlertaLocal() {
       vibrate: [400, 150, 400], tag: 'checador-local', renotify: true
     });
   }).then(function () {
-    aviso('Mandada desde este mismo celular. Si NO la ves en tu pantalla, ' +
-          'el problema está en los ajustes del teléfono, no en el servidor.', 'ok', 10000);
+    aviso('Se pintó aquí mismo. Si no la viste, el problema son los avisos ' +
+          'de este teléfono, no el servidor.', 'ok', 7000);
   }).catch(function (e) {
     aviso('No se pudo ni siquiera aquí: ' + (e && e.message || e), 'err', 9000);
   }).then(function () { btn.disabled = false; });
@@ -2401,12 +2434,12 @@ function probarAlerta() {
   btn.disabled = true;
 
   function intento(forzarNuevo) {
-    aviso(forzarNuevo ? 'El registro estaba vencido, sacando uno nuevo...'
-                      : 'Registrando este aparato...', '', 0);
+    aviso(forzarNuevo ? 'Renovando el registro de este aparato…'
+                      : 'Registrando este aparato…', '', 0);
     return obtenerToken(forzarNuevo)
       .then(registrarEnServidor)
       .then(function () {
-        aviso('Mandando la prueba...', '', 0);
+        aviso('Mandando la prueba…', '', 0);
         return gas('testPushEmpleado', [YO.pin]);
       })
       .then(function (r) {
@@ -2810,30 +2843,55 @@ var btnAct = document.getElementById('btn-actualizar');
 var elEstadoAct = document.getElementById('estado-act');
 var _actTimer = null;
 
-/** La franja bajo la cabecera dice siempre qué está pasando: si está
- *  buscando, si ya está al día o si está bajando la versión nueva. */
+/**
+ * Qué se enseña de la actualización, y dónde.
+ *
+ * DOS CAJONES, y la diferencia importa:
+ *
+ *   Lo que DURA y trae botón — "bajando la versión", "no logró entrar" —
+ *   va en la franja, ocupando su lugar bajo la cabecera. Ahí sí queremos
+ *   que estorbe: son estados en los que hay algo que hacer.
+ *
+ *   Lo EFÍMERO — "ya estás al día", "sin señal" — va en el aviso
+ *   flotante. Primero empujaba toda la pantalla al salir y al irse; luego
+ *   se hizo flotante sobre la cabecera y entonces tapaba el reloj. Ninguna
+ *   de las dos.
+ *
+ * Y, sobre todo: al ABRIR la app, si ya está al día, NO SE DICE NADA. Ese
+ * aviso no le sirve a nadie — lo normal es estar al día — y salía cada
+ * vez. Solo se contesta cuando la persona lo preguntó con el botón.
+ */
+var _actForzado = false;
+
 function pintarActualizacion(estado, version) {
   clearTimeout(_actTimer);
   if (btnAct) btnAct.disabled = (estado === 'buscando' || estado === 'actualizando');
 
-  var txt = '', clase = '', rueda = false;
-  if (estado === 'buscando') {
-    txt = 'Buscando actualización...'; rueda = true;
+  // Los efímeros: solo si la persona preguntó.
+  if (estado === 'aldia' || estado === 'sinred' || estado === 'buscando') {
+    elEstadoAct.hidden = true;
+    if (!_actForzado) return;
+    if (estado === 'buscando') { aviso('Buscando actualización…', '', 0); return; }
+    _actForzado = false;
+    if (estado === 'aldia') {
+      aviso('✓ Ya tienes la última versión (' + (version || VERSION) + ')', 'ok', 4000);
+    } else {
+      aviso('Sin señal: no pude revisar si hay versión nueva', 'warn', 4000);
+    }
+    return;
   }
+
+  var txt = '', clase = '', rueda = false;
   if (estado === 'actualizando') {
     txt = 'Bajando la versión ' + (version || '') + '. No cierres la app.';
     clase = 'ok'; rueda = true;
-  }
-  if (estado === 'aldia') {
-    txt = '✓ Ya tienes la última versión (' + (version || VERSION) + ')'; clase = 'ok';
-  }
-  if (estado === 'sinred') {
-    txt = 'Sin señal: no pude revisar si hay versión nueva'; clase = 'mal';
   }
   // La actualización no logró entrar después de varios intentos. En vez de
   // quedarse en "Bajando la versión..." para siempre —que es lo que parecía
   // un cuelgue— se dice y se ofrece la salida.
   if (estado === 'atorado') {
+    _actForzado = false;
+    try { quitarAviso(); } catch (e) {}
     elEstadoAct.hidden = false;
     elEstadoAct.className = 'franja mal';
     elEstadoAct.innerHTML =
@@ -2855,12 +2913,10 @@ function pintarActualizacion(estado, version) {
   elEstadoAct.innerHTML = (rueda ? '<span class="rueda"></span>' : '') +
                           '<span>' + txt + '</span>';
 
-  if (estado === 'aldia' || estado === 'sinred') {
-    _actTimer = setTimeout(function () { elEstadoAct.hidden = true; }, 6000);
-  }
 }
 
 if (btnAct) btnAct.onclick = function () {
+  _actForzado = true;   // lo preguntó la persona: a esto sí se le contesta
   Actualizar.revisar(pintarActualizacion, true);
 };
 
