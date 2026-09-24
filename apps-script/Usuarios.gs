@@ -313,18 +313,42 @@ function verificarTieneContrasena(pin) {
 // Los overrides viven en las propiedades del PROYECTO de Apps Script, no en
 // el sheet. Al cambiar de proyecto no se mueven solos.
 
+var AVATAR_INDICE_PROP = 'AVATAR_IDS';
+
 function getAvatarOverrides() {
-  var props = PropertiesService.getScriptProperties();
-  var all = props.getProperties();
-  var result = {};
-  for (var key in all) {
-    if (key.indexOf('avatar_') === 0) {
-      var nombre = key.replace('avatar_', '');
-      try { result[nombre] = JSON.parse(all[key]); } catch(e) {}
+  // Antes hacía props.getProperties(), que se trae TODAS las propiedades del
+  // proyecto para quedarse con las que empiezan en 'avatar_'. En cada carga
+  // del tablero eso arrastraba el JSON del service account de Firebase (~2.4
+  // KB) y las ~240 llaves 'alerta_*' que se acumulan durante el día. Ahora se
+  // lee una sola propiedad con el índice de quiénes tienen avatar propio.
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var idx = props.getProperty(AVATAR_INDICE_PROP);
+    if (idx) {
+      var ids = JSON.parse(idx), fuera = {};
+      for (var i = 0; i < ids.length; i++) {
+        var v = props.getProperty('avatar_' + ids[i]);
+        if (v) fuera[ids[i]] = v;
+      }
+      return fuera;
     }
+    // Sin índice todavía (primera vez): se arma con el barrido viejo y se
+    // guarda, para no volver a barrer nunca.
+    var todas = props.getProperties(), res = {}, lista = [];
+    for (var k in todas) {
+      if (k.indexOf('avatar_') !== 0) continue;
+      var id = k.substring(7);
+      res[id] = todas[k];
+      lista.push(id);
+    }
+    props.setProperty(AVATAR_INDICE_PROP, JSON.stringify(lista));
+    return res;
+  } catch (e) {
+    Logger.log('\u26a0\ufe0f getAvatarOverrides: ' + e.message);
+    return {};
   }
-  return result;
 }
+
 
 // Migración desde un proyecto viejo:
 //   1) en el proyecto VIEJO ejecuta exportarAvatarOverridesParaMigracion
@@ -345,10 +369,13 @@ function importarAvatarOverrides() {
   var data = JSON.parse(AVATAR_MIGRACION_JSON);
   var props = PropertiesService.getScriptProperties();
   var n = 0;
+  var idx = [];
   for (var nombre in data) {
     props.setProperty('avatar_' + nombre, JSON.stringify(data[nombre]));
+    idx.push(nombre);
     n++;
   }
+  props.setProperty(AVATAR_INDICE_PROP, JSON.stringify(idx));
   Logger.log('✅ ' + n + ' avatares importados');
   return { ok: true, importados: n };
 }

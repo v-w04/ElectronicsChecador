@@ -108,14 +108,31 @@ function getJuegosTablero(limite) {
     // ── Jugadores: SOLO los que están en SÍ en la hoja APP_EMPLEADOS ──────
     // No tiene caso mostrar cuarenta nombres para elegir a cuatro que juegan.
     // Va el área, que es la que le da color al avatar.
+    //
+    // OJO CON LO QUE SE QUITÓ AQUÍ. Antes esto llamaba a getEmpleadosApp(),
+    // que a su vez llama a getTodosLosUsuarios() para traer el PIN y el turno
+    // "vivos". Eso son CUATRO hojas más — USUARIOS, CONTRASENAS_CHOFERES,
+    // TURNOS_DEFAULT y CONFIG_TURNOS, dos de ellas con getDataRange() — que
+    // se leían, se cruzaban y se tiraban a la basura: el tablero de juegos
+    // solo usa id, nombre y área, y los tres viven en APP_EMPLEADOS.
+    //
+    // Pasamos de 7 lecturas de hoja a 3. Era lo que más tardaba.
     var jugadores = [];
     var avatares = {};
     try {
-      var e2 = getEmpleadosApp();
-      (e2.empleados || []).forEach(function (x) {
-        jugadores.push({ id: _normId(x.id), nombre: x.nombre, area: x.area || '' });
-      });
-      avatares = e2.avatares || {};
+      var hojaEmp = crearHojaAppEmpleados();
+      if (hojaEmp.getLastRow() > 1) {
+        hojaEmp.getRange(2, 1, hojaEmp.getLastRow() - 1, 5).getValues().forEach(function (r) {
+          var marca = (r[3] || '').toString().trim().toUpperCase();
+          if (marca !== 'SÍ' && marca !== 'SI') return;
+          var id = _normId(r[0]);
+          var nombre = (r[1] || '').toString().trim();
+          if (!id || !nombre) return;
+          jugadores.push({ id: id, nombre: nombre, area: (r[4] || '').toString().trim().toUpperCase() });
+        });
+        jugadores.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+      }
+      avatares = getAvatarOverrides();
     } catch (e) { /* si falla, la página deja escribir el nombre a mano */ }
 
     // ── Histórico ─────────────────────────────────────────────────────────
@@ -206,6 +223,73 @@ function registrarPartida(p) {
     return { ok: false, message: e.message };
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * VARIAS PARTIDAS DE UN JALON.
+ *
+ * Un Grand Prix de 12 carreras se guardaba con DOCE llamadas al servidor,
+ * una tras otra, y cada una pedia el candado por su cuenta. Doce idas y
+ * vueltas en fila es lo que hacia que "guardar" se sintiera eterno.
+ *
+ * Aqui se escribe todo con un solo setValues y un solo candado. Las horas
+ * siguen saliendo en orden porque el orden se respeta en el arreglo.
+ *
+ * @param {Array} lista partidas, cada una como las recibe registrarPartida
+ */
+function registrarPartidas(lista) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); }
+  catch (e) { return { ok: false, message: 'El sistema esta ocupado, intenta otra vez.' }; }
+  try {
+    lista = lista || [];
+    if (!lista.length) return { ok: false, message: 'No llego ninguna partida' };
+
+    var sheet = crearHojaPartidas();
+    var ahora = new Date();
+    var hora  = Utilities.formatDate(ahora, TIMEZONE, 'HH:mm');
+    var sello = Utilities.formatDate(ahora, TIMEZONE, 'dd/MM/yyyy HH:mm');
+    var base  = Utilities.formatDate(ahora, TIMEZONE, 'yyyyMMdd-HHmmss');
+
+    var filas = [], ids = [];
+    for (var n = 0; n < lista.length; n++) {
+      var p = lista[n];
+      if (!p || !p.juego) return { ok: false, message: 'Falta el juego en la ronda ' + (n + 1) };
+      var jug = p.jugadores || [];
+      if (jug.length < 2) return { ok: false, message: 'La ronda ' + (n + 1) + ' necesita al menos 2 jugadores' };
+
+      var fecha = (p.fecha || '').toString().trim() ||
+                  Utilities.formatDate(ahora, TIMEZONE, 'yyyy-MM-dd');
+      // El sufijo mantiene separadas las rondas guardadas en el mismo segundo.
+      var idPartida = 'P' + base + (lista.length > 1 ? '-' + (n + 1) : '');
+      ids.push(idPartida);
+
+      for (var k = 0; k < jug.length; k++) {
+        var j = jug[k];
+        filas.push([
+          idPartida, fecha, hora, p.juego, (p.nota || '').toString(),
+          (j.id || '').toString(), (j.nombre || '').toString(),
+          (j.posicion === '' || j.posicion === null || j.posicion === undefined) ? '' : Number(j.posicion),
+          (j.puntos   === '' || j.puntos   === null || j.puntos   === undefined) ? '' : Number(j.puntos),
+          sello
+        ]);
+      }
+    }
+
+    var fila = sheet.getLastRow() + 1;
+    sheet.getRange(fila, 1, filas.length, 10).setValues(filas);
+    sheet.getRange(fila, 1, filas.length, 3).setNumberFormat('@');
+
+    Logger.log('\ud83c\udfae ' + ids.length + ' partida(s), ' + filas.length + ' filas');
+    return { ok: true, idPartidas: ids, partidas: ids.length,
+             jugadores: filas.length, message: 'Guardado' };
+
+  } catch (e) {
+    Logger.log('\u274c registrarPartidas: ' + e.message);
+    return { ok: false, message: e.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
 }
 

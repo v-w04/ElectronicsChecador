@@ -275,6 +275,13 @@ var SitePin = (function () {
     _boton = document.getElementById(idBoton || 'tab-intranet');
     if (!_boton) return;
 
+    // Los estilos van AQUI, no cuando se abre el teclado del PIN.
+    // Estaban dentro de armar(), que solo corre al abrir ese teclado: el
+    // boton se quedaba con la clase .site-qr y el dibujo dentro, pero SIN
+    // una sola regla de CSS, asi que no se veia por ningun lado. Y para
+    // abrir el teclado hay que tocar el boton... que era invisible.
+    estilos();
+
     // La direccion se guardaba en el aparato. Con eso el candado no servia
     // de nada en los celulares que ya la tenian, asi que se borra.
     try { localStorage.removeItem(LS_VIEJO); } catch (e) {}

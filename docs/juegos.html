@@ -535,6 +535,12 @@ function gas(fn, args) {
    ESTADO
    =========================================================================== */
 var JUEGOS = [];
+/* Cuantas filas del historico se bajan. Antes se pedia TODO: con 1,500
+   partidas (3 meses de uso) eso son 900 KB por cada carga de la pantalla,
+   y a 3,000 partidas casi 2 MB. 600 filas son como mes y medio, de sobra
+   para lo que se ve en pantalla. */
+var LIMITE_HISTORICO = 600;
+
 var JUGADORES = [];
 var AVATARES = (function(){ try { return JSON.parse(localStorage.getItem('em_checar_avatares')) || {}; } catch(e){ return {}; } })();
 /**
@@ -1272,7 +1278,7 @@ function bloqueRonda(i) {
     b.className = 'corredor' + (lugar ? ' puesto p' + lugar : '');
     b.innerHTML =
       (lugar ? '<span class="lug">' + lugar + '°</span>' : '') +
-      '<span class="c"><img alt="" src="' +
+      '<span class="c"><img alt="" loading="lazy" src="' +
         avatarUrl(j.nombre, j.area, AVATARES[j.nombre]) +
         '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(j.nombre) + '\'"></span>' +
       '<span class="n">' + cortito(j.nombre) + '</span>';
@@ -1328,16 +1334,17 @@ document.getElementById('m-guardar').onclick = function () {
     });
   }
 
-  // Se mandan una por una, en orden, para que las horas salgan en secuencia.
+  // UN solo viaje con todas las rondas. Antes se mandaba una por una, en
+  // fila: un Grand Prix de 12 carreras eran DOCE idas y vueltas al servidor,
+  // cada una esperando a la anterior y pidiendo el candado por su cuenta.
+  // Eso era lo que hacia que guardar se sintiera eterno. El orden se respeta
+  // igual, porque va en el arreglo.
   var guardadas = 0;
-  sesion.reduce(function (cadena, partida) {
-    return cadena.then(function () {
-      return gas('registrarPartida', [partida]).then(function (r) {
-        if (!r || !r.ok) throw new Error((r && r.message) || 'el servidor la rechazó');
-        guardadas++;
-      });
-    });
-  }, Promise.resolve())
+  gas('registrarPartidas', [sesion])
+  .then(function (r) {
+    if (!r || !r.ok) throw new Error((r && r.message) || 'el servidor la rechazó');
+    guardadas = r.partidas || sesion.length;
+  })
   .then(function () {
     tirarBorrador();
     fondo.classList.remove('ver');
@@ -1359,7 +1366,7 @@ document.getElementById('m-guardar').onclick = function () {
    =========================================================================== */
 function cargar() {
   aviso('Cargando el tablero…', '', 0);
-  gas('getJuegosTablero', [])
+  gas('getJuegosTablero', [LIMITE_HISTORICO])
     .then(function (r) {
       if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
       JUEGOS = r.juegos || [];
@@ -1392,7 +1399,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v742');
+Actualizar.iniciar('v743');
 </script>
 </body>
 </html>

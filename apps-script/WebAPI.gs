@@ -87,6 +87,7 @@ function _funcionesExpuestas() {
     registrarAusencia:        registrarAusencia,
 
     // Tablero de juegos
+    registrarPartidas:        registrarPartidas,
     getJuegosTablero:         getJuegosTablero,
     registrarPartida:         registrarPartida,
     borrarPartida:            borrarPartida,
