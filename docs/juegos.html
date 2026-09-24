@@ -92,9 +92,6 @@ button{font-family:inherit}
   opacity:0;visibility:hidden;
   transition:opacity .18s ease,transform .18s ease,visibility .18s}
 #aviso.ver{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
-/* Reserva su lugar aunque todavia no se sepa la liga: antes aparecia dos
-   segundos despues de cargar y reacomodaba toda la barra de arriba. */
-#tab-intranet[hidden]{display:inline-flex;visibility:hidden}
 @media (prefers-reduced-motion:reduce){#aviso{transition:none}}
 #aviso.ok{background:#e9f7ee;border-color:#bfe6cd;color:#0b6b3a}
 #aviso.err{background:#fdecef;border-color:#f7c3cd;color:#9b0020}
@@ -1368,7 +1365,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v740');
+Actualizar.iniciar('v741');
 </script>
 </body>
 </html>

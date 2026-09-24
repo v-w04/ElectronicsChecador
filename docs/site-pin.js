@@ -39,6 +39,37 @@ var SitePin = (function () {
   var SEGUNDOS = 3;
 
   var _gas = null, _boton = null, _capa = null, _tecleado = '';
+
+  /* --- el boton de QR ---------------------------------------------------
+     Es un QR generico dibujado a mano, no una imagen: asi hereda el color
+     del tema (checar es oscuro, juegos es claro) y no hay archivo que
+     bajar ni que cachear. Los tres cuadros de las esquinas y unos modulos
+     sueltos bastan para que se lea como QR de un vistazo. */
+  var QR_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+      // los tres ojos
+      '<rect x="2"  y="2"  width="7" height="7" rx="1.4"/>' +
+      '<rect x="15" y="2"  width="7" height="7" rx="1.4"/>' +
+      '<rect x="2"  y="15" width="7" height="7" rx="1.4"/>' +
+      '<rect class="n" x="4.3"  y="4.3"  width="2.4" height="2.4" rx=".5"/>' +
+      '<rect class="n" x="17.3" y="4.3"  width="2.4" height="2.4" rx=".5"/>' +
+      '<rect class="n" x="4.3"  y="17.3" width="2.4" height="2.4" rx=".5"/>' +
+      // Los modulos van sobre una rejilla de 3.4, como en un QR de
+      // verdad: sueltos y a ojo se notaba que no cuadraban.
+      // marcas de tiempo (las dos franjas entre los ojos)
+      '<rect class="n" x="11.4" y="2"    width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="11.4" y="6.8"  width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="2"    y="11.4" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="6.8"  y="11.4" width="2.2" height="2.2" rx=".5"/>' +
+      // el cuadrante de datos, abajo a la derecha
+      '<rect class="n" x="11.4" y="11.4" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="18.2" y="11.4" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="11.4" y="14.8" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="14.8" y="14.8" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="18.2" y="14.8" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="11.4" y="18.2" width="2.2" height="2.2" rx=".5"/>' +
+      '<rect class="n" x="18.2" y="18.2" width="2.2" height="2.2" rx=".5"/>' +
+    '</svg>';
   var _reloj = null, _quedan = SEGUNDOS;
 
   /* --- lo guardado en este aparato ------------------------------------- */
@@ -84,7 +115,26 @@ var SitePin = (function () {
       '#site-pin .abrir{margin-top:14px;width:100%;border:0;border-radius:14px;padding:15px;' +
         'background:#238636;color:#fff;font-size:15.5px;font-weight:800;cursor:pointer;' +
         'font-family:inherit;display:none}' +
-      '#site-pin .abrir.ver{display:block}';
+      '#site-pin .abrir.ver{display:block}' +
+
+      /* El boton de QR. Hereda currentColor, asi que se ve bien en la
+         pantalla oscura y en la clara sin dos juegos de reglas. */
+      '.site-qr{margin-left:auto;flex:0 0 auto;display:inline-flex;' +
+        'align-items:center;justify-content:center;width:36px;height:36px;padding:0;' +
+        'border:1px solid currentColor;border-radius:11px;background:transparent;' +
+        'color:inherit;opacity:.62;cursor:pointer;text-decoration:none;' +
+        '-webkit-tap-highlight-color:transparent;' +
+        'transition:opacity .15s ease,transform .1s ease}' +
+      '.site-qr svg{width:21px;height:21px;display:block;fill:currentColor}' +
+      '.site-qr svg rect{fill:none;stroke:currentColor;stroke-width:1.7}' +
+      '.site-qr svg rect.n{fill:currentColor;stroke:none}' +
+      '.site-qr:hover,.site-qr:focus-visible{opacity:1}' +
+      '.site-qr:active{transform:scale(.93)}' +
+      /* la nav le pone una flechita a las ligas de fuera; aqui estorba */
+      '.site-qr::after{content:none}' +
+      /* Guarda su lugar mientras no se sabe si hay liga: si no, aparecia
+         dos segundos despues de cargar y reacomodaba la barra de arriba. */
+      '.site-qr[hidden]{display:inline-flex;visibility:hidden}';
     document.head.appendChild(st);
   }
 
@@ -229,9 +279,21 @@ var SitePin = (function () {
     // de nada en los celulares que ya la tenian, asi que se borra.
     try { localStorage.removeItem(LS_VIEJO); } catch (e) {}
 
+    // De pestaña de texto a botón de QR. Se hace aquí y no en el HTML para
+    // que las dos pantallas queden iguales sin repetir el dibujo en cada una.
     _boton.removeAttribute('href');
     _boton.removeAttribute('target');
-    _boton.style.cursor = 'pointer';
+    _boton.removeAttribute('rel');
+    _boton.classList.remove('fuera');
+    _boton.classList.add('site-qr');
+    _boton.setAttribute('role', 'button');
+    _boton.setAttribute('tabindex', '0');
+    _boton.setAttribute('title', 'Checador del site');
+    _boton.setAttribute('aria-label', 'Checador del site');
+    _boton.innerHTML = QR_SVG;
+    _boton.onkeydown = function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _boton.onclick(e); }
+    };
     _boton.onclick = function (e) {
       e.preventDefault();
       var pin = pinGuardado();

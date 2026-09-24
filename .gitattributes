@@ -1,5 +1,31 @@
-# Los .bat y .ps1 deben quedar con CRLF o CMD / PowerShell no los parsean bien.
-# (No se pone "* text=auto" a proposito: el repo ya existia y eso marcaria
-#  todo el frontend como modificado en el siguiente commit.)
-*.bat text eol=crlf
-*.ps1 text eol=crlf
+# ============================================================================
+# FINALES DE LINEA
+# ============================================================================
+# Todo el texto se guarda con LF DENTRO del repo. Sin esta regla, los archivos
+# que baja UNA-VEZ-1-BAJAR-DE-APPSCRIPT.bat llegan al disco con CRLF mientras
+# el repo los tiene con LF, y git los marcaba como "modificados" en cada
+# commit aunque no se les hubiera tocado una letra: 19 archivos y ~8,800
+# lineas de ruido que tapaban los 6 cambios de verdad. Tambien es el origen
+# de los avisos "LF will be replaced by CRLF" que salian al correr el 5.
+*               text=auto eol=lf
+
+# Estos SI tienen que quedar con CRLF en el disco, o CMD y PowerShell no los
+# parsean bien. La regla va DESPUES de la de arriba para que le gane.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# Binarios: que git no les busque finales de linea a nada de esto.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.webp          binary
+*.svg           text eol=lf
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.eot           binary
+*.pdf           binary
+*.zip           binary
