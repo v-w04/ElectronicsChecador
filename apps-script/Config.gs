@@ -121,6 +121,33 @@ function _leerConfigTurnos() {
 // cosas que acaban tumbando el motor por cuota sin decir por que.
 var _CACHE_TURNOS_DEF = null;
 
+/**
+ * LA COLUMNA DEL ID EN TURNOS_DEFAULT.
+ *
+ * Se buscaba con indexOf('Admin') a secas, y el 24-sep esa celda amanecio
+ * vacia. indexOf devolvio -1... y JavaScript no se queja: data[i][-1] vale
+ * undefined y ya. Resultado: el mapa de empleados salio vacio, NINGUN pin
+ * se encontro, nadie pudo registrar su celular ni recibir alertas, y en el
+ * log no aparecio un solo error. Un encabezado borrado tumbo la app en
+ * silencio.
+ *
+ * Ahora se busca por nombre; si no esta, se usa la columna A, que es donde
+ * el ID ha vivido siempre; y se deja dicho en el log para que la proxima
+ * vez se sepa en un minuto y no en media tarde.
+ */
+function _colIdTurnos_(encabezados) {
+  encabezados = encabezados || [];
+  var i = encabezados.indexOf('Admin');
+  if (i !== -1) return i;
+  for (var j = 0; j < encabezados.length; j++) {
+    var h = (encabezados[j] || '').toString().trim().toLowerCase();
+    if (h === 'admin' || h === 'id' || h === 'id usuario' || h === 'idusuario') return j;
+  }
+  Logger.log('\u26a0\ufe0f TURNOS_DEFAULT no trae el encabezado "Admin". Se usa la columna A. ' +
+             'Revisa la celda A1 de esa hoja.');
+  return 0;
+}
+
 function _cfgEmpleadoServ(idUsuario) {
   try {
     if (_CACHE_TURNOS_DEF === null) {
@@ -130,7 +157,7 @@ function _cfgEmpleadoServ(idUsuario) {
     if (_CACHE_TURNOS_DEF === false) return null;
     const data = _CACHE_TURNOS_DEF;
     const h = data[0];
-    const iId = h.indexOf('Admin');
+    const iId = _colIdTurnos_(h);
     const iTurnoNombre = h.indexOf('Turno');
     const iHorario = h.indexOf('TURNO');
     for (let i = 1; i < data.length; i++) {

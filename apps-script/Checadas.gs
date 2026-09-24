@@ -274,7 +274,7 @@ function _obtenerTurnoServ(idUsuario) {
     if (!sheet) return null;
     const data = sheet.getDataRange().getValues();
     const h = data[0];
-    const iId = h.indexOf('Admin');
+    const iId = _colIdTurnos_(h);
     const iHor = h.indexOf('TURNO');
     if (iId === -1 || iHor === -1) return null;
     for (let i = 1; i < data.length; i++) {

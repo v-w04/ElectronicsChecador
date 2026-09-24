@@ -28,7 +28,7 @@ function getTodosLosUsuarios() {
     if (sheetTurnos) {
       const dt = sheetTurnos.getDataRange().getValues();
       const hT = dt[0];
-      const iId      = hT.indexOf('Admin');
+      const iId      = _colIdTurnos_(hT);
       const iNombre  = hT.indexOf('Empleado');
       const iHorario = hT.indexOf('TURNO'); // formato "10:00 - 19:00"
       const iTurnoN  = hT.indexOf('Turno'); // nombre del turno, ej. "T2"
@@ -227,7 +227,7 @@ function validarPin(pin) {
 
         const dt = turnos.getDataRange().getValues();
         const hT = dt[0];
-        const iId     = hT.indexOf('Admin');
+        const iId     = _colIdTurnos_(hT);
         const iNombre = hT.indexOf('Empleado');
 
         for (let i = 1; i < dt.length; i++) {
