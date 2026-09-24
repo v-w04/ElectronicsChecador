@@ -72,7 +72,7 @@ if "!CAMBIOS!"=="0" (
         echo          sin cambios
         goto FIN
     )
-    "!GIT!" push -q origin %GH_BRANCH%
+    "!GIT!" push origin %GH_BRANCH% > "%TEMP%\chk_push.txt" 2>&1
     if errorlevel 1 goto PUSHFAIL
     goto VERIFICA
 )
@@ -84,7 +84,7 @@ if "!MSG!"=="" set "MSG=%MSG_DEFAULT%"
 "!GIT!" add -A
 "!GIT!" commit -q -m "!MSG!"
 if errorlevel 1 goto COMMITFAIL
-"!GIT!" push -q origin %GH_BRANCH%
+"!GIT!" push origin %GH_BRANCH% > "%TEMP%\chk_push.txt" 2>&1
 if errorlevel 1 goto PUSHFAIL
 
 :VERIFICA
@@ -161,7 +161,46 @@ exit /b 1
 :PUSHFAIL
 echo.
 echo   %ROJO%x  FALLO EL PUSH A GITHUB%FIN%
-echo      Corre 0-ACTUALIZAR.bat y repite
+echo.
+REM Que diga POR QUE fallo. Antes siempre mandaba al 0-ACTUALIZAR, y para
+REM un error 500 de GitHub eso es consejo malo: no hay nada que traer, el
+REM commit ya esta hecho y un pull solo enreda el historial.
+findstr /I /C:"Internal Server Error" /C:"HTTP 500" /C:"HTTP 502" /C:"HTTP 503" /C:"HTTP 504" "%TEMP%\chk_push.txt" >nul 2>&1
+if not errorlevel 1 (
+    echo      Es GitHub, no tu. Su servidor contesto con un error interno.
+    echo      Tu commit YA quedo guardado aqui: solo falta subirlo.
+    echo.
+    echo      %VERDE%Espera unos minutos y vuelve a correr este mismo bat.%FIN%
+    echo      NO corras el 0-ACTUALIZAR: no hay nada que bajar.
+    goto PUSHFAIL_FIN
+)
+findstr /I /C:"non-fast-forward" /C:"fetch first" /C:"behind" "%TEMP%\chk_push.txt" >nul 2>&1
+if not errorlevel 1 (
+    echo      GitHub tiene cambios que no estan en esta computadora.
+    echo.
+    echo      %VERDE%Corre 0-ACTUALIZAR.bat y repite este bat.%FIN%
+    goto PUSHFAIL_FIN
+)
+findstr /I /C:"Authentication failed" /C:"could not read Username" /C:"Permission denied" /C:"403" "%TEMP%\chk_push.txt" >nul 2>&1
+if not errorlevel 1 (
+    echo      GitHub no te reconocio ^(sesion o permisos^).
+    echo.
+    echo      %VERDE%Abre GitHub Desktop, vuelve a iniciar sesion y repite.%FIN%
+    goto PUSHFAIL_FIN
+)
+findstr /I /C:"Could not resolve host" /C:"unable to access" /C:"timed out" "%TEMP%\chk_push.txt" >nul 2>&1
+if not errorlevel 1 (
+    echo      No se pudo llegar a GitHub ^(internet o proxy^).
+    echo.
+    echo      %VERDE%Revisa tu conexion y repite este bat.%FIN%
+    goto PUSHFAIL_FIN
+)
+echo      Lo que contesto GitHub:
+echo.
+type "%TEMP%\chk_push.txt" 2>nul
+echo.
+echo      %VERDE%Manda este texto a Claude para que lo revise.%FIN%
+:PUSHFAIL_FIN
 echo.
 pause
 exit /b 1
