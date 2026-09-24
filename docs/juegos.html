@@ -8,7 +8,6 @@
 <script src="avatar.js"></script>
 <script src="actualizar.js"></script>
 <script src="ui.js"></script>
-<script src="site-pin.js"></script>
 <style>
 /* ===========================================================================
    TABLERO DE JUEGOS — Electronics México
@@ -177,29 +176,8 @@ button{font-family:inherit}
 /* --- tabla de posiciones --- */
 .tabla{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 
-/* Marcador de cada quien: lo importante en grande. */
-.tarjeta{border:2px solid var(--linea);border-radius:20px;background:var(--panel);padding:16px}
-.tarjeta.lider{border-color:var(--azul);box-shadow:0 0 0 3px rgba(0,195,227,.18)}
-.tarjeta .cabe{display:flex;align-items:center;gap:11px}
-.tarjeta .avat{width:46px;height:46px;flex:0 0 auto;border-radius:50%;overflow:hidden;
-  background:var(--fondo);display:flex;align-items:center;justify-content:center;
-  font-weight:700;color:var(--tinta-3)}
-.tarjeta .avat img{width:100%;height:100%;display:block}
-.tarjeta .quien{flex:1;min-width:0}
-.tarjeta .quien .nm{font-size:16px;font-weight:800;color:var(--tinta);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tarjeta .quien .pos{font-size:12px;color:var(--tinta-3);font-weight:600;margin-top:2px}
-.tarjeta .racha{flex:0 0 auto;border-radius:999px;padding:5px 10px;font-size:12.5px;font-weight:800}
-.tarjeta .racha.buena{background:rgba(255,125,0,.14);color:#c25e00}
-.tarjeta .racha.mala{background:rgba(0,195,227,.16);color:#0a7c93}
-.tarjeta .cifras{display:flex;gap:6px;margin-top:14px}
-.tarjeta .cif{flex:1;text-align:center;background:var(--fondo);border-radius:13px;padding:9px 4px}
-.tarjeta .cif b{display:block;font-size:26px;line-height:1.05;color:var(--tinta);font-weight:800}
-.tarjeta .cif span{display:block;font-size:10.5px;color:var(--tinta-3);font-weight:700;
-  text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
-.tarjeta .cif.gano b{color:var(--rojo)}
-/* (Aqui vivia .fila, la maqueta vieja de la tabla de posiciones. Hoy la
-   tabla se pinta con .tarjeta y ningun .fila se genera nunca.) */
+/* (Aqui vivia .tarjeta con sus tres cifras. El ranking ahora es .fila-r:
+   una fila por persona y un solo numero.) */
 
 /* --- histórico --- */
 .partida{border:1px solid var(--linea);border-radius:var(--r);padding:14px 16px;margin-top:10px;
@@ -385,14 +363,6 @@ button{font-family:inherit}
 
   /* Marcadores */
   .tabla{grid-template-columns:repeat(auto-fill,minmax(clamp(258px,30vw,300px),1fr));gap:16px}
-  .tarjeta{padding:20px;border-radius:22px}
-  .tarjeta .avat{width:56px;height:56px}
-  .tarjeta .quien .nm{font-size:clamp(17px,2vw,20px)}
-  .tarjeta .quien .pos{font-size:13.5px}
-  .tarjeta .racha{font-size:14px;padding:6px 12px}
-  .tarjeta .cif{padding:12px 6px;border-radius:15px}
-  .tarjeta .cif b{font-size:clamp(30px,3.6vw,36px)}
-  .tarjeta .cif span{font-size:12px}
 
   /* Histórico */
   .partida{padding:18px 20px;gap:16px}
@@ -436,50 +406,122 @@ button{font-family:inherit}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* ===========================================================================
-   TODO LO QUE SE TOCA, DE 44px PARA ARRIBA
+   LA ESCALA DE ESTA PANTALLA
    ===========================================================================
-   Medido con el navegador, no a ojo: las pestañas medían 31px de alto, los
-   filtros 33, el botón "Poner lugares" 33 y la equis 32. El mínimo para
-   tocar con el dedo sin fallar son 44px, y en tablet conviene 50. Por eso
-   se sentía todo chiquito y costaba picarle.
+   Esto se rehizo porque todo se veía chiquito: pestañas de 31px de alto,
+   filtros de 33, botones de 33. Medido con el navegador, no a ojo. El
+   mínimo para el dedo son 44px y en la tablet de la nave hace falta más.
 
-   Va al FINAL del <style> a propósito: con la misma especificidad gana la
-   última regla, y así no hay que pelear con cada una por separado.
+   La idea de fondo: MENOS COSAS, MÁS GRANDES. Se quitaron subtítulos y
+   etiquetas, los botones dicen una palabra, y el ranking pasó de tres
+   cifras por persona a una sola. Lo que se borró no se extraña; lo que
+   quedó se lee de lejos.
+
+   Va al FINAL del <style>: con la misma especificidad gana la última
+   regla, y así no hay que pelear con cada una por separado.
    ========================================================================= */
-.tabs a,.btn,.filtro,.chip,.tirar,.equis,.pend .btn,.lug-n{min-height:46px}
-.tabs a{display:inline-flex;align-items:center;font-size:15px;padding:0 18px}
-.btn{font-size:15.5px;padding:0 20px;display:inline-flex;align-items:center;
-  justify-content:center}
-.btn.chico{font-size:14.5px;padding:0 16px;min-height:44px}
-.filtro{font-size:14.5px;padding:0 18px;display:inline-flex;align-items:center}
-.tirar,.equis{width:46px;display:inline-flex;align-items:center;justify-content:center}
-.lug-quien{min-height:56px}
-.lug-n{font-size:17px}
+body{font-size:17px}
+h1{font-size:32px;letter-spacing:-.03em}
+.encabezado p{font-size:16px}
+.panel h2{font-size:23px;letter-spacing:-.02em}
+.panel .sub{font-size:15px}
 
-/* Al crecer los botones dejaron de caber en una fila y la pantalla se
-   corria de lado. En pantalla angosta se apilan a lo ancho, que ademas es
-   mas facil de picar. */
+/* Lo que se toca */
+.tabs a,.btn,.filtro,.chip,.tirar,.equis,.ir,.lug-n{min-height:56px}
+.tabs a{display:inline-flex;align-items:center;font-size:16px;padding:0 20px;font-weight:700}
+.btn{font-size:17px;font-weight:800;padding:0 22px;border-radius:18px;
+  display:inline-flex;align-items:center;justify-content:center}
+.filtro{font-size:16px;font-weight:700;padding:0 22px;display:inline-flex;align-items:center}
+.tirar,.equis{width:56px;font-size:26px;display:inline-flex;align-items:center;justify-content:center}
+
+/* Las fichas de los juegos */
+.juego,.juego .caja{width:132px}
+.juego .caja{height:132px;font-size:60px;border-radius:26px}
+.juego .nombre{font-size:18px}
+.juego .dato{font-size:15px}
+
+/* El ranking: una fila por persona, un solo numero */
+#tabla{display:block}
+.fila-r{display:flex;align-items:center;gap:15px;padding:15px 0;
+  border-top:2px solid var(--linea)}
+.fila-r:first-child{border-top:0}
+.fila-r.lider{background:linear-gradient(90deg,#fffbe9,transparent);
+  margin:0 -20px;padding:15px 20px;border-radius:18px;border-top:0}
+.fila-r .lugar{width:44px;flex:0 0 auto;text-align:center;
+  font-size:29px;font-weight:900;color:var(--tinta-3)}
+.fila-r.lider .lugar{color:var(--oro)}
+.fila-r .avat{width:58px;height:58px;border-radius:50%;overflow:hidden;flex:0 0 auto;
+  background:var(--fondo);display:flex;align-items:center;justify-content:center;
+  font-weight:800;color:var(--tinta-2);font-size:19px}
+.fila-r .avat img{width:100%;height:100%;display:block}
+.fila-r .nm{flex:1;min-width:0;font-size:19px;font-weight:800;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila-r .racha{font-size:14px;font-weight:800;margin-left:4px}
+.fila-r .racha.buena{color:var(--naranja)} .fila-r .racha.mala{color:var(--azul-hondo)}
+.fila-r .gano{flex:0 0 auto;text-align:right;min-width:56px}
+.fila-r .gano b{display:block;font-size:29px;line-height:1;font-weight:900;color:var(--rojo)}
+.fila-r .gano i{font-style:normal;font-size:12px;font-weight:800;color:var(--tinta-3);
+  letter-spacing:.07em;text-transform:uppercase}
+
+/* Pendientes: la cuenta como pastilla, la flecha para entrar */
+.panel.pendientes .sub{background:var(--naranja);color:#fff;border-radius:999px;
+  padding:4px 14px;font-weight:800;font-size:16px;display:inline-block;margin:0}
+.pend{gap:14px;padding:14px 0;border-top:2px solid #f0e2d2}
+.pend .ico{width:58px;height:58px;font-size:28px;border-radius:16px}
+.pend .j{font-size:18px}
+.pend .q{font-size:15px}
+.ir{border:0;background:var(--rojo);color:#fff;width:58px;border-radius:16px;
+  font-size:27px;font-weight:800;cursor:pointer;flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center}
+.pend .tirar{border:2px solid var(--linea);background:var(--panel);
+  color:var(--tinta-3);border-radius:16px;width:52px}
+
+/* La hoja de lugares */
+.lug-quien{min-height:70px;gap:14px}
+.lug-quien .avat{width:54px;height:54px}
+.lug-quien .nm{font-size:19px}
+.lug-quien .puesto{font-size:16px;padding:9px 16px;min-width:74px;text-align:center}
+.lug-rejilla{gap:9px}
+.lug-n{font-size:21px;border-radius:16px;border-width:2px}
+.pista-campo{font-size:14px}
+
+/* Historico */
+.partida .juego-n{font-size:18px}
+.partida .cuando,.partida .nota{font-size:14.5px}
+.partida ol{font-size:16px}
+
+@media (min-width:701px){
+  body{font-size:18px}
+  h1{font-size:40px}
+  .panel h2{font-size:27px}
+  .tabs a,.btn,.filtro,.chip,.tirar,.equis,.ir,.lug-n{min-height:60px}
+  .tabs a{font-size:17px;padding:0 24px}
+  .btn{font-size:18px;padding:0 26px}
+  .filtro{font-size:17px;padding:0 26px}
+  .tirar,.equis{width:60px}
+  .juego,.juego .caja{width:158px}
+  .juego .caja{height:158px;font-size:72px}
+  .juego .nombre{font-size:20px}
+  .fila-r{gap:18px;padding:18px 0}
+  .fila-r .lugar{width:52px;font-size:34px}
+  .fila-r .avat{width:66px;height:66px;font-size:21px}
+  .fila-r .nm{font-size:21px}
+  .fila-r .gano b{font-size:34px}
+  .pend .ico,.ir{width:62px;height:62px}
+  .lug-quien{min-height:78px}
+  .lug-quien .avat{width:60px;height:60px}
+  .lug-n{font-size:23px}
+}
+
+/* Los botones grandes ya no caben en fila en pantalla angosta. */
 .cab{flex-wrap:wrap}
 .acciones-cab{flex-wrap:wrap}
 @media (max-width:700px){
-  .acciones-cab{width:100%;gap:9px}
-  .acciones-cab .btn{flex:1 1 100%}
-  .pend{flex-wrap:wrap}
-  .pend .cuerpo{flex:1 1 calc(100% - 54px)}
-  .pend .btn{flex:1 1 100%;margin-top:4px}
-  .tabs{gap:5px}
-  .tabs a{padding:0 14px;font-size:14.5px}
-}
-
-@media (min-width:701px){
-  .tabs a,.btn,.filtro,.chip,.tirar,.equis,.pend .btn,.lug-n{min-height:50px}
-  .tabs a{font-size:16px;padding:0 22px}
-  .btn{font-size:17px;padding:0 24px}
-  .btn.chico{font-size:15px;min-height:48px}
-  .filtro{font-size:15.5px;padding:0 20px}
-  .tirar,.equis{width:50px}
-  .lug-quien{min-height:62px}
-  .lug-n{font-size:18px;padding:16px 0}
+  .acciones-cab{width:100%;gap:10px}
+  .acciones-cab .btn{flex:1 1 0;min-width:0}
+  .tabs{gap:6px}
+  .tabs a{padding:0 16px;font-size:15px}
+  .fila-r .lugar{width:36px;font-size:26px}
 }
 </style>
 </head>
@@ -494,7 +536,6 @@ button{font-family:inherit}
     <nav class="tabs">
       <a href="checar.html">Mi checador</a>
       <a href="juegos.html" class="on" aria-current="page">Juegos</a>
-      <a href="#" class="fuera" id="tab-intranet" target="_blank" rel="noopener" hidden>Checador del site</a>
     </nav>
   </div>
 
@@ -516,7 +557,7 @@ button{font-family:inherit}
   <section class="panel pendientes" id="panel-pendientes" hidden>
     <div class="cab">
       <div>
-        <h2>Pendientes de lugares</h2>
+        <h2>Sin lugares</h2>
         <p class="sub" id="sub-pendientes"></p>
       </div>
     </div>
@@ -663,18 +704,6 @@ var MAX_JUGADORES = 8;
 
 var JUGADORES = [];
 var AVATARES = (function(){ try { return JSON.parse(localStorage.getItem('em_checar_avatares')) || {}; } catch(e){ return {}; } })();
-/**
- * La pestaña que lleva al checador del site.
- *
- * Ya NO trae la dirección: el servidor solo dice si existe. La dirección se
- * entrega contra el PIN, en site-pin.js. Antes viajaba a cualquiera que
- * abriera la app y se guardaba en el aparato, así que el candado no habría
- * servido de nada en los celulares que ya la tenían.
- */
-function ponerLigaSite(hay) {
-  try { SitePin.mostrar(!!hay); } catch (e) {}
-}
-try { SitePin.iniciar(gas, 'tab-intranet'); } catch (e) {}
 
 function cortito(n) { var p = (n || '').trim().split(/\s+/); return p.slice(0, 2).join(' '); }
 /** El área de una persona, para que su avatar tenga el mismo color que en
@@ -973,9 +1002,7 @@ function pintarPendientes() {
   panel.hidden = !lista.length;
   if (!lista.length) return;
 
-  document.getElementById('sub-pendientes').textContent =
-    lista.length === 1 ? 'Una partida sin lugares'
-                       : lista.length + ' partidas sin lugares';
+  document.getElementById('sub-pendientes').textContent = lista.length;
 
   cont.innerHTML = '';
   lista.slice(0, 30).forEach(function (par) {
@@ -992,10 +1019,24 @@ function pintarPendientes() {
       '</div>';
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'btn rojo chico';
-    b.textContent = 'Poner lugares';
+    b.className = 'ir';
+    b.title = 'Poner los lugares';
+    b.setAttribute('aria-label', 'Poner los lugares');
+    b.innerHTML = '\u2192';
     b.onclick = function () { abrirLugares(par); };
     d.appendChild(b);
+
+    // El tache. Sin esto, una partida registrada por error se quedaba ahi
+    // para siempre: en pendientes no habia forma de tirarla.
+    var x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'tirar';
+    x.title = 'Borrar esta partida';
+    x.setAttribute('aria-label', 'Borrar esta partida');
+    x.innerHTML = '&times;';
+    x.onclick = function () { borrar(par); };
+    d.appendChild(x);
+
     cont.appendChild(d);
   });
 }
@@ -1024,23 +1065,21 @@ function partidasAgrupadas(filtro) {
 function pintarTabla() {
   document.getElementById('titulo-tabla').textContent =
     juegoSel ? 'Posiciones · ' + juegoSel : 'Posiciones';
-  document.getElementById('sub-tabla').textContent =
-    (periodo === 'hoy' ? 'Hoy' : periodo === 'mes' ? 'Este mes' : 'Desde el principio') +
-    (juegoSel ? '' : ' · todos los juegos');
+  document.getElementById('sub-tabla').textContent = '';
 
   var bn = document.getElementById('btn-nueva');
   if (bn) {
     var b0 = leerBorrador();
     var aMedias = b0 && (b0.seleccion || []).length;
-    bn.textContent = aMedias ? 'Continuar partida' : 'Registrar partida';
+    bn.textContent = aMedias ? 'Continuar' : '+ Partida';
   }
 
   var bl = document.getElementById('btn-limpiar');
-  if (bl) bl.textContent = corteDeHoy() ? 'Reabrir tablero' : 'Limpiar tablero';
+  if (bl) bl.textContent = corteDeHoy() ? 'Reabrir' : 'Limpiar';
 
   var pers = document.getElementById('filtros-periodo');
   pers.innerHTML = '';
-  [['hoy', 'Hoy'], ['mes', 'Este mes'], ['todo', 'Todo']].forEach(function (op) {
+  [['hoy', 'Hoy'], ['mes', 'Mes'], ['todo', 'Todo']].forEach(function (op) {
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'filtro' + (periodo === op[0] ? ' on' : '');
@@ -1104,30 +1143,30 @@ function pintarTabla() {
 
   // Una tarjeta por persona, con el número que importa en grande. Nada de
   // tabla: de un vistazo se ve quién va ganando y quién trae racha.
+  // UNA FILA POR PERSONA, UN SOLO NUMERO.
+  //
+  // Antes cada quien era una tarjeta con tres cifras (gano, perdio, jugo) y
+  // la pantalla acababa siendo un muro de numeros chiquitos. Ahora: el lugar
+  // grande a la izquierda, la cara, el nombre, y las ganadas. Lo demas se
+  // deduce y no hacia falta tenerlo a la vista.
+  //
+  // OJO con "gano": es quien saco el MEJOR lugar de los que jugaron, no
+  // quien quedo primero de los doce. En Mario Kart puedes llegar 3° y ser
+  // el mejor de la oficina si los dos de arriba eran computadora.
   lista.forEach(function (s, i) {
-    var perdidas = Math.max(0, s.jugadas - s.ganadas);
     var r = rachaDe(s.nombre);
-
     var c = document.createElement('div');
-    c.className = 'tarjeta' + (i === 0 ? ' lider' : '');
+    c.className = 'fila-r' + (i === 0 ? ' lider' : '');
     c.innerHTML =
-      '<div class="cabe">' +
-        '<span class="avat"><img alt="" loading="lazy" src="' +
-          avatarUrl(s.nombre, avArea(s.nombre), AVATARES[s.nombre]) +
-          '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(s.nombre) + '\'"></span>' +
-        '<div class="quien">' +
-          '<div class="nm">' + cortito(s.nombre) + '</div>' +
-          '<div class="pos">' + (i === 0 ? '👑 va ganando' : (i + 1) + '° lugar') + '</div>' +
-        '</div>' +
-        (r.n > 1 ? '<span class="racha ' + (r.tipo === 'gana' ? 'buena' : 'mala') + '">' +
-                     (r.tipo === 'gana' ? '🔥 ' : '🥶 ') + r.n + '</span>' : '') +
-      '</div>' +
-      '<div class="cifras">' +
-        '<div class="cif gano"><b>' + s.ganadas + '</b><span>ganó</span></div>' +
-        '<div class="cif"><b>' + perdidas + '</b><span>perdió</span></div>' +
-        '<div class="cif"><b>' + s.jugadas + '</b><span>jugó</span></div>' +
-        (s.puntos ? '<div class="cif"><b>' + s.puntos + '</b><span>puntos</span></div>' : '') +
-      '</div>';
+      '<span class="lugar">' + (i + 1) + '</span>' +
+      '<span class="avat"><img alt="" loading="lazy" src="' +
+        avatarUrl(s.nombre, avArea(s.nombre), AVATARES[s.nombre]) +
+        '" onerror=\"if(this.parentNode)this.parentNode.textContent=\'' + avIniciales(s.nombre) + '\'"></span>' +
+      '<span class="nm">' + cortito(s.nombre) +
+        (r.n > 2 ? ' <b class="racha ' + (r.tipo === 'gana' ? 'buena' : 'mala') + '">' +
+                   (r.tipo === 'gana' ? '🔥' : '🥶') + r.n + '</b>' : '') +
+      '</span>' +
+      '<span class="gano"><b>' + s.ganadas + '</b><i>ganó</i></span>';
     cont.appendChild(c);
   });
 }
@@ -1632,7 +1671,7 @@ function guardarTablero(r) {
       cuando: Date.now(),
       juegos: r.juegos || [], jugadores: r.jugadores || [],
       partidas: r.partidas || [], avatares: r.avatares || {},
-      tableroDesde: r.tableroDesde || '', hayIntranet: !!r.hayIntranet
+      tableroDesde: r.tableroDesde || ''
     }));
   } catch (e) { /* sin espacio: ni modo, se vive sin cache */ }
 }
@@ -1640,7 +1679,6 @@ function guardarTablero(r) {
 function usarTablero(r) {
   JUEGOS = r.juegos || [];
   JUGADORES = r.jugadores || [];
-  ponerLigaSite(r.hayIntranet);
   if (r.avatares) {
     AVATARES = r.avatares;
     try { localStorage.setItem('em_checar_avatares', JSON.stringify(AVATARES)); } catch (e) {}
@@ -1655,8 +1693,7 @@ function usarTablero(r) {
  *  despues de cada cambio, para que la proxima apertura ya lo traiga. */
 function guardarEstado() {
   guardarTablero({ juegos: JUEGOS, jugadores: JUGADORES, partidas: PARTIDAS,
-                   avatares: AVATARES, tableroDesde: tableroDesde,
-                   hayIntranet: true });
+                   avatares: AVATARES, tableroDesde: tableroDesde });
 }
 
 /** Pinta lo ultimo que se vio, sin esperar al servidor. */
@@ -1703,7 +1740,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v745');
+Actualizar.iniciar('v747');
 </script>
 </body>
 </html>

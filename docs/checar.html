@@ -14,7 +14,6 @@
 <script src="avatar.js"></script>
 <script src="actualizar.js"></script>
 <script src="ui.js"></script>
-<script src="site-pin.js"></script>
 <style>
 /* ===========================================================================
    CHECADOR — app del empleado
@@ -446,7 +445,6 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   <nav class="tabs">
     <a href="checar.html" class="on" aria-current="page">Mi checador</a>
     <a href="juegos.html">Juegos</a>
-    <a href="#" class="fuera" id="tab-intranet" target="_blank" rel="noopener" hidden>Checador del site</a>
   </nav>
 
   <div class="barra">
@@ -522,7 +520,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v745</span> · buscar actualización
+      <span id="pie">v747</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -624,7 +622,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v745';
+var VERSION = 'v747';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -2018,7 +2016,6 @@ function pedirGente(intentos) {
     ls(LS_GENTE, GENTE);
     AVATARES = r.avatares || {};
     ls(LS_AVATARES, AVATARES);
-    ponerLigaSite(r.hayIntranet);
     if (YO) {
       var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
       if (mio) { YO = mio; guardarYo(YO); pintar(); }
@@ -2037,19 +2034,6 @@ function pedirGente(intentos) {
   });
 }
 
-/**
- * La pestaña que lleva al checador del site.
- *
- * Ya NO trae la dirección: el servidor solo dice si existe. La dirección se
- * entrega contra el PIN, en site-pin.js. Antes viajaba a cualquiera que
- * abriera la app y se guardaba en el aparato, así que el candado no habría
- * servido de nada en los celulares que ya la tenían.
- */
-function ponerLigaSite(hay) {
-  try { SitePin.mostrar(!!hay); } catch (e) {}
-}
-try { SitePin.iniciar(gas, 'tab-intranet'); } catch (e) {}
-ponerLigaSite(false);
 
 /** Minutos permitidos de desayuno y comida. Se guardan para el cronómetro. */
 function bajarConfig() {

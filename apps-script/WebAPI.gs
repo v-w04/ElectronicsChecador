@@ -42,9 +42,6 @@ function _funcionesExpuestas() {
   return {
     // Empleados que aparecen en la app (hoja APP_EMPLEADOS)
     getEmpleadosApp:          getEmpleadosApp,
-    // Entrega la liga del checador del site SOLO con el PIN correcto.
-    // guardarPinIntranet NO va aqui a proposito: se cambia desde el menu.
-    abrirChecadorSite:        abrirChecadorSite,
 
     // Login / usuarios
     getTodosLosUsuarios:      getTodosLosUsuarios,
