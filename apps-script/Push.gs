@@ -323,8 +323,34 @@ function _obtenerAccessTokenFCM() {
  * El campo data.envio es el folio de la bitácora: el service worker lo
  * devuelve al recibirlo y así se sabe si la alerta llegó de verdad.
  */
+/* ---------------------------------------------------------------------------
+   EL AVISO TIENE QUE DECIR QUE ES UN BOTÓN
+   ---------------------------------------------------------------------------
+   Si tocar el aviso registra una checada, el aviso lo tiene que decir. Si no,
+   alguien lo toca para quitarlo de la pantalla y sin querer deja su salida
+   puesta. Se arma aquí, en un solo lugar, leyendo la acción de la dirección:
+   ninguna alerta tiene que acordarse de escribirlo.
+   --------------------------------------------------------------------------- */
+var _PIE_ACCION_ = {
+  ENTRADA:          '👉 Toca este aviso para registrar tu entrada.',
+  SALIDA:           '👉 Toca este aviso para registrar tu salida.',
+  SALIDA_DESAYUNO:  '👉 Toca este aviso para marcar tu salida a desayunar.',
+  REGRESO_DESAYUNO: '👉 Toca este aviso para cerrar tu desayuno.',
+  SALIDA_COMIDA:    '👉 Toca este aviso para marcar tu salida a comer.',
+  REGRESO_COMIDA:   '👉 Toca este aviso para cerrar tu comida.',
+  DECIDIR:          '👉 Toca este aviso para contestar.'
+};
+
+function _conPieDeAccion_(cuerpo, urlAccion) {
+  var m = (urlAccion || '').match(/[?&]accion=([^&]+)/);
+  if (!m) return cuerpo;
+  var pie = _PIE_ACCION_[decodeURIComponent(m[1]).toUpperCase()];
+  return pie ? (cuerpo + '\n\n' + pie) : cuerpo;
+}
+
 function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio) {
   var destino = urlAccion || 'https://v-w04.github.io/ElectronicsChecador/checar.html';
+  cuerpo = _conPieDeAccion_(cuerpo, urlAccion);
   return JSON.stringify({
     message: {
       token: token,

@@ -499,7 +499,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v734</span> · buscar actualización
+      <span id="pie">v738</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -571,6 +571,18 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
 </div>
 
+<!-- Hoja que sale al tocar una notificación con acción. Nunca se registra
+     nada a ciegas: aquí se ve QUÉ se va a registrar y CON QUÉ HORA, y si es
+     la entrada también están a la mano las opciones de "hoy no vengo". -->
+<div class="fondo" id="fondo-accion">
+  <div class="hoja">
+    <h2 id="acc-titulo">¿Qué hacemos?</h2>
+    <p class="nota" id="acc-nota"></p>
+    <div id="lista-accion"></div>
+    <button class="cerrar" id="cerrar-accion" type="button">Ahora no</button>
+  </div>
+</div>
+
 <div class="fondo" id="fondo-movs">
   <div class="hoja">
     <h2>¿Qué vas a registrar?</h2>
@@ -584,7 +596,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v734';
+var VERSION = 'v738';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1368,6 +1380,10 @@ function pintar() {
   try {
     document.getElementById('btn-corregir').hidden = !(YO && HOY.checadas.length);
   } catch (e) {}
+
+  // Si se llegó aquí tocando una notificación con acción, hacerla en cuanto
+  // ya se sepa quién es.
+  try { accionRemota(); } catch (e) {}
 }
 
 // El cronómetro corre cada segundo. El contador de tiempo extra del pie se
@@ -1643,7 +1659,7 @@ function cerrarTocandoFuera(el) {
 }
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
-  ['fondo-gente','fondo-movs','fondo-dia','fondo-alertas','fondo-quincena','fondo-corregir'].forEach(function (id) {
+  ['fondo-gente','fondo-movs','fondo-dia','fondo-accion','fondo-alertas','fondo-quincena','fondo-corregir'].forEach(function (id) {
     var f = document.getElementById(id);
     if (f) f.classList.remove('ver');
   });
@@ -1792,9 +1808,11 @@ function altaAutomatica() {
 /* ===========================================================================
    OTROS MOVIMIENTOS
    =========================================================================== */
-var fondoMovs = document.getElementById('fondo-movs');
+var fondoMovs   = document.getElementById('fondo-movs');
+var fondoAccion = document.getElementById('fondo-accion');
+document.getElementById('cerrar-accion').onclick = function(){ fondoAccion.classList.remove('ver'); };
 // Todas las hojas, por su id: así no importa en qué orden se declararon.
-['fondo-gente','fondo-movs','fondo-dia','fondo-alertas','fondo-quincena','fondo-corregir']
+['fondo-gente','fondo-movs','fondo-dia','fondo-accion','fondo-alertas','fondo-quincena','fondo-corregir']
   .forEach(function (id) { cerrarTocandoFuera(document.getElementById(id)); });
 document.getElementById('btn-otros').onclick = function(){
   if (!YO) { abrirGente(); return; }
@@ -2436,15 +2454,163 @@ function revalidarToken() {
 }
 
 /* ===========================================================================
-   SALIDA REMOTA (al tocar la notificación de salida)
+   ACCIONES AL TOCAR LA NOTIFICACION
+   ===========================================================================
+   Cualquier alerta puede traer una accion. La direccion que abre la app la
+   lleva pegada:  ...checar.html?accion=ALGO&pin=55
+
+       accion=DIA               abre la hoja para marcar el dia (vacaciones,
+                                permiso, incapacidad, festivo) y con eso se
+                                apagan los avisos del resto del dia.
+       accion=<tipo de MOVS>    registra ese movimiento: SALIDA,
+                                REGRESO_DESAYUNO, REGRESO_COMIDA,
+                                SALIDA_COMIDA... cualquiera de la lista.
+
+   Antes esto eran dos funciones sueltas, una por alerta (salidaRemota y
+   diaLibreRemoto). Cada alerta nueva pedia otra funcion. Ahora es una sola
+   puerta: el backend decide la accion, aqui nada mas se obedece.
+
+   DOS CAMINOS, UNA SOLA FUNCION:
+     - App cerrada: el service worker abre la direccion y se lee de la URL.
+     - App abierta: el service worker manda un recado (postMessage) y se
+       llama a lo mismo. No se abre otra ventana ni se recarga la pantalla,
+       que es justo lo que fallaba en iPhone.
+
+   SEGURO: si la direccion trae pin y no es el de esta persona, no se
+   registra nada. Un aviso de alguien mas en este telefono no checa por ti.
    =========================================================================== */
-function salidaRemota() {
-  var m = location.search.match(/salidaRemota=([^&]+)/);
-  if (!m) return;
-  history.replaceState({}, '', location.pathname);
-  var id = normId(decodeURIComponent(m[1]));
-  if (!YO || YO.id !== id) return;
-  registrar(MOVS[MOVS.length - 1]);   // SALIDA
+var _accionPend = null;
+
+(function leerAccionDeLaURL() {
+  var s = location.search;
+  if (!s) return;
+  var m = s.match(/[?&]accion=([^&]+)/);
+  if (m) {
+    var p = s.match(/[?&]pin=([^&]+)/);
+    _accionPend = { accion: decodeURIComponent(m[1]).toUpperCase(),
+                    pin: p ? decodeURIComponent(p[1]) : '' };
+  } else {
+    // Direcciones viejas: notificaciones que ya estaban en el celular antes
+    // de esta version. Siguen sirviendo.
+    var v = s.match(/salidaRemota=([^&]+)/);
+    if (v)      _accionPend = { accion: 'SALIDA', pin: decodeURIComponent(v[1]) };
+    else if (s.indexOf('diaLibre') !== -1)
+                _accionPend = { accion: 'DIA', pin: '' };
+  }
+  if (_accionPend) { try { history.replaceState({}, '', location.pathname); } catch (e) {} }
+})();
+
+/**
+ * Hace la accion. Se llama varias veces durante el arranque: la primera vez
+ * que ya hay perfil cargado es la que cuenta, las demas no hacen nada.
+ * @param {{accion:string,pin:string}} [a] si no se pasa, la de la direccion.
+ */
+function accionRemota(a) {
+  a = a || _accionPend;
+  if (!a || !a.accion) return;
+  if (!YO) return;                      // el perfil aun no sale de IndexedDB
+  if (a.pin && normId(a.pin) !== normId(YO.id)) { if (a === _accionPend) _accionPend = null; return; }
+  if (a === _accionPend) _accionPend = null;
+
+  // 'DECIDIR' es la del recordatorio que insiste cuando no hay entrada.
+  // Es la única alerta que abre la app, justamente porque no se puede
+  // contestar con un toque ciego: o registra su entrada tarde, o dice que
+  // hoy no viene. Las demás checan desde la propia notificación.
+  if (a.accion === 'DECIDIR') {
+    for (var k = 0; k < MOVS.length; k++) {
+      if (MOVS[k].tipo !== 'ENTRADA') continue;
+      if ((HOY.checadas || []).some(function (c) { return c.tipo === 'ENTRADA'; })) {
+        aviso('Tu entrada ya estaba registrada.', '', 4000);
+        return;
+      }
+      abrirHojaAccion(MOVS[k]);
+      return;
+    }
+    return;
+  }
+
+  if (a.accion === 'DIA') {
+    try {
+      pintarHojaDia();
+      fondoDia.classList.add('ver');
+      aviso('Marca hoy y dejan de llegarte avisos por el resto del dia.', '', 6000);
+    } catch (e) {}
+    return;
+  }
+
+  for (var i = 0; i < MOVS.length; i++) {
+    if (MOVS[i].tipo !== a.accion) continue;
+    var repetida = (HOY.checadas || []).some(function (c) { return c.tipo === a.accion; });
+    if (repetida) {
+      aviso('Tu ' + MOVS[i].nom.toLowerCase() + ' ya estaba registrada.', '', 4000);
+      return;
+    }
+    abrirHojaAccion(MOVS[i]);
+    return;
+  }
+}
+
+/**
+ * La hoja de decisión. Tocar una notificación ya NO registra solo.
+ *
+ * Por qué: un aviso de "vas tarde" no siempre quiere decir "ya llegó". Si el
+ * toque checara solo, bastaba con abrir la notificación desde la cama para
+ * dejar la entrada puesta, y nadie veía con qué hora quedó. Aquí se lee qué
+ * se va a registrar y a qué hora, y hay que picarle.
+ *
+ * En la ENTRADA la hoja trae las dos salidas juntas — registrar aunque sea
+ * tarde, o decir que hoy no vienes — para que sea una decisión de un toque
+ * y no un aviso que nada más insiste.
+ */
+function abrirHojaAccion(mov) {
+  var cont = document.getElementById('lista-accion');
+  var hora = horaStr(new Date());
+  cont.innerHTML = '';
+
+  document.getElementById('acc-titulo').textContent = '¿Registro tu ' + mov.nom.toLowerCase() + '?';
+  document.getElementById('acc-nota').textContent  = 'Queda con la hora de ahorita: ' + hora + '.';
+
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'opcion';
+  b.innerHTML = '<span class="em">' + mov.emoji + '</span>Sí, registrar ' + mov.nom.toLowerCase() +
+                '<small>Queda a las ' + hora + '</small>';
+  b.onclick = function () { fondoAccion.classList.remove('ver'); registrar(mov); };
+  cont.appendChild(b);
+
+  if (mov.tipo === 'ENTRADA') {
+    var p = document.createElement('p');
+    p.className = 'nota';
+    p.textContent = 'O si hoy no vienes, márcalo y dejan de llegarte avisos:';
+    cont.appendChild(p);
+
+    EXC_TIPOS.forEach(function (t) {
+      var d = document.createElement('button');
+      d.type = 'button';
+      d.className = 'opcion';
+      d.innerHTML = '<span class="em">' + t.em + '</span>' + t.nom +
+                    (EXC.tipo === t.tipo ? ' ✓' : '') +
+                    '<small>' + t.pie + '</small>';
+      d.onclick = function () { fondoAccion.classList.remove('ver'); marcarDia(t); };
+      cont.appendChild(d);
+    });
+  }
+
+  fondoAccion.classList.add('ver');
+}
+
+// App abierta: el service worker no abre otra ventana, manda el recado aqui.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', function (ev) {
+    var d = (ev && ev.data) || {};
+    // El service worker acaba de checar desde una notificación: la pantalla
+    // no se entera sola porque nadie la tocó. Se le pide que se refresque.
+    if (d.tipo === 'refrescar') { try { refrescarHoy(); } catch (e) {} return; }
+    if (d.tipo !== 'accion' || !d.accion) return;
+    try {
+      accionRemota({ accion: String(d.accion).toUpperCase(), pin: d.pin || '' });
+    } catch (e) {}
+  });
 }
 
 /* ===========================================================================
@@ -2474,7 +2640,7 @@ function arrancarConYo() {
   bajarQuincena();
   bajarExcepcion();
   setTimeout(revalidarToken, 2000);
-  salidaRemota();
+  accionRemota();
 }
 
 _diag.ls = YO ? 'sí' : 'vacío';

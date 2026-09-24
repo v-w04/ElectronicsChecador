@@ -147,30 +147,146 @@ if (!SDK_OK) {
   });
 }
 
-// Al tocar la notificación: abrir la acción si la trae (por ejemplo la salida
-// remota) o enfocar la ventana que ya esté abierta.
-// ⚠️ UN SOLO listener. Antes había dos y un toque podía abrir dos ventanas.
+// ============================================================================
+// AL TOCAR LA NOTIFICACION
+// ============================================================================
+// REGLA: tocar un aviso NO mete a nadie a la app. Hay tres clases de aviso y
+// se distinguen por lo que traen pegado a la direccion:
+//
+//   1. ?accion=SALIDA&pin=55  (o REGRESO_COMIDA, ENTRADA, etc.)
+//      LA CHECADA SE MANDA DESDE AQUI. Este service worker le pega al
+//      servidor el solo y contesta con un avisito: "Listo, tu salida quedo a
+//      las 18:05". La app nunca se abre. Si esta abierta, se le avisa para
+//      que refresque la pantalla.
+//
+//   2. ?accion=DECIDIR&pin=55
+//      Esa no se puede contestar con un toque ciego (vienes o no vienes), asi
+//      que es la UNICA que si abre la app, en la hoja de decision.
+//
+//   3. Sin accion: el toque solo quita el aviso. Nada mas.
+//
+// UN SOLO listener. Antes habia dos y un toque podia abrir dos ventanas.
+
+/** Un folio distinto por checada: el servidor no duplica si se repite. */
+function folioChecada() {
+  try { if (self.crypto && crypto.randomUUID) return 'nt-' + crypto.randomUUID(); } catch (e) {}
+  return 'nt-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
+var NOM_MOV = {
+  ENTRADA: 'entrada',
+  SALIDA: 'salida',
+  SALIDA_DESAYUNO: 'salida a desayunar',
+  REGRESO_DESAYUNO: 'regreso de desayuno',
+  SALIDA_COMIDA: 'salida a comer',
+  REGRESO_COMIDA: 'regreso de comida'
+};
+
+/** Avisito de respuesta. Etiqueta propia para que no tape a los demas. */
+function avisarResultado(cuerpo) {
+  return self.registration.showNotification('Checador Electronics', {
+    body: cuerpo,
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    vibrate: [200, 100, 200],
+    tag: 'checador-resp-' + Date.now(),
+    data: { url: '', envio: '' }
+  });
+}
+
+/** Le dice a la app, si esta abierta, que se refresque. */
+function avisarALaApp(lista) {
+  for (var i = 0; i < lista.length; i++) {
+    if (lista[i].url.indexOf(APP_URL) !== 0) continue;
+    try { lista[i].postMessage({ tipo: 'refrescar' }); } catch (e) {}
+  }
+}
+
+/**
+ * Manda la checada al servidor desde el propio aviso.
+ * El servidor decide la hora (la del cliente solo se usa si va offline) y
+ * puede negarse — "aun no es tu hora de salida" —; eso se le repite al
+ * empleado tal cual en el avisito de respuesta.
+ */
+function checarDesdeElAviso(tipo, pin) {
+  var nom = NOM_MOV[tipo] || 'checada';
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: 'guardarChecadaChofer', args: [{
+      idUsuario: pin,
+      nombre: '',                 // lo pone el servidor buscando el pin
+      tipo: tipo,
+      uuid: folioChecada(),
+      origen: 'NOTIF',
+      esOffline: false,
+      clienteTimestamp: new Date().toISOString()
+    }] }),
+    redirect: 'follow'
+  }).then(function (r) { return r.text(); }).then(function (t) {
+    var j = {};
+    try { j = JSON.parse(t); } catch (e) {}
+    if (!j.ok) return avisarResultado('No se pudo registrar tu ' + nom + '. Abre la app.');
+    if (j.noRegistrada) return avisarResultado(j.message || 'No se registro tu ' + nom + '.');
+    if (j.duplicado)    return avisarResultado('Tu ' + nom + ' ya estaba registrada.');
+    return avisarResultado('Listo, tu ' + nom + ' quedo a las ' +
+                           (j.horaServidor || '').slice(0, 5) + '.');
+  }).catch(function () {
+    // Sin senal no hay nada que encolar desde aqui: la cola offline vive en
+    // la app. Se dice claro en vez de fingir que se registro.
+    return avisarResultado('Sin senal: no se registro tu ' + nom + '. Abrela cuando tengas internet.');
+  });
+}
+
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   var d = event.notification.data || {};
-  var destino = d.url || APP_CHECAR;
+  var destino = d.url || '';
 
   // Desde que el aviso lo pinta el propio sistema (bloque notification en el
-  // mensaje), este service worker ya no se entera de que se mostró, así que
+  // mensaje), este service worker ya no se entera de que se mostro, asi que
   // no puede acusar recibo en ese momento. El acuse se manda al TOCARLO.
-  // "Entregada" en PUSH_LOG pasa a querer decir "el empleado la vio y la
-  // tocó", que es una prueba más fuerte, no más débil.
-  if (d.envio) acusarRecibo(d.envio);
+  var acuse = d.envio ? acusarRecibo(d.envio) : Promise.resolve();
 
+  var acc = (destino.match(/[?&]accion=([^&]+)/) || [])[1] || '';
+  var pin = (destino.match(/[?&]pin=([^&]+)/) || [])[1] || '';
+  if (!acc) {
+    // Direcciones viejas, de notificaciones que ya estaban en el celular.
+    var v = (destino.match(/[?&]salidaRemota=([^&]+)/) || [])[1];
+    if (v) { acc = 'SALIDA'; pin = v; }
+    else if (destino.indexOf('diaLibre') !== -1) { acc = 'DECIDIR'; }
+  }
+  acc = acc ? decodeURIComponent(acc).toUpperCase() : '';
+  pin = pin ? decodeURIComponent(pin) : '';
+
+  // 3. Sin accion: el aviso ya se quito y con eso basta.
+  if (!acc) { event.waitUntil(acuse); return; }
+
+  // 1. Con tipo de movimiento: se checa desde aqui, sin abrir la app.
+  if (NOM_MOV[acc]) {
+    event.waitUntil(
+      acuse.then(function () { return checarDesdeElAviso(acc, pin); })
+           .then(function () {
+             return clients.matchAll({ type: 'window', includeUncontrolled: true });
+           })
+           .then(avisarALaApp)
+    );
+    return;
+  }
+
+  // 2. DECIDIR (o cualquier otra que no sea un movimiento): abre la app.
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (lista) {
-      // Si trae acción específica, esa gana siempre.
-      if (destino.indexOf('salidaRemota') !== -1) return clients.openWindow(destino);
-
+    acuse.then(function () {
+      return clients.matchAll({ type: 'window', includeUncontrolled: true });
+    }).then(function (lista) {
+      var enChecar = null;
       for (var i = 0; i < lista.length; i++) {
-        if (lista[i].url.indexOf(APP_URL) === 0 && 'focus' in lista[i]) {
-          return lista[i].focus();
-        }
+        if (lista[i].url.indexOf(APP_URL) !== 0) continue;
+        if (lista[i].url.indexOf('checar') !== -1) { enChecar = lista[i]; break; }
+      }
+      if (enChecar) {
+        try { enChecar.postMessage({ tipo: 'accion', accion: acc, pin: pin }); } catch (e) {}
+        return ('focus' in enChecar) ? enChecar.focus() : undefined;
       }
       return clients.openWindow(destino);
     })

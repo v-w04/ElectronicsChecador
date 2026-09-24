@@ -17,6 +17,7 @@ var CONFIG_ALERTAS_DEF = [
   ['alertas_no_checo_cantidad',       2, 'Cuántos recordatorios si no registra su checada'],
   ['alertas_no_checo_intervalo_min',  5, 'Minutos entre esos recordatorios'],
   ['alertas_salida_insistir_min',    30, 'Cuántos minutos seguir recordando la salida si no la registra'],
+  ['alertas_entrada_insistir_min',   60, 'Cuántos minutos seguir recordando la entrada si no la registra'],
   ['alertas_activas',              'SI', 'Interruptor general de alertas (SI/NO)']
 ];
 
@@ -275,7 +276,35 @@ function revisarAlertas() {
     if (insisteMin === undefined || insisteMin === '') insisteMin = 30;
     var avEnt  = cfg.aviso_entrada_min_antes || 15;
 
-    var URL_SALIDA_REMOTA = 'https://v-w04.github.io/ElectronicsChecador/checar.html?salidaRemota=';
+    var insisteEnt = cfg.alertas_entrada_insistir_min;
+    if (insisteEnt === undefined || insisteEnt === '') insisteEnt = 60;
+
+    // ── QUÉ HACE CADA AVISO AL TOCARLO ─────────────────────────
+    // Regla de Víctor: tocar un aviso NO debe meterte a la app. O checa
+    // desde ahí mismo, o nada más se quita de la pantalla.
+    //
+    // TRES CLASES DE AVISO:
+    //
+    //  1. Los que CHECAN solos. Llevan _accion_('<TIPO>', id). El service
+    //     worker del celular manda la checada al servidor él solo y contesta
+    //     con un avisito de confirmación. La app nunca se abre.
+    //     → entrada en punto, tolerancia vencida, descanso por terminar /
+    //       terminado / excedido, comida no tomada, salida en punto,
+    //       salida sin checar.
+    //     El texto del aviso dice "Toca para registrar tu ..." — se lo pone
+    //     _payloadFCM_ solo, para que nadie chequé sin querer.
+    //
+    //  2. El que PREGUNTA. Solo uno: el recordatorio que insiste de la media
+    //     hora en adelante cuando no hay entrada. Ese no es aviso, es una
+    //     pregunta — ¿vienes o no? — y no se puede contestar con un toque
+    //     ciego. Lleva _accion_('DECIDIR', id) y es el ÚNICO que abre la
+    //     app, en una hoja con las dos respuestas: "registrar mi entrada
+    //     (tarde)" o "hoy no vengo: vacaciones / incapacidad / evento /
+    //     festivo".
+    //
+    //  3. Los que solo INFORMAN. Sin sexto argumento. Tocarlos los quita y
+    //     ya: entrada previa (todavía no es su hora), descanso empezó,
+    //     descanso a la mitad, salida próxima.
 
     // ── Uno por uno, con turno y que hoy trabaje ──────────────────────────
     (usuarios.usuarios || []).forEach(function (u) {
@@ -305,13 +334,28 @@ function revisarAlertas() {
         }
         if (minAhora >= turno.inicioMin && minAhora < cierreBono) {
           alertar(id, 'entrada', hoy + '|' + id + '|entrada_hora',
-                  msgEntradaEnPunto(_minAHora(cierreBono), semilla), 'entrada en punto');
+                  msgEntradaEnPunto(_minAHora(cierreBono), semilla), 'entrada en punto',
+                  _accion_('ENTRADA', id));
         }
         // Hasta una hora después: pasado eso, el aviso ya no ayuda a nadie.
         if (minAhora >= cierreBono && minAhora < turno.inicioMin + 60) {
           alertar(id, 'entrada', hoy + '|' + id + '|entrada_cierre_bono',
                   msgEntradaToleranciaVencida(_minAHora(turno.inicioMin + 31), semilla),
-                  'tolerancia vencida');
+                  'tolerancia vencida', _accion_('ENTRADA', id));
+        }
+
+        // ── DE LA MEDIA HORA EN ADELANTE, SE INSISTE ─────────────────────
+        // A los 30 minutos ya no es un despiste: o viene en camino, o hoy no
+        // viene. Se recuerda cada intRec minutos hasta cumplir insisteEnt, y
+        // CADA aviso trae la dirección que abre la hoja del día. Así el
+        // recordatorio trae su propio apagador en vez de ser nada más
+        // insistencia.
+        var desdeMin = turno.inicioMin + 30;
+        if (minAhora >= desdeMin && minAhora < turno.inicioMin + insisteEnt) {
+          var nEnt = Math.floor((minAhora - desdeMin) / intRec);
+          alertar(id, 'entrada', hoy + '|' + id + '|entrada_sin_registrar@' + nEnt,
+                  msgEntradaSinRegistrar(semilla + nEnt * 3),
+                  'entrada sin registrar', _accion_('DECIDIR', id));
         }
         return; // sin entrada no hay descanso ni salida que vigilar
       }
@@ -322,6 +366,8 @@ function revisarAlertas() {
         var dur   = esDes ? (cfgEmp.desDur || durDesGen) : (cfgEmp.comDur || durComGen);
         var aviso = esDes ? avDes : avCom;
         var nom   = esDes ? 'desayuno' : 'comida';
+        // Lo que registra el aviso si lo tocan: cerrar ESE descanso.
+        var accReg = esDes ? 'REGRESO_DESAYUNO' : 'REGRESO_COMIDA';
         var trans = minAhora - ultima.min;
         var limite = ultima.min + dur;
 
@@ -350,10 +396,11 @@ function revisarAlertas() {
         if (trans >= dur - aviso && trans < dur) {
           alertar(id, nom, marca + '|aviso',
                   msgDescansoPorTerminar(nom, dur - trans, _minAHora(limite), semilla),
-                  nom + ' por terminar');
+                  nom + ' por terminar', _accion_(accReg, id));
         }
         if (trans >= dur) {
-          alertar(id, nom, marca + '|limite', msgDescansoTerminado(nom, dur), nom + ' terminado');
+          alertar(id, nom, marca + '|limite', msgDescansoTerminado(nom, dur),
+                  nom + ' terminado', _accion_(accReg, id));
         }
         if (trans > dur) {
           // Solo el recordatorio que toca AHORA: los atrasados se marcan en
@@ -363,7 +410,7 @@ function revisarAlertas() {
             for (var n = 1; n < nActual; n++) _marcarEnviada(marca + '|exceso_' + n);
             alertar(id, nom, marca + '|exceso_' + nActual,
                     msgDescansoExcedido(nom, trans - dur, semilla + nActual * 7),
-                    nom + ' excedido');
+                    nom + ' excedido', _accion_(accReg, id));
           }
         }
       }
@@ -374,11 +421,13 @@ function revisarAlertas() {
         var faltan = turno.finMin - minAhora;
         if (faltan <= 100 && faltan > 90) {
           alertar(id, 'comida_nohecha', hoy + '|' + id + '|comida_nohecha_1@' + turno.finMin,
-                  msgComidaNoTomada(_minAHora(turno.finMin), faltan, semilla), 'comida no tomada');
+                  msgComidaNoTomada(_minAHora(turno.finMin), faltan, semilla),
+                  'comida no tomada', _accion_('SALIDA_COMIDA', id));
         }
         if (faltan <= 90 && faltan > 0) {
           alertar(id, 'comida_nohecha', hoy + '|' + id + '|comida_nohecha_2@' + turno.finMin,
-                  msgComidaNoTomada(_minAHora(turno.finMin), faltan, semilla + 1), 'comida no tomada 2');
+                  msgComidaNoTomada(_minAHora(turno.finMin), faltan, semilla + 1),
+                  'comida no tomada 2', _accion_('SALIDA_COMIDA', id));
         }
       }
 
@@ -392,7 +441,7 @@ function revisarAlertas() {
         if (minAhora >= turno.finMin && minAhora < turno.finMin + intRec) {
           alertar(id, 'salida', hoy + '|' + id + '|salida_hora@' + turno.finMin,
                   msgSalidaEnPunto(hFin), 'salida en punto',
-                  URL_SALIDA_REMOTA + encodeURIComponent(id));
+                  _accion_('SALIDA', id));
         }
         if (minAhora > turno.finMin) {
           var extra = minAhora - turno.finMin;
@@ -406,7 +455,7 @@ function revisarAlertas() {
             }
             alertar(id, 'salida', hoy + '|' + id + '|salida_no_checo@' + turno.finMin + '_' + nAct,
                     msgSalidaSinChecar(hFin, extra, semilla + nAct * 7), 'salida sin checar',
-                    URL_SALIDA_REMOTA + encodeURIComponent(id));
+                    _accion_('SALIDA', id));
           }
         }
       }
@@ -666,4 +715,25 @@ function diagnosticoAlertas(pin) {
   } catch (e) {
     return { ok: false, message: e.message };
   }
+}
+
+/* ===========================================================================
+   DIRECCIÓN CON ACCIÓN
+   ===========================================================================
+   Arma la dirección que abre la app YA haciendo algo. Es lo que convierte
+   una notificación en un botón.
+
+     accion  'DIA' abre la hoja para marcar el día (vacaciones, permiso,
+             incapacidad, festivo). Cualquier otro valor es un tipo de
+             movimiento: SALIDA, REGRESO_DESAYUNO, REGRESO_COMIDA,
+             SALIDA_COMIDA, SALIDA_DESAYUNO.
+     id      el pin de la persona. La app lo compara con el perfil que tiene
+             cargado: si no es la misma, no registra nada.
+
+   Para darle acción a una alerta nueva basta pasar esto como sexto
+   argumento de alertar(). No hay que tocar la app ni el service worker.
+   =========================================================================== */
+function _accion_(accion, id) {
+  return 'https://v-w04.github.io/ElectronicsChecador/checar.html?accion=' +
+         encodeURIComponent(accion) + '&pin=' + encodeURIComponent(id);
 }

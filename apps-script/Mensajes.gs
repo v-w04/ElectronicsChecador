@@ -89,6 +89,30 @@ function msgEntradaToleranciaVencida(horaRetardo, semilla) {
   };
 }
 
+/**
+ * El recordatorio que insiste cuando ya pasó media hora y sigue sin entrada.
+ *
+ * ESTE NO ES UN REGAÑO, ES UN INTERRUPTOR. Si la persona hoy no viene, el
+ * aviso le sirve para decirlo y apagar todo lo del día de un toque. Por eso
+ * la salida va PRIMERO y la consecuencia ni se menciona: a alguien de
+ * vacaciones o enfermo no le importa el bono, le importa dejar de recibir
+ * avisos. Lo del retardo ya se dijo en el aviso de tolerancia vencida, que
+ * es donde sí viene al caso.
+ *
+ * Al tocarlo se abre la app en la hoja de marcar el día.
+ */
+function msgEntradaSinRegistrar(semilla) {
+  return {
+    titulo: '¿Hoy no vienes?',
+    cuerpo: _variante_([
+      'Sigue sin registrarse tu entrada. Si hoy no trabajas, toca este aviso y márcalo: dejan de llegarte avisos el resto del día.',
+      'Toca este aviso para marcar el día —vacaciones, permiso, incapacidad— y no te llega nada más hoy. Si ya llegaste, registra tu entrada.',
+      'Si hoy no vienes, márcalo desde aquí y se apagan los avisos del día. Si sí, checa tu entrada y también dejan de llegar.',
+      'No veo tu entrada. Toca este aviso para marcar el día y apagar los recordatorios.'
+    ], semilla)
+  };
+}
+
 // ============================================================================
 // DESAYUNO Y COMIDA EN CURSO
 // ============================================================================

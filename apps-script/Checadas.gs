@@ -163,7 +163,7 @@ function guardarChecadaChofer(datos) {
     // ── Escribir (10 columnas A-J) ──
     const fila = lastRow + 1;
     sheet.getRange(fila, 1, 1, 10).setValues([[
-      datos.idUsuario || '', datos.nombre || '',
+      datos.idUsuario || '', _nombreParaChecada_(datos, idBuscado),
       fechaServidor, horaServidor, timestampServidor,
       tieneCoords ? latNum : '', tieneCoords ? lngNum : '',
       estadoZonaFinal, uuid, tipoChecada
@@ -431,4 +431,26 @@ function checadaSalidaRemota(idUsuario) {
   } catch (e) {
     return { ok: false, message: e.message };
   } finally { lock.releaseLock(); }
+}
+
+/* ===========================================================================
+   EL NOMBRE DE LA COLUMNA B
+   ===========================================================================
+   La app siempre manda el nombre, pero una checada hecha DESDE la
+   notificación la manda el service worker del celular, y ese no tiene el
+   nombre a la mano — solo el pin. Antes eso dejaba la columna B vacía.
+   Aquí se rellena buscando el pin en APP_EMPLEADOS.
+   =========================================================================== */
+function _nombreParaChecada_(datos, idBuscado) {
+  var n = ((datos && datos.nombre) || '').toString().trim();
+  if (n) return n;
+  try {
+    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(APP_EMPLEADOS_HOJA);
+    if (!sh || sh.getLastRow() < 2) return '';
+    var filas = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+    for (var i = 0; i < filas.length; i++) {
+      if (_normId(filas[i][0]) === _normId(idBuscado)) return (filas[i][1] || '').toString();
+    }
+  } catch (e) {}
+  return '';
 }
