@@ -8,6 +8,7 @@
 <script src="avatar.js"></script>
 <script src="actualizar.js"></script>
 <script src="ui.js"></script>
+<script src="site-pin.js"></script>
 <style>
 /* ===========================================================================
    TABLERO DE JUEGOS — Electronics México
@@ -72,9 +73,29 @@ button{font-family:inherit}
 .acciones-cab{display:flex;gap:10px;flex-wrap:wrap}
 
 /* --- avisos --- */
-#aviso{margin-top:14px;border-radius:var(--r);padding:12px 16px;font-size:13.5px;
-  font-weight:600;display:none;border:1px solid var(--linea);background:var(--panel)}
-#aviso.ver{display:block}
+/* AVISOS — toast flotante, NUNCA en el flujo
+   -------------------------------------------------------------------------
+   Antes esto era un bloque normal entre los botones: al aparecer empujaba
+   todo lo de abajo y al irse lo regresaba de golpe. Un aviso que dura 4
+   segundos no tiene por qué mover la pantalla.
+   Ahora vive fuera de .wrap (pegado al body), en position:fixed, así que
+   entra y sale encima de todo sin recalcular nada. No se puede tocar
+   (pointer-events:none) para que no tape un botón. Se levanta lo suficiente
+   para no chocar con el control de zoom de la esquina. */
+#aviso{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);
+  transform:translateX(-50%) translateY(-12px);
+  width:max-content;max-width:min(420px,calc(100vw - 32px));
+  z-index:70;border-radius:14px;padding:12px 16px;font-size:13.5px;
+  line-height:1.45;white-space:pre-line;text-align:center;pointer-events:none;
+  border:1px solid #d7dce3;background:#ffffff;color:#1f2933;
+  box-shadow:0 12px 34px rgba(0,0,0,.18);
+  opacity:0;visibility:hidden;
+  transition:opacity .18s ease,transform .18s ease,visibility .18s}
+#aviso.ver{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+/* Reserva su lugar aunque todavia no se sepa la liga: antes aparecia dos
+   segundos despues de cargar y reacomodaba toda la barra de arriba. */
+#tab-intranet[hidden]{display:inline-flex;visibility:hidden}
+@media (prefers-reduced-motion:reduce){#aviso{transition:none}}
 #aviso.ok{background:#e9f7ee;border-color:#bfe6cd;color:#0b6b3a}
 #aviso.err{background:#fdecef;border-color:#f7c3cd;color:#9b0020}
 
@@ -142,25 +163,8 @@ button{font-family:inherit}
 .tarjeta .cif span{display:block;font-size:10.5px;color:var(--tinta-3);font-weight:700;
   text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
 .tarjeta .cif.gano b{color:var(--rojo)}
-.fila{display:grid;grid-template-columns:40px 1fr repeat(4,46px);gap:8px;align-items:center;
-  padding:12px 8px;border-top:1px solid var(--linea);font-size:14px}
-.fila.enc{border-top:0;font-size:15px;letter-spacing:0;text-transform:none;white-space:nowrap;
-  color:var(--tinta-3);font-weight:700;padding-bottom:4px}
-.fila .pos{font-weight:800;font-size:16px;text-align:center;color:var(--tinta-3)}
-.fila.p1 .pos{color:var(--oro)}
-.fila.p2 .pos{color:#9aa3ab}
-.fila.p3 .pos{color:#c1703a}
-.fila .quien{font-weight:700;display:flex;align-items:center;gap:9px;min-width:0}
-.fila .quien .avat{width:30px;height:30px;flex:0 0 auto;border-radius:50%;overflow:hidden;
-  background:var(--fondo);display:flex;align-items:center;justify-content:center;
-  font-size:11px;color:var(--tinta-3);font-weight:700}
-.fila .quien .avat img{width:100%;height:100%;display:block}
-.fila .quien .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fila.enc .n{text-align:center}
-.leyenda{margin-top:12px;font-size:12px;color:var(--tinta-3);text-align:right}
-.fila .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--tinta-2)}
-.fila .n.fuerte{color:var(--tinta);font-weight:800}
-.vacio{padding:26px 8px;color:var(--tinta-3);font-size:14px;text-align:center}
+/* (Aqui vivia .fila, la maqueta vieja de la tabla de posiciones. Hoy la
+   tabla se pinta con .tarjeta y ningun .fila se genera nunca.) */
 
 /* --- histórico --- */
 .partida{border:1px solid var(--linea);border-radius:var(--r);padding:14px 16px;margin-top:10px;
@@ -228,7 +232,7 @@ button{font-family:inherit}
 .ronda .cab-r b{font-size:14px;color:var(--tinta)}
 .ronda .cab-r .pista{font-size:12px;color:var(--tinta-3)}
 .ronda .cab-r button{border:0;background:transparent;color:var(--azul-hondo);cursor:pointer;
-  font:700 12px inherit;font-family:inherit}
+  font-family:inherit;font-weight:700;font-size:12px}
 .ronda .pista-caras{display:flex;flex-wrap:wrap;gap:8px}
 .corredor{position:relative;border:2px solid var(--linea);background:var(--papel);
   border-radius:14px;padding:8px 6px 6px;cursor:pointer;width:72px;
@@ -248,9 +252,10 @@ button{font-family:inherit}
 .corredor.p3 .lug{background:#c1703a}
 
 .podio{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-.podio .p{display:grid;grid-template-columns:34px 1fr 96px;gap:10px;align-items:center}
+.podio .p{display:grid;grid-template-columns:34px minmax(0,1fr) 96px;gap:10px;align-items:center}
 .podio .p .lugar{font-weight:800;text-align:center;color:var(--tinta-3)}
-.podio .p .nom{font-weight:700;font-size:14px}
+.podio .p .nom{font-weight:700;font-size:14px;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .podio .p input{padding:9px 10px;font-size:14px;border:1px solid var(--linea);border-radius:8px;width:100%}
 .nota-retomado{margin:14px 0 0;padding:10px 12px;border-radius:12px;font-size:12.5px;
   background:rgba(0,195,227,.12);color:#0a7c93;font-weight:600}
@@ -289,10 +294,16 @@ button{font-family:inherit}
      para que quepan más por renglón y no haya que bajar tanto. */
   .corredor{width:62px;padding:6px 4px 5px}
   .corredor .c{width:36px;height:36px}
-  .corredor .n{font-size:10px}
+  .corredor .n{font-size:11.5px}
   .ronda{padding:10px}
 }
 /* Pantallas angostas: que nada se monte. */
+@media (max-width:620px){
+  .encabezado h1{font-size:27px}
+  .juego,.juego .caja{width:126px}
+  .juego .caja{height:126px;font-size:46px}
+  .leyenda{text-align:center;font-size:11.5px}
+}
 @media (max-width:430px){
   .marca b{font-size:14.5px}
   .marca span{font-size:11px}
@@ -302,39 +313,35 @@ button{font-family:inherit}
   .chip .cara{width:50px;height:50px}
   .chip{padding:9px 4px 8px;font-size:11.5px}
 }
-@media (max-width:620px){
-  .encabezado h1{font-size:27px}
-  .juego,.juego .caja{width:126px}
-  .juego .caja{height:126px;font-size:46px}
-  .fila{grid-template-columns:28px 1fr repeat(4,34px);font-size:13px;gap:6px}
-  .fila.enc{font-size:14px}
-  .fila .quien .avat{width:26px;height:26px}
-  .leyenda{text-align:center;font-size:11.5px}
-}
 /* ── TABLET Y COMPUTADORA ───────────────────────────────────────────────
    En la tablet todo se veía diminuto: esta pantalla nació pensada para
    monitor y nunca creció. Aquí sube de tamaño de forma pareja, igual que
    Mi checador: las fichas, los marcadores, la ventana de registrar y las
    caras de los corredores. */
-@media (min-width:760px){
-  body{font-size:16.5px}
-  .wrap{max-width:1080px}
+/* TABLET — arranca en 701px, pegado al bloque de celular, para que no
+   quede el hueco de 701-759 donde caian la iPad Mini y las Android de 8".
+   La columna se ACOTA (antes iba a sangre) y los tamanos crecen con el
+   ancho: una tablet de 820 y una de 1024 ya no reciben lo mismo. */
+@media (min-width:701px){
+  body{font-size:clamp(16px,1.7vw,17.5px);
+    padding-inline:max(28px, env(safe-area-inset-left))}
+  .wrap{max-width:880px}
 
   .barra{padding-block:18px 14px}
   .marca .bolita{width:42px;height:42px}
   .marca b{font-size:17px}
-  .tabs a{font-size:16px;padding:11px 19px}
+  .tabs a{font-size:clamp(15px,1.7vw,16.5px);padding:11px 19px}
 
   .encabezado{padding-block:30px 8px}
-  .encabezado h1{font-size:42px}
-  .encabezado p{font-size:16px}
-  .btn{font-size:16px;padding:14px 22px}
+  .encabezado h1{font-size:clamp(32px,4.4vw,44px)}
+  .encabezado p{font-size:clamp(15px,1.7vw,17px)}
+  .btn{font-size:clamp(15px,1.7vw,17px);padding:14px 22px}
 
   /* Las fichas de los juegos, grandes: son lo primero que se toca. */
-  .juego,.juego .caja{width:186px}
-  .juego .caja{height:186px;font-size:62px}
-  .juego .nombre{font-size:17px}
-  .juego .dato{font-size:13.5px}
+  .juego,.juego .caja{width:clamp(168px,20vw,200px)}
+  .juego .caja{height:clamp(168px,20vw,200px);font-size:clamp(56px,6.6vw,66px)}
+  .juego .nombre{font-size:clamp(16px,1.8vw,18px)}
+  .juego .dato{font-size:clamp(13px,1.5vw,14.5px)}
 
   .panel{padding:24px}
   .panel h2{font-size:22px}
@@ -342,22 +349,22 @@ button{font-family:inherit}
   .filtro{font-size:14.5px;padding:10px 18px}
 
   /* Marcadores */
-  .tabla{grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+  .tabla{grid-template-columns:repeat(auto-fill,minmax(clamp(258px,30vw,300px),1fr));gap:16px}
   .tarjeta{padding:20px;border-radius:22px}
   .tarjeta .avat{width:56px;height:56px}
-  .tarjeta .quien .nm{font-size:19px}
+  .tarjeta .quien .nm{font-size:clamp(17px,2vw,20px)}
   .tarjeta .quien .pos{font-size:13.5px}
   .tarjeta .racha{font-size:14px;padding:6px 12px}
   .tarjeta .cif{padding:12px 6px;border-radius:15px}
-  .tarjeta .cif b{font-size:34px}
-  .tarjeta .cif span{font-size:11.5px}
+  .tarjeta .cif b{font-size:clamp(30px,3.6vw,36px)}
+  .tarjeta .cif span{font-size:12px}
 
   /* Histórico */
   .partida{padding:18px 20px;gap:16px}
   .partida .ico{width:52px;height:52px;font-size:26px}
-  .partida .juego-n{font-size:17px}
+  .partida .juego-n{font-size:clamp(16px,1.8vw,18px)}
   .partida .cuando,.partida .nota{font-size:13.5px}
-  .partida ol{font-size:15px}
+  .partida ol{font-size:clamp(14.5px,1.6vw,16px)}
   .partida .tirar{width:38px;height:38px;font-size:23px}
 
   /* La ventana de registrar: en tablet cabe mucho más, que se aproveche. */
@@ -380,12 +387,13 @@ button{font-family:inherit}
   .ronda .pista-caras{gap:12px}
   .corredor{width:92px;padding:11px 8px 9px;border-radius:18px}
   .corredor .c{width:58px;height:58px}
-  .corredor .n{font-size:12.5px}
+  .corredor .n{font-size:13px}
   .corredor .lug{min-width:26px;height:26px;font-size:13px}
 }
 
 @media (min-width:1280px){
   .wrap{max-width:1180px}
+  body{padding-inline:max(36px, env(safe-area-inset-left))}
   .juego,.juego .caja{width:210px}
   .juego .caja{height:210px}
 }
@@ -419,8 +427,6 @@ button{font-family:inherit}
     </div>
   </div>
 
-  <div id="aviso" role="status" aria-live="polite"></div>
-
   <div class="juegos" id="juegos"></div>
 
   <section class="panel">
@@ -440,7 +446,7 @@ button{font-family:inherit}
         <h2>Últimas partidas</h2>
         <div class="sub" id="sub-hist">—</div>
       </div>
-      <select id="filtro-jugador" class="filtro" style="padding:9px 14px"></select>
+      <select id="filtro-jugador" class="filtro"></select>
     </div>
     <div id="historico"></div>
   </section>
@@ -494,6 +500,11 @@ button{font-family:inherit}
   </div>
 </div>
 
+<!-- Fuera de .wrap (el zoom de ui.js escala .wrap) pero ANTES del script:
+     el script guarda la referencia al arrancar, y si el div viniera despues
+     se la encontraba vacia y reventaba en la primera llamada a aviso(). -->
+<div id="aviso" role="status" aria-live="polite"></div>
+
 <script>
 /* ===========================================================================
    CONFIGURACIÓN
@@ -529,17 +540,18 @@ function gas(fn, args) {
 var JUEGOS = [];
 var JUGADORES = [];
 var AVATARES = (function(){ try { return JSON.parse(localStorage.getItem('em_checar_avatares')) || {}; } catch(e){ return {}; } })();
-/** La pestaña al checador del site. La dirección llega del servidor: trae
- *  una llave de kiosco y el repo es público. */
-function ponerLigaSite(url) {
-  try {
-    if (url) localStorage.setItem('em_checar_site', url);
-    else url = localStorage.getItem('em_checar_site') || '';
-  } catch (e) {}
-  var a = document.getElementById('tab-intranet');
-  if (!a) return;
-  if (url) { a.href = url; a.hidden = false; } else { a.hidden = true; }
+/**
+ * La pestaña que lleva al checador del site.
+ *
+ * Ya NO trae la dirección: el servidor solo dice si existe. La dirección se
+ * entrega contra el PIN, en site-pin.js. Antes viajaba a cualquiera que
+ * abriera la app y se guardaba en el aparato, así que el candado no habría
+ * servido de nada en los celulares que ya la tenían.
+ */
+function ponerLigaSite(hay) {
+  try { SitePin.mostrar(!!hay); } catch (e) {}
 }
+try { SitePin.iniciar(gas, 'tab-intranet'); } catch (e) {}
 
 function cortito(n) { var p = (n || '').trim().split(/\s+/); return p.slice(0, 2).join(' '); }
 /** El área de una persona, para que su avatar tenga el mismo color que en
@@ -1328,7 +1340,7 @@ function cargar() {
       if (!r || r.error || !r.ok) throw new Error((r && r.message) || 'sin respuesta');
       JUEGOS = r.juegos || [];
       JUGADORES = r.jugadores || [];
-      ponerLigaSite(r.urlIntranet || '');
+      ponerLigaSite(r.hayIntranet);
       if (r.avatares) {
         AVATARES = r.avatares;
         try { localStorage.setItem('em_checar_avatares', JSON.stringify(AVATARES)); } catch (e) {}
@@ -1356,7 +1368,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v738');
+Actualizar.iniciar('v740');
 </script>
 </body>
 </html>

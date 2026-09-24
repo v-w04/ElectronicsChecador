@@ -113,11 +113,22 @@ function _leerConfigTurnos() {
   return mapa;
 }
 
+// Cache de TURNOS_DEFAULT mientras dura la ejecucion.
+//
+// revisarAlertas corre CADA MINUTO y llamaba a esta funcion una vez por
+// empleado, dentro del bucle: una lectura completa de la hoja por persona.
+// Con 40 empleados eran 40 lecturas por minuto, 38 mil al dia, y es de las
+// cosas que acaban tumbando el motor por cuota sin decir por que.
+var _CACHE_TURNOS_DEF = null;
+
 function _cfgEmpleadoServ(idUsuario) {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('TURNOS_DEFAULT');
-    if (!sheet) return null;
-    const data = sheet.getDataRange().getValues();
+    if (_CACHE_TURNOS_DEF === null) {
+      const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('TURNOS_DEFAULT');
+      _CACHE_TURNOS_DEF = sh ? sh.getDataRange().getValues() : false;
+    }
+    if (_CACHE_TURNOS_DEF === false) return null;
+    const data = _CACHE_TURNOS_DEF;
     const h = data[0];
     const iId = h.indexOf('Admin');
     const iTurnoNombre = h.indexOf('Turno');
@@ -138,7 +149,9 @@ function _cfgEmpleadoServ(idUsuario) {
         dias: cfgT.dias || null
       };
     }
-  } catch (e) {}
+  } catch (e) {
+    Logger.log('⚠️ _cfgEmpleadoServ(' + idUsuario + '): ' + e.message);
+  }
   return null;
 }
 

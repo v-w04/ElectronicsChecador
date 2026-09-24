@@ -639,8 +639,13 @@ function diagnosticoAlertas(pin) {
     d.push((_firebaseSA_() ? '✅' : '❌') + ' Firebase configurado: ' +
            (_firebaseSA_() ? 'sí' : 'NO — menú Checador › Configurar Firebase'));
 
-    const dow = parseInt(Utilities.formatDate(ahora, TIMEZONE, 'u'), 10);
-    d.push((dow >= 6 ? '❌' : '✅') + ' Día hábil: ' + (dow >= 6 ? 'NO (fin de semana, sin alertas)' : 'sí'));
+    // OJO: aqui estaba el fin de semana escrito a mano (dow >= 6), el mismo
+    // bug que el motor ya tenia corregido. A quien trabaja sabado le decia
+    // "hoy no hay alertas" y a quien descansa el martes no lo detectaba.
+    // Ahora se le pregunta lo mismo que pregunta el motor.
+    const trabajaHoy = _turnoTrabajaHoy_(_cfgEmpleadoServ(_normId(emp.idUsuario)) || {}, ahora);
+    d.push((trabajaHoy ? '✅' : '❌') + ' Hoy trabajas: ' +
+           (trabajaHoy ? 'sí' : 'NO según tu turno — por eso no hay alertas'));
 
     const excs = _leerExcepciones();
     const exc = _excepcionDe(excs, hoy, emp.pin);
@@ -700,7 +705,7 @@ function diagnosticoAlertas(pin) {
       if (tieneEnt && !tieneSal) {
         const avisoSal = (cfg.aviso_salida_min_antes || 5);
         const marcaAviso = PropertiesService.getScriptProperties()
-          .getProperty('alerta_' + hoy + '|' + emp.idUsuario + '|salida_aviso@' + turnoD.finMin);
+          .getProperty('alerta_' + hoy + '|' + _normId(emp.idUsuario) + '|salida_aviso@' + turnoD.finMin);
         d.push('🔔 Aviso previo (' + _minAHora(turnoD.finMin - avisoSal) + '): ' +
                (marcaAviso ? 'ya enviado ✅'
                            : (minAhora < turnoD.finMin - avisoSal ? 'pendiente — llegará a esa hora'
@@ -727,8 +732,11 @@ function diagnosticoAlertas(pin) {
              incapacidad, festivo). Cualquier otro valor es un tipo de
              movimiento: SALIDA, REGRESO_DESAYUNO, REGRESO_COMIDA,
              SALIDA_COMIDA, SALIDA_DESAYUNO.
-     id      el pin de la persona. La app lo compara con el perfil que tiene
-             cargado: si no es la misma, no registra nada.
+     id      el ID del empleado, ya normalizado. La app lo compara contra
+             el ID del perfil que trae cargado (normId(a.pin) vs
+             normId(YO.id) en checar.html): si no es la misma persona, no
+             registra nada. El parametro de la direccion se llama "pin" por
+             herencia; lo que viaja es el ID.
 
    Para darle acción a una alerta nueva basta pasar esto como sexto
    argumento de alertar(). No hay que tocar la app ni el service worker.

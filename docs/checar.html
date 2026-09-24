@@ -14,6 +14,7 @@
 <script src="avatar.js"></script>
 <script src="actualizar.js"></script>
 <script src="ui.js"></script>
+<script src="site-pin.js"></script>
 <style>
 /* ===========================================================================
    CHECADOR — app del empleado
@@ -74,7 +75,11 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   background:linear-gradient(135deg,var(--cyan),var(--brand))}
 .yo .nom{font-weight:700;color:var(--t1);font-size:15px;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.yo .turno{font-size:12px;color:var(--tm)}
+/* Sin esto el hijo conserva min-width:auto, nunca se encoge y el
+   text-overflow de .nom no alcanza a dispararse: se cortaba en seco. */
+.yo .quien{min-width:0;flex:1 1 auto;overflow:hidden}
+.yo .turno{font-size:12px;color:var(--tm);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cambiar{background:transparent;border:1px solid var(--bd);color:var(--t2);
   border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto}
 .acciones{display:flex;align-items:center;gap:6px;flex:0 0 auto}
@@ -87,7 +92,10 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .icono.puesto{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
 .icono.activo{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
 .icono.apagado{opacity:.55}
-.franja{margin:0 -16px;padding:9px 16px;font-size:13px;font-weight:600;
+/* Flotante DEBAJO de la cabecera, no dentro: antes le sumaba ~35px de alto
+   al header y empujaba el reloj y el boton de checar. */
+.franja{position:absolute;left:0;right:0;top:100%;z-index:1;
+  padding:9px 16px;font-size:13px;font-weight:600;
   display:flex;align-items:center;gap:9px;background:var(--raised);color:var(--t2);
   border-top:1px solid var(--bd-sub)}
 .franja[hidden]{display:none}
@@ -213,11 +221,27 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   color:var(--t2);border-radius:14px;padding:13px;font-size:14px;font-weight:600;cursor:pointer}
 .otros:hover{background:var(--hover)}
 
-/* avisos */
-#aviso{margin-top:14px;border-radius:14px;padding:13px 16px;font-size:13.5px;
-  border:1px solid var(--bd);background:var(--raised);display:none;line-height:1.45;
-  white-space:pre-line}
-#aviso.ver{display:block}
+/* AVISOS — toast flotante, NUNCA en el flujo
+   -------------------------------------------------------------------------
+   Antes esto era un bloque normal entre los botones: al aparecer empujaba
+   todo lo de abajo y al irse lo regresaba de golpe. Un aviso que dura 4
+   segundos no tiene por qué mover la pantalla.
+   Ahora vive fuera de .wrap (pegado al body), en position:fixed, así que
+   entra y sale encima de todo sin recalcular nada. No se puede tocar
+   (pointer-events:none) para que no tape un botón. Va ARRIBA: abajo chocaba
+   con el control de zoom de la esquina y con los botones "Cancelar" de las
+   hojas, que es justo cuando más se usa. */
+#aviso{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);
+  transform:translateX(-50%) translateY(-12px);
+  width:max-content;max-width:min(420px,calc(100vw - 32px));
+  z-index:70;border-radius:14px;padding:12px 16px;font-size:13.5px;
+  line-height:1.45;white-space:pre-line;text-align:center;pointer-events:none;
+  border:1px solid var(--bd);background:var(--raised);color:var(--t1);
+  box-shadow:0 12px 34px rgba(0,0,0,.5);
+  opacity:0;visibility:hidden;
+  transition:opacity .18s ease,transform .18s ease,visibility .18s}
+#aviso.ver{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){#aviso{transition:none}}
 #aviso.ok{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
 #aviso.err{border-color:var(--bad-bd);background:var(--bad-bg);color:var(--bad)}
 #aviso.warn{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
@@ -265,7 +289,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   display:flex;align-items:center;justify-content:center}
 .corregible .tache:hover{background:var(--bad-bg);color:var(--bad)}
 .hoja h2 small{display:block;font-size:12.5px;color:var(--tm);font-weight:400;margin-top:3px}
-#fondo-quincena #q-dias{max-height:46vh;overflow-y:auto;margin-bottom:12px}
+#fondo-quincena #q-dias{max-height:clamp(200px,46vh,440px);overflow-y:auto;margin-bottom:12px}
 .hoy .fila{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;
   border-top:1px solid var(--bd-sub);font-size:14px}
 .hoy .fila:first-child{border-top:0}
@@ -280,7 +304,6 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .marca .q{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--tm);
   font-weight:700;margin-top:3px}
 .marca.mal .n{color:var(--bad)} .marca.ojo .n{color:var(--warn)} .marca.bien .n{color:var(--ok)}
-#q-dias{max-height:330px;overflow-y:auto}
 .hoy .dia{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--bd-sub)}
 .hoy .dia:first-child{border-top:0}
 .hoy .dia .f{width:64px;flex:0 0 auto;font-size:12.5px;color:var(--t2);font-weight:600}
@@ -396,7 +419,6 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   /* La quincena se queda con su propio scroll: es lo único largo, y así la
      pantalla no se estira por quince renglones. */
-  #q-dias{max-height:clamp(150px,26vh,300px)}
   .marca .n{font-size:clamp(18px,2.8vh,26px)}
 
   .caras{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px}
@@ -427,7 +449,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   <div class="barra">
     <div class="yo">
       <div class="ini" id="ini">?</div>
-      <div>
+      <div class="quien">
         <div class="nom" id="nombre">Checador</div>
         <div class="turno" id="turno">&nbsp;</div>
       </div>
@@ -479,8 +501,6 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   <button class="saltar" id="btn-saltar" type="button" hidden></button>
   <button class="otros" id="btn-otros" type="button">Registrar otro movimiento</button>
 
-  <div id="aviso" role="status" aria-live="polite"></div>
-
   </div>
   <div class="col">
 
@@ -499,7 +519,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v738</span> · buscar actualización
+      <span id="pie">v740</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -591,12 +611,17 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
   </div>
 </div>
 
+<!-- Fuera de .wrap (el zoom de ui.js escala .wrap) pero ANTES del script:
+     el script guarda la referencia al arrancar, y si el div viniera despues
+     se la encontraba vacia y reventaba en la primera llamada a aviso(). -->
+<div id="aviso" role="status" aria-live="polite"></div>
+
 <script>
 /* ===========================================================================
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v738';
+var VERSION = 'v740';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1960,7 +1985,7 @@ function pedirGente(intentos) {
     ls(LS_GENTE, GENTE);
     AVATARES = r.avatares || {};
     ls(LS_AVATARES, AVATARES);
-    ponerLigaSite(r.urlIntranet || '');
+    ponerLigaSite(r.hayIntranet);
     if (YO) {
       var mio = GENTE.filter(function(g){ return g.id === YO.id; })[0];
       if (mio) { YO = mio; guardarYo(YO); pintar(); }
@@ -1980,19 +2005,18 @@ function pedirGente(intentos) {
 }
 
 /**
- * La pestaña que lleva al checador del site. La dirección llega del
- * servidor, no está escrita en el repo: trae una llave de kiosco y el repo
- * es público. Se guarda para que también aparezca sin señal.
+ * La pestaña que lleva al checador del site.
+ *
+ * Ya NO trae la dirección: el servidor solo dice si existe. La dirección se
+ * entrega contra el PIN, en site-pin.js. Antes viajaba a cualquiera que
+ * abriera la app y se guardaba en el aparato, así que el candado no habría
+ * servido de nada en los celulares que ya la tenían.
  */
-var LS_SITE = 'em_checar_site';
-function ponerLigaSite(url) {
-  if (url) { try { localStorage.setItem(LS_SITE, url); } catch (e) {} }
-  else { try { url = localStorage.getItem(LS_SITE) || ''; } catch (e) {} }
-  var a = document.getElementById('tab-intranet');
-  if (!a) return;
-  if (url) { a.href = url; a.hidden = false; } else { a.hidden = true; }
+function ponerLigaSite(hay) {
+  try { SitePin.mostrar(!!hay); } catch (e) {}
 }
-ponerLigaSite('');
+try { SitePin.iniciar(gas, 'tab-intranet'); } catch (e) {}
+ponerLigaSite(false);
 
 /** Minutos permitidos de desayuno y comida. Se guardan para el cronómetro. */
 function bajarConfig() {
@@ -2874,5 +2898,7 @@ document.addEventListener('visibilitychange', function(){
   if (!document.hidden) { vaciarCola(); refrescarHoy(); bajarExcepcion(); }
 });
 </script>
+<!-- Fuera de .wrap a proposito: el zoom de ui.js se aplica al .wrap, y un
+     elemento fijo adentro se movia con el. Aqui queda anclado al viewport. -->
 </body>
 </html>

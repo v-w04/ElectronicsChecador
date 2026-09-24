@@ -54,6 +54,16 @@ function crearHojaChecadorChoferes() {
 }
 
 function guardarChecadaChofer(datos) {
+  // CANDADO. Sin esto, dos personas que checan en el mismo par de segundos
+  // calculan la MISMA fila (lastRow se lee arriba y se usa 70 lineas abajo)
+  // y la segunda le escribe encima a la primera. Pasa justo a la hora de
+  // entrada, que es cuando todos checan al mismo tiempo, y la checada
+  // perdida no deja rastro. Las otras seis funciones que escriben ya lo
+  // tenian; esta, la de mas trafico, era la unica sin el.
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); }
+  catch (e) { return { ok: false, message: 'El sistema esta ocupado, intenta otra vez.' }; }
+
   try {
     if (!datos) return { ok: false, message: 'No se recibieron datos' };
 
@@ -203,6 +213,8 @@ function guardarChecadaChofer(datos) {
   } catch (e) {
     Logger.log('❌ Error guardarChecadaChofer: ' + e.message);
     return { ok: false, message: e.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
 }
 

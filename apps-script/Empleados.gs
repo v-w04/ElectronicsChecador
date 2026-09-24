@@ -183,7 +183,11 @@ function getEmpleadosApp() {
     // app. Esa liga NO vive en el repo: trae una llave de kiosco y el repo
     // es público. Se guarda en las propiedades del script y viaja de aquí.
     return { ok: true, empleados: empleados, avatares: getAvatarOverrides(),
-             urlIntranet: getUrlIntranet() };
+             // OJO: aqui se mandaba la liga completa del checador del site,
+             // o sea que la direccion con llave de kiosco viajaba a CUALQUIERA
+             // que abriera la app. Ahora solo se dice si existe; la direccion
+             // se entrega en abrirChecadorSite(), y solo contra el PIN.
+             hayIntranet: !!getUrlIntranet() };
 
   } catch (e) {
     return { ok: false, error: true, message: e.message, empleados: [], avatares: {} };
@@ -213,4 +217,55 @@ function guardarUrlIntranet(url) {
   if (url.indexOf('http') !== 0) return { ok: false, message: 'Tiene que empezar con https://' };
   PropertiesService.getScriptProperties().setProperty(URL_INTRANET_PROP, url);
   return { ok: true, message: 'Liga guardada.' };
+}
+
+/* ===========================================================================
+   PIN DEL CHECADOR DEL SITE
+   ===========================================================================
+   Desde un celular, una tablet o el navegador, nadie debe poder abrir el
+   checador del site. La pestaña sigue a la vista, pero la dirección NO se
+   entrega hasta que el aparato mete el PIN.
+
+   El PIN vive en las propiedades del proyecto, nunca en el repo: el repo es
+   público. Se pone desde el menú del Sheet. Si nunca se ha puesto, vale
+   '000'.
+
+   SEAMOS CLAROS con lo que esto protege y lo que no: es un candado contra
+   entradas por accidente y contra el curioso con su celular. Quien ya tenga
+   la dirección guardada la puede abrir sin pasar por aquí. Lo que sí se
+   ganó es que la dirección ya no se reparte sola en cada carga de la app.
+   =========================================================================== */
+
+var PIN_INTRANET_PROP = 'PIN_INTRANET';
+var PIN_INTRANET_DEF  = '000';
+
+function _pinIntranet_() {
+  return (PropertiesService.getScriptProperties().getProperty(PIN_INTRANET_PROP)
+          || PIN_INTRANET_DEF).toString().trim();
+}
+
+/**
+ * Entrega la liga del checador del site, pero solo con el PIN correcto.
+ * @param {string} pin lo que tecleo la persona.
+ * @return {{ok:boolean, url?:string, message?:string}}
+ */
+function abrirChecadorSite(pin) {
+  try {
+    var url = getUrlIntranet();
+    if (!url) return { ok: false, message: 'No hay liga configurada.' };
+    if ((pin || '').toString().trim() !== _pinIntranet_()) {
+      return { ok: false, message: 'PIN incorrecto.' };
+    }
+    return { ok: true, url: url };
+  } catch (e) {
+    return { ok: false, message: e.message };
+  }
+}
+
+/** Cambia el PIN desde el menu del Sheet. Tres digitos. */
+function guardarPinIntranet(pin) {
+  pin = (pin || '').toString().trim();
+  if (!/^\d{3}$/.test(pin)) return { ok: false, message: 'Tienen que ser 3 digitos.' };
+  PropertiesService.getScriptProperties().setProperty(PIN_INTRANET_PROP, pin);
+  return { ok: true, message: 'PIN guardado. Los aparatos que ya entraron tendran que meterlo otra vez.' };
 }

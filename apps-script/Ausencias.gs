@@ -168,7 +168,10 @@ function quitarExcepcionDia(pin) {
         ? Utilities.formatDate(data[i][0], TIMEZONE, 'yyyy-MM-dd')
         : (data[i][0] || '').toString().trim();
       const p = (data[i][1] || '').toString().trim().toUpperCase();
-      if (f === hoy && (_normId(p) === _normId(pin) || p === 'TODOS')) { sheet.deleteRow(i + 1); n++; }
+      // OJO: el renglon 'TODOS' es el dia festivo de TODA la empresa. Antes
+      // entraba en este if, asi que cualquiera que quitara SU excepcion
+      // borraba el festivo de los 40 y les revolvia las alertas.
+      if (f === hoy && _normId(p) === _normId(pin)) { sheet.deleteRow(i + 1); n++; }
     }
     return { ok: true, message: n ? 'Excepción quitada. Las alertas vuelven a estar activas.' : 'No había excepción hoy.' };
   } catch (e) {

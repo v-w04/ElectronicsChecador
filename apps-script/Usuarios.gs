@@ -34,7 +34,7 @@ function getTodosLosUsuarios() {
       const iTurnoN  = hT.indexOf('Turno'); // nombre del turno, ej. "T2"
       const cfgTurnos = _leerConfigTurnos();
       for (let i = 1; i < dt.length; i++) {
-        const id      = (dt[i][iId]     || '').toString().trim();
+        const id      = _normId(dt[i][iId]);
         const nombre  = (dt[i][iNombre] || '').toString().trim();
         const horario = iHorario !== -1 ? (dt[i][iHorario] || '').toString().trim() : '';
         const turnoN  = iTurnoN  !== -1 ? (dt[i][iTurnoN]  || '').toString().trim() : '';
@@ -62,7 +62,7 @@ function getTodosLosUsuarios() {
           return;
         }
 
-        const info = mapaTurnos[idUsuario];
+        const info = mapaTurnos[_normId(idUsuario)];
         const nombre = info ? info.nombre : '';
         if (!nombre) return; // PIN sin empleado en TURNOS_DEFAULT: se ignora
 
@@ -231,7 +231,7 @@ function validarPin(pin) {
         const iNombre = hT.indexOf('Empleado');
 
         for (let i = 1; i < dt.length; i++) {
-          if (dt[i][iId].toString().trim() === idUsuario) {
+          if (_normId(dt[i][iId]) === _normId(idUsuario)) {
             const nombre = dt[i][iNombre].toString().trim();
             const tieneContrasena = verificarTieneContrasena(pin);
             return { ok: true, tipo: 'CHOFER', idUsuario, nombre, tieneContrasena };

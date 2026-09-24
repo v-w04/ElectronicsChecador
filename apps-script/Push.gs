@@ -302,16 +302,12 @@ function _obtenerAccessTokenFCM() {
 /**
  * Cuerpo del mensaje FCM.
  *
- * SOLO data, sin "notification": si se manda notification, el navegador la
- * muestra por su cuenta Y el service worker la muestra otra vez, así que las
- * alertas llegaban DOBLE.
- */
-/**
- * Cuerpo del mensaje FCM.
- *
- * SOLO data, sin "notification": si se manda notification, el navegador la
- * muestra por su cuenta Y el service worker la muestra otra vez, así que las
- * alertas llegaban DOBLE.
+ * Aquí vivía, dos veces pegado, un comentario que decía "SOLO data, sin
+ * notification". Ya no es cierto: desde v730 el mensaje SÍ lleva el bloque
+ * notification, porque iOS no pinta los mensajes de solo datos (la
+ * explicación larga está junto al bloque, más abajo). El aviso doble que
+ * aquel comentario describía se resolvió por el otro lado: el service
+ * worker ya no pinta nada, solo acusa recibo.
  *
  * Urgency y TTL son nuevos y son la diferencia entre avisar y estorbar:
  *   · Urgency "high" evita que Android, en ahorro de batería, guarde el aviso

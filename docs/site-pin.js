@@ -1,0 +1,262 @@
+/* ============================================================================
+   CANDADO DEL CHECADOR DEL SITE
+   ============================================================================
+   Desde un celular, una tablet o el navegador, nadie debe poder abrir el
+   checador del site. La pestaña se sigue viendo, pero al tocarla pide un PIN
+   de 3 dígitos.
+
+   CÓMO SE COMPORTA
+     · Se toca la pestaña  → sale un teclado con tres casillas.
+     · No se toca nada     → a los 3 segundos se cierra solo. Eso es para el
+                             que le dio por accidente: no tiene que hacer
+                             nada, se quita.
+     · Se empieza a teclear → la cuenta regresiva SE CANCELA. Tres segundos
+                             alcanzan para quitar un accidente, no para
+                             teclear un PIN en un celular.
+     · PIN correcto        → este aparato queda autorizado y de ahí en
+                             adelante entra y sale sin volver a teclearlo.
+     · PIN incorrecto      → no pasa nada y no se guarda el aparato.
+
+   POR QUÉ EL TECLADO ES NUESTRO Y NO UN <input>
+   Un input levanta el teclado del sistema, que en iPhone tarda en subir y se
+   come media pantalla. Con botones son tres toques y se acabó.
+
+   QUÉ PROTEGE Y QUÉ NO — sin adornos
+   Esto es un candado contra entradas por accidente y contra el curioso con
+   su celular. NO es seguridad de verdad: quien ya tenga la dirección
+   guardada en su navegador la puede abrir sin pasar por aquí. Lo que sí se
+   ganó es que la dirección ya no se reparte sola: antes viajaba a cualquiera
+   que abriera la app, y ahora el servidor solo la entrega contra el PIN.
+
+   El PIN vive en las propiedades del proyecto de Apps Script, nunca aquí:
+   este archivo está en un repo público.
+   ========================================================================== */
+
+var SitePin = (function () {
+
+  var LS_PIN  = 'em_site_pin';      // el PIN que ya sirvió en este aparato
+  var LS_VIEJO = 'em_checar_site';  // aquí se guardaba la dirección. Ya no.
+  var SEGUNDOS = 3;
+
+  var _gas = null, _boton = null, _capa = null, _tecleado = '';
+  var _reloj = null, _quedan = SEGUNDOS;
+
+  /* --- lo guardado en este aparato ------------------------------------- */
+  function pinGuardado() {
+    try { return localStorage.getItem(LS_PIN) || ''; } catch (e) { return ''; }
+  }
+  function guardarPin(p) {
+    try { localStorage.setItem(LS_PIN, p); } catch (e) {}
+  }
+  function olvidarPin() {
+    try { localStorage.removeItem(LS_PIN); } catch (e) {}
+  }
+
+  /* --- estilos, una sola vez -------------------------------------------- */
+  function estilos() {
+    if (document.getElementById('site-pin-css')) return;
+    var st = document.createElement('style');
+    st.id = 'site-pin-css';
+    st.textContent =
+      '#site-pin{position:fixed;inset:0;z-index:200;display:none;' +
+        'align-items:center;justify-content:center;padding:20px;' +
+        'background:rgba(1,4,9,.86);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);' +
+        'font-family:inherit}' +
+      '#site-pin.ver{display:flex}' +
+      '#site-pin .caja{width:100%;max-width:330px;background:#161b22;color:#e6edf3;' +
+        'border:1px solid #30363d;border-radius:22px;padding:24px 22px 20px;text-align:center;' +
+        'box-shadow:0 24px 60px rgba(0,0,0,.6)}' +
+      '#site-pin h3{margin:0 0 4px;font-size:19px;font-weight:800;letter-spacing:-.02em}' +
+      '#site-pin .pie{margin:0 0 18px;font-size:13px;color:#8b949e;line-height:1.4}' +
+      '#site-pin .puntos{display:flex;gap:12px;justify-content:center;margin-bottom:6px}' +
+      '#site-pin .pt{width:48px;height:56px;border-radius:14px;background:#0d1117;' +
+        'border:1px solid #30363d;display:flex;align-items:center;justify-content:center;' +
+        'font-size:26px;font-weight:800;color:#e6edf3}' +
+      '#site-pin .pt.lleno{border-color:#1f6feb;background:rgba(31,111,235,.14)}' +
+      '#site-pin .pt.mal{border-color:#f85149;background:rgba(248,81,73,.14);color:#f85149}' +
+      '#site-pin .cuenta{margin:10px 0 14px;font-size:12.5px;color:#8b949e;min-height:17px}' +
+      '#site-pin .teclas{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}' +
+      '#site-pin .teclas button{border:1px solid #30363d;background:#0d1117;color:#e6edf3;' +
+        'border-radius:14px;padding:15px 0;font-size:21px;font-weight:700;cursor:pointer;' +
+        'font-family:inherit;-webkit-tap-highlight-color:transparent}' +
+      '#site-pin .teclas button:active{background:#1f6feb;border-color:#1f6feb}' +
+      '#site-pin .teclas .chico{font-size:14px;font-weight:600;color:#8b949e}' +
+      '#site-pin .abrir{margin-top:14px;width:100%;border:0;border-radius:14px;padding:15px;' +
+        'background:#238636;color:#fff;font-size:15.5px;font-weight:800;cursor:pointer;' +
+        'font-family:inherit;display:none}' +
+      '#site-pin .abrir.ver{display:block}';
+    document.head.appendChild(st);
+  }
+
+  /* --- la ventanita ------------------------------------------------------ */
+  function armar() {
+    estilos();
+    if (_capa) return;
+    _capa = document.createElement('div');
+    _capa.id = 'site-pin';
+    _capa.innerHTML =
+      '<div class="caja">' +
+        '<h3>Checador del site</h3>' +
+        '<p class="pie">Teclea el PIN para abrirlo en este aparato.</p>' +
+        '<div class="puntos">' +
+          '<div class="pt" data-i="0"></div><div class="pt" data-i="1"></div>' +
+          '<div class="pt" data-i="2"></div>' +
+        '</div>' +
+        '<div class="cuenta" id="site-pin-cuenta"></div>' +
+        '<div class="teclas" id="site-pin-teclas"></div>' +
+        '<button type="button" class="abrir" id="site-pin-abrir">Abrir el checador del site</button>' +
+      '</div>';
+    document.body.appendChild(_capa);
+
+    var t = _capa.querySelector('#site-pin-teclas');
+    ['1','2','3','4','5','6','7','8','9','Salir','0','Borrar'].forEach(function (v) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = v;
+      if (v === 'Salir' || v === 'Borrar') b.className = 'chico';
+      b.onclick = function () {
+        pararCuenta();
+        if (v === 'Salir')  { cerrar(); return; }
+        if (v === 'Borrar') { _tecleado = _tecleado.slice(0, -1); pintar(); return; }
+        if (_tecleado.length >= 3) return;
+        _tecleado += v;
+        pintar();
+        if (_tecleado.length === 3) probar();
+      };
+      t.appendChild(b);
+    });
+
+    // Tocar fuera de la caja cierra. Es un candado, no una trampa.
+    _capa.onclick = function (e) { if (e.target === _capa) cerrar(); };
+  }
+
+  function pintar(mal) {
+    var pts = _capa.querySelectorAll('.pt');
+    for (var i = 0; i < pts.length; i++) {
+      pts[i].textContent = _tecleado[i] ? '●' : '';
+      pts[i].className = 'pt' + (mal ? ' mal' : (_tecleado[i] ? ' lleno' : ''));
+    }
+  }
+
+  /* --- la cuenta regresiva ---------------------------------------------- */
+  function arrancarCuenta() {
+    _quedan = SEGUNDOS;
+    var c = document.getElementById('site-pin-cuenta');
+    c.textContent = 'Se cierra en ' + _quedan + '…';
+    _reloj = setInterval(function () {
+      _quedan--;
+      if (_quedan <= 0) { cerrar(); return; }
+      c.textContent = 'Se cierra en ' + _quedan + '…';
+    }, 1000);
+  }
+  function pararCuenta() {
+    if (!_reloj) return;
+    clearInterval(_reloj); _reloj = null;
+    var c = document.getElementById('site-pin-cuenta');
+    if (c) c.textContent = '';
+  }
+
+  function abrirCapa() {
+    armar();
+    _tecleado = '';
+    pintar();
+    document.getElementById('site-pin-abrir').className = 'abrir';
+    _capa.querySelector('.pie').textContent = 'Teclea el PIN para abrirlo en este aparato.';
+    _capa.classList.add('ver');
+    arrancarCuenta();
+  }
+  function cerrar() {
+    pararCuenta();
+    if (_capa) _capa.classList.remove('ver');
+    _tecleado = '';
+  }
+
+  /* --- abrir de verdad --------------------------------------------------- */
+  function irA(url, ventana) {
+    if (ventana && !ventana.closed) { ventana.location.href = url; return true; }
+    var w = window.open(url, '_blank', 'noopener');
+    return !!w;
+  }
+
+  /** Pide la direccion al servidor con ese PIN. */
+  function pedirUrl(pin) {
+    return _gas('abrirChecadorSite', [pin]);
+  }
+
+  function probar() {
+    var pin = _tecleado;
+    var c = document.getElementById('site-pin-cuenta');
+    c.textContent = 'Revisando…';
+    pedirUrl(pin).then(function (r) {
+      if (!r || !r.ok || !r.url) {
+        // Ni se guarda el aparato ni se deja pasar.
+        olvidarPin();
+        pintar(true);
+        c.textContent = (r && r.message) || 'PIN incorrecto.';
+        setTimeout(function () { _tecleado = ''; pintar(); c.textContent = ''; }, 1200);
+        return;
+      }
+      guardarPin(pin);
+      c.textContent = '';
+      // Aqui ya paso una llamada al servidor, asi que el navegador puede
+      // tomar el window.open como "no lo pidio la persona" y bloquearlo.
+      // Si eso pasa, se le pone un boton, que si es un toque suyo.
+      if (!irA(r.url)) {
+        _capa.querySelector('.pie').textContent = 'Listo, este aparato ya quedo autorizado.';
+        var b = document.getElementById('site-pin-abrir');
+        b.className = 'abrir ver';
+        b.onclick = function () { irA(r.url); cerrar(); };
+      } else {
+        cerrar();
+      }
+    }).catch(function () {
+      c.textContent = 'Sin conexion con el servidor.';
+    });
+  }
+
+  /* --- lo que llama la pagina -------------------------------------------- */
+
+  /**
+   * @param {function(string,Array):Promise} gas  la funcion gas() de la pagina
+   * @param {string} idBoton  id de la pestana "Checador del site"
+   */
+  function iniciar(gas, idBoton) {
+    _gas = gas;
+    _boton = document.getElementById(idBoton || 'tab-intranet');
+    if (!_boton) return;
+
+    // La direccion se guardaba en el aparato. Con eso el candado no servia
+    // de nada en los celulares que ya la tenian, asi que se borra.
+    try { localStorage.removeItem(LS_VIEJO); } catch (e) {}
+
+    _boton.removeAttribute('href');
+    _boton.removeAttribute('target');
+    _boton.style.cursor = 'pointer';
+    _boton.onclick = function (e) {
+      e.preventDefault();
+      var pin = pinGuardado();
+      if (!pin) { abrirCapa(); return; }
+
+      // Aparato ya autorizado: se abre la ventana AHORA, con el toque
+      // todavia caliente, y se le pone la direccion cuando llegue.
+      var w = window.open('', '_blank');
+      pedirUrl(pin).then(function (r) {
+        if (r && r.ok && r.url) { irA(r.url, w); return; }
+        // Le cambiaron el PIN: este aparato deja de estar autorizado.
+        if (w && !w.closed) w.close();
+        olvidarPin();
+        abrirCapa();
+      }).catch(function () {
+        if (w && !w.closed) w.close();
+      });
+    };
+  }
+
+  /** Muestra u oculta la pestana. Ahora el servidor solo dice si hay liga. */
+  function mostrar(hay) {
+    if (!_boton) return;
+    _boton.hidden = !hay;
+  }
+
+  return { iniciar: iniciar, mostrar: mostrar, olvidar: olvidarPin };
+})();

@@ -12,6 +12,7 @@ function onOpen() {
     .createMenu('Checador')
     .addItem('Empleados en la app', 'menuEmpleadosApp')
     .addItem('Liga a la otra app', 'menuUrlIntranet')
+    .addItem('PIN del checador del site', 'menuPinIntranet')
     .addSeparator()
     .addItem('Probar notificación a un celular', 'menuProbarCelular')
     .addItem('Entregas de hoy', 'menuEntregasHoy')
@@ -120,6 +121,22 @@ function menuUrlIntranet() {
   if (r.getSelectedButton() !== ui.Button.OK) return;
 
   var res = guardarUrlIntranet(r.getResponseText());
+  _aviso_(res.ok ? 'Listo' : 'No se pudo', res.message);
+}
+
+/**
+ * El PIN que hay que teclear para que un aparato pueda abrir el checador
+ * del site. Vive en las propiedades del proyecto, nunca en el repo.
+ */
+function menuPinIntranet() {
+  var ui = SpreadsheetApp.getUi();
+  var r = ui.prompt('PIN del checador del site',
+    'Con este PIN un celular o una tablet puede abrir el checador del site.\n' +
+    'Sin el, no se le entrega ni la direccion.\n\n' +
+    'Ahora es: ' + _pinIntranet_() + '\n\nEscribe el nuevo (3 digitos):',
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var res = guardarPinIntranet(r.getResponseText());
   _aviso_(res.ok ? 'Listo' : 'No se pudo', res.message);
 }
 

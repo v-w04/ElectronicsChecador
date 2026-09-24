@@ -15,7 +15,7 @@
 //      y las manda solo, aunque la app esté cerrada.
 // ============================================================================
 
-var CACHE_NAME = 'em-checador-v738';
+var CACHE_NAME = 'em-checador-v740';
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
 
@@ -26,6 +26,7 @@ var NUCLEO = [
   './avatar.js',
   './actualizar.js',
   './ui.js',
+  './site-pin.js',
   './juegos.html',
   './manifest.webmanifest',
   './favicon.ico',
