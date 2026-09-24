@@ -520,7 +520,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v747</span> · buscar actualización
+      <span id="pie">v748</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -622,7 +622,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v747';
+var VERSION = 'v748';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -691,6 +691,7 @@ var LS_YO       = 'em_checar_yo';
 var LS_GENTE    = 'em_checar_gente';
 var LS_HOY      = 'em_checar_hoy';
 var LS_CFG      = 'em_checar_cfg';   // minutos de desayuno y comida
+var LS_TURNO    = 'em_checar_turno'; // las horas del turno de esta persona
 var LS_AVATARES = 'em_checar_avatares';
 var LS_QUINCENA = 'em_checar_quincena';
 var LS_EXC      = 'em_checar_exc';
@@ -948,6 +949,11 @@ if (!HOY.saltados) HOY.saltados = [];
 // Minutos permitidos. Se refrescan del servidor al abrir, pero queda la
 // última copia para que el cronómetro siga sirviendo sin señal.
 var CFG = ls(LS_CFG) || { duracion_desayuno_min: 20, duracion_comida_min: 60 };
+/* Las horas del turno de esta persona: a que hora puede salir a desayunar,
+   hasta cuando, lo mismo para la comida. Llega con getPerfilEmpleado y se
+   guarda para que tambien sirva sin senal. Sin esto la app solo sabia el
+   ORDEN de los movimientos, nunca la hora. */
+var TURNO = ls(LS_TURNO) || null;
 var AVATARES = ls(LS_AVATARES) || {};   // personalizaciones ya guardadas
 var QUINCENA = ls(LS_QUINCENA) || null;  // el log de la quincena, para verlo sin senal
 var EXC = ls(LS_EXC) || { fecha:'', tipo:'', global:false };
@@ -1297,6 +1303,36 @@ function pintarDia() {
  * Lo que se brincó así no se pierde: sigue disponible en "Registrar otro
  * movimiento" por si de verdad hace falta anotarlo tarde.
  */
+/* ===========================================================================
+   ¿YA SE LE PASÓ LA HORA A ESTE DESCANSO?
+   ===========================================================================
+   La app ofrecía los movimientos por ORDEN, nunca por hora. Si alguien abría
+   la app a las seis de la tarde sin haber desayunado, le proponía el
+   desayuno, y tenía que ir descartando desayuno y comida a mano para llegar
+   a su salida. Absurdo: a esa hora lo único que falta es irse.
+
+   Ahora se miran las horas del turno de cada quien (Desayuno Max y Comida
+   Max de CONFIG_TURNOS). Pasada esa hora, ese descanso ya no se propone.
+
+   OJO: esto solo esconde los que ABREN un descanso. El regreso se sigue
+   ofreciendo siempre, pase la hora que pase — si alguien salió a comer
+   tiene que poder cerrar su comida aunque se le haya ido el tiempo.
+   Y si no se sabe la hora del turno, no se esconde nada: mejor de más que
+   dejar a alguien sin poder registrar.
+   ========================================================================= */
+function ventanaCerrada(tipo) {
+  if (!TURNO) return false;
+  var m = new Date();
+  m = m.getHours() * 60 + m.getMinutes();
+  if (tipo === 'SALIDA_DESAYUNO') {
+    return TURNO.desMax != null && TURNO.desMax > 0 && m > TURNO.desMax;
+  }
+  if (tipo === 'SALIDA_COMIDA') {
+    return TURNO.comMax != null && TURNO.comMax > 0 && m > TURNO.comMax;
+  }
+  return false;
+}
+
 function siguienteMov() {
   var ya = hechas();
   var saltados = HOY.saltados || [];
@@ -1312,6 +1348,12 @@ function siguienteMov() {
     if (j < avance) continue;                          // su momento ya pasó
     if (ya.indexOf(MOVS[j].tipo) !== -1) continue;     // ya está registrado
     if (saltados.indexOf(MOVS[j].tipo) !== -1) continue; // lo descartó a mano
+    if (ventanaCerrada(MOVS[j].tipo)) continue;          // ya se le pasó la hora
+    // Un regreso sin su salida no existe. Sin esto, al descartar el
+    // desayuno la app pasaba a ofrecer el REGRESO de un desayuno que nunca
+    // pasó — y había que descartar eso también para poder avanzar.
+    if (MOVS[j].tipo.indexOf('REGRESO_') === 0 &&
+        ya.indexOf(MOVS[j].tipo.replace('REGRESO_', 'SALIDA_')) === -1) continue;
     return MOVS[j];
   }
   return null;
@@ -2051,6 +2093,10 @@ function refrescarHoy() {
   return gas('getPerfilEmpleado', [YO.pin]).then(function(r){
     if (!r || !r.ok) return;
     fijarChecadas(r.checadasHoy);
+    if (r.empleado && r.empleado.cfgTurno) {
+      TURNO = r.empleado.cfgTurno;
+      ls(LS_TURNO, TURNO);
+    }
     pintar();
     bajarQuincena();
   }).catch(function(){});

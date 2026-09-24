@@ -42,7 +42,11 @@ function getPerfilEmpleado(pin) {
     return {
       ok: true,
       empleado: { pin: empleado.pin, idUsuario: empleado.idUsuario,
-                  nombre: empleado.nombre, turnoHorario: empleado.turnoHorario || '' },
+                  nombre: empleado.nombre, turnoHorario: empleado.turnoHorario || '',
+                  // Las horas de SU turno. La app las necesita para no
+                  // ofrecerle desayuno a las seis de la tarde: sin esto solo
+                  // sabia el orden de los movimientos, no la hora de cada uno.
+                  cfgTurno: _cfgEmpleadoServ(_normId(empleado.idUsuario)) || null },
       hoy: hoy, checadasHoy: checadasHoy, historial: historial
     };
   } catch (e) {
