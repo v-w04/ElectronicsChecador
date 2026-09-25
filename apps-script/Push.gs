@@ -344,20 +344,26 @@ function _conPieDeAccion_(cuerpo, urlAccion) {
   return pie ? (cuerpo + '\n\n' + pie) : cuerpo;
 }
 
-function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio) {
+function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio, fuerte) {
   var destino = urlAccion || 'https://v-w04.github.io/ElectronicsChecador/checar.html';
   cuerpo = _conPieDeAccion_(cuerpo, urlAccion);
+  // Las alertas "fuerte" (te queda poco para checar regreso de desayuno,
+  // comida o salida) vibran más largo con la app cerrada y, con la app
+  // abierta, disparan el overlay rojo con alarma sonora en checar.html.
+  var vibra = fuerte ? [500, 200, 500, 200, 500, 200, 500] : [400, 150, 400, 150, 400];
   return JSON.stringify({
     message: {
       token: token,
 
       // Los datos siguen viajando: el service worker los usa para el acuse
       // y para saber a dónde llevar al empleado si toca el aviso.
+      // fuerte='1' lo lee la app abierta (onMessage) para la alarma sonora.
       data: {
         title: titulo,
         body: cuerpo,
         url: urlAccion || '',
-        envio: idEnvio || ''
+        envio: idEnvio || '',
+        fuerte: fuerte ? '1' : ''
       },
 
       // ---------------------------------------------------------------
@@ -404,8 +410,8 @@ function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio) {
           tag: 'checador-' + (idEnvio || 'alerta'),
           renotify: true,
           requireInteraction: true,
-          vibrate: [400, 150, 400, 150, 400],
-          data: { url: urlAccion || '', envio: idEnvio || '' }
+          vibrate: vibra,
+          data: { url: urlAccion || '', envio: idEnvio || '', fuerte: fuerte ? '1' : '' }
         },
         fcm_options: { link: destino }
       }
@@ -437,7 +443,7 @@ function _enviarPushFCM(token, titulo, cuerpo, urlAccion, meta) {
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + _obtenerAccessTokenFCM() },
       muteHttpExceptions: true,
-      payload: _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio)
+      payload: _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio, meta && meta.fuerte)
     });
     codigo = resp.getResponseCode();
     if (codigo < 200 || codigo >= 300) detalle = resp.getContentText().substring(0, 180);
@@ -465,7 +471,7 @@ function _enviarPushFCMDetallado(token, titulo, cuerpo, urlAccion, meta) {
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + _obtenerAccessTokenFCM() },
       muteHttpExceptions: true,
-      payload: _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio)
+      payload: _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio, meta && meta.fuerte)
     });
     var code = resp.getResponseCode();
     var body = resp.getContentText().substring(0, 300);

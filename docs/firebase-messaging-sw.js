@@ -80,7 +80,7 @@ function mostrarAviso(d) {
     // en iPhone manda la configuración del sistema).
     requireInteraction: true,
     renotify: true,
-    vibrate: [400, 150, 400, 150, 400],
+    vibrate: d.fuerte ? [500, 200, 500, 200, 500, 200, 500] : [400, 150, 400, 150, 400],
     // Cada aviso con su propia etiqueta: con la etiqueta repetida el
     // celular reemplaza el anterior en silencio en vez de avisar de nuevo.
     tag: 'checador-' + (d.envio || Date.now())
@@ -116,8 +116,25 @@ if (SDK_OK) {
   // no hace por su cuenta.
   firebase.messaging().onBackgroundMessage(function (payload) {
     var d = (payload && payload.data) || {};
+    if (d.fuerte === '1') avisarFuerte(d);
     return acusarRecibo(d.envio);
   });
+}
+
+/**
+ * Alerta fuerte con una pestaña de la app abierta pero en 2º plano: la
+ * librería / el sistema ya pintan la notificación, pero la pestaña no se
+ * entera para disparar su overlay rojo + alarma. Aquí se le manda el recado.
+ * Si no hay pestaña abierta, no hace nada (con la app cerrada manda la
+ * notificación del sistema, que ya sale pegada y vibra).
+ */
+function avisarFuerte(d) {
+  return clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (lista) {
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].url.indexOf(APP_URL) !== 0) continue;
+      try { lista[i].postMessage({ tipo: 'fuerte', title: d.title || '', body: d.body || '' }); } catch (e) {}
+    }
+  }).catch(function () {});
 }
 
 /* ---------------------------------------------------------------------------
@@ -138,11 +155,13 @@ if (!SDK_OK) {
     // Aquí SÍ se pinta: sin la librería no hay nadie más que lo haga. Se
     // toman los textos del bloque notification si viene, y si no, de data.
     var n = j.notification || {};
+    if (d.fuerte === '1') avisarFuerte({ title: n.title || d.title, body: n.body || d.body });
     event.waitUntil(mostrarAviso({
       title: n.title || d.title,
       body:  n.body  || d.body,
       url:   d.url,
-      envio: d.envio
+      envio: d.envio,
+      fuerte: d.fuerte === '1'
     }));
   });
 }

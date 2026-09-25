@@ -242,8 +242,12 @@ function revisarAlertas() {
      * @param clave  marca anti-duplicado: la misma alerta no sale dos veces.
      * @param msg    { titulo, cuerpo } de Mensajes.gs
      * @param alerta etiqueta corta para la bitácora
+     * @param fuerte true = alerta agresiva: overlay rojo + alarma sonora con la
+     *        app abierta, y vibración más larga con la app cerrada. Solo para
+     *        las tres de "te queda poco para checar": regreso de desayuno,
+     *        regreso de comida y salida.
      */
-    function alertar(id, categoria, clave, msg, alerta, urlAccion) {
+    function alertar(id, categoria, clave, msg, alerta, urlAccion, fuerte) {
       if (ausentesHoy[id]) return;
       var pin = pinPorId[_normId(id)];
       if (pin && _excepcionDe(excepciones, hoy, pin)) return;
@@ -254,7 +258,7 @@ function revisarAlertas() {
       // Sin dispositivo: se marca igual, para no recalcularlo cada minuto.
       if (!tokens.length) { _marcarEnviada(clave); return; }
 
-      var meta = { idUsuario: id, nombre: nombrePorId[id] || '', alerta: alerta };
+      var meta = { idUsuario: id, nombre: nombrePorId[id] || '', alerta: alerta, fuerte: !!fuerte };
       var enviado = false;
       tokens.forEach(function (t) {
         if (_enviarPushFCM(t, msg.titulo, msg.cuerpo, urlAccion, meta)) enviado = true;
@@ -396,7 +400,7 @@ function revisarAlertas() {
         if (trans >= dur - aviso && trans < dur) {
           alertar(id, nom, marca + '|aviso',
                   msgDescansoPorTerminar(nom, dur - trans, _minAHora(limite), semilla),
-                  nom + ' por terminar', _accion_(accReg, id));
+                  nom + ' por terminar', _accion_(accReg, id), true);
         }
         if (trans >= dur) {
           alertar(id, nom, marca + '|limite', msgDescansoTerminado(nom, dur),
@@ -436,7 +440,7 @@ function revisarAlertas() {
         var hFin = _minAHora(turno.finMin);
         if (minAhora >= turno.finMin - avSal && minAhora < turno.finMin) {
           alertar(id, 'salida', hoy + '|' + id + '|salida_aviso@' + turno.finMin,
-                  msgSalidaProxima(hFin, turno.finMin - minAhora), 'salida próxima');
+                  msgSalidaProxima(hFin, turno.finMin - minAhora), 'salida próxima', '', true);
         }
         if (minAhora >= turno.finMin && minAhora < turno.finMin + intRec) {
           alertar(id, 'salida', hoy + '|' + id + '|salida_hora@' + turno.finMin,

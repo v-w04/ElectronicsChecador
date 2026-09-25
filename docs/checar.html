@@ -183,6 +183,20 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 .alerta-viva button{width:100%;border:0;border-radius:15px;padding:15px;cursor:pointer;
   background:var(--brand);color:#fff;font-size:15.5px;font-weight:700;font-family:inherit}
 
+/* MODO FUERTE — las 3 alertas urgentes (regreso desayuno/comida y salida).
+   Toma toda la pantalla en rojo y late hasta que la persona la cierra. */
+.alerta-viva.fuerte{background:rgba(60,0,0,.82)}
+.alerta-viva.fuerte .caja{background:#c0271d;border-color:#ff5b4d;
+  box-shadow:0 0 0 4px rgba(255,91,77,.35),0 24px 70px rgba(0,0,0,.7);
+  animation:brinca .32s cubic-bezier(.2,1.3,.4,1),latido 1s ease-in-out infinite}
+.alerta-viva.fuerte .campanita{font-size:62px;animation:campaneo .7s ease-in-out infinite}
+.alerta-viva.fuerte h3{color:#fff;font-size:24px}
+.alerta-viva.fuerte p{color:#ffe3df}
+.alerta-viva.fuerte button{background:#fff;color:#c0271d;font-size:17px;font-weight:800;padding:17px}
+@keyframes latido{0%,100%{box-shadow:0 0 0 4px rgba(255,91,77,.35),0 24px 70px rgba(0,0,0,.7)}
+  50%{box-shadow:0 0 0 14px rgba(255,91,77,.12),0 24px 70px rgba(0,0,0,.7)}}
+@keyframes campaneo{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+
 /* los pasos de la tarjeta de alertas */
 .pasos{margin:14px 0 4px;border:1px solid var(--bd-sub);border-radius:14px;overflow:hidden}
 .pasos .paso{display:flex;align-items:flex-start;gap:11px;padding:11px 14px;
@@ -520,7 +534,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v748</span> · buscar actualización
+      <span id="pie">v749</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -622,7 +636,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v748';
+var VERSION = 'v749';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -2149,7 +2163,7 @@ function escucharEnPrimerPlano() {
   try {
     firebase.messaging().onMessage(function (payload) {
       var d = (payload && payload.data) || {};
-      avisoAlerta(d.title || 'Checador', d.body || '');
+      avisoAlerta(d.title || 'Checador', d.body || '', d.fuerte === '1');
       if (d.envio) gas('confirmarEntregaPush', [d.envio]).catch(function () {});
     });
     _escuchando = true;
@@ -2157,15 +2171,92 @@ function escucharEnPrimerPlano() {
 }
 
 /** El aviso de una alerta recibida con la app abierta. Grande y que no se
- *  confunda con los mensajitos de siempre. */
-function avisoAlerta(titulo, cuerpo) {
+ *  confunda con los mensajitos de siempre.
+ *  fuerte = las 3 urgentes (regreso desayuno/comida y salida): overlay rojo
+ *  a pantalla completa + alarma sonora en bucle hasta que se cierra. */
+function avisoAlerta(titulo, cuerpo, fuerte) {
   var caja = document.getElementById('alerta-viva');
   if (!caja) { aviso(titulo + ' · ' + cuerpo, '', 9000); return; }
   document.getElementById('alerta-viva-tit').textContent = titulo;
   document.getElementById('alerta-viva-txt').textContent = cuerpo;
+  var camp = caja.querySelector('.campanita');
+  caja.classList.toggle('fuerte', !!fuerte);
   caja.classList.add('ver');
-  try { if (navigator.vibrate) navigator.vibrate([400, 150, 400]); } catch (e) {}
+  if (fuerte) {
+    if (camp) camp.textContent = '⏰';
+    alarmaFuerte.iniciar();
+  } else {
+    if (camp) camp.textContent = '🔔';
+    try { if (navigator.vibrate) navigator.vibrate([400, 150, 400]); } catch (e) {}
+  }
 }
+
+/* ===========================================================================
+   ALARMA FUERTE — solo para las 3 alertas urgentes con la app abierta.
+   Sirena en bucle (WebAudio, sin archivo ni internet) + vibración repetida,
+   hasta que la persona cierra el aviso.
+
+   OJO: el navegador solo deja sonar si hubo un toque previo en la pantalla.
+   En la tablet del piso eso siempre se cumple; además se "arma" el audio en
+   el primer toque de la sesión para que la primera alarma ya suene.
+   =========================================================================== */
+var alarmaFuerte = (function () {
+  var ctx = null, osc = null, gain = null, vibraTimer = null, sirenaTimer = null, sonando = false;
+  function armar() {
+    if (ctx) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) ctx = new AC();
+    } catch (e) {}
+  }
+  try {
+    window.addEventListener('pointerdown', function once() {
+      armar(); try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch (e) {}
+      window.removeEventListener('pointerdown', once);
+    }, { once: true });
+  } catch (e) {}
+  function iniciar() {
+    if (sonando) return;
+    sonando = true;
+    armar();
+    try {
+      if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 500]);
+        vibraTimer = setInterval(function () {
+          try { navigator.vibrate([500, 200, 500]); } catch (e) {}
+        }, 1600);
+      }
+    } catch (e) {}
+    if (!ctx) return;               // sin WebAudio, al menos vibra
+    try {
+      if (ctx.state === 'suspended') ctx.resume();
+      osc = ctx.createOscillator();
+      gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 800;
+      gain.gain.value = 0.0001;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      gain.gain.setTargetAtTime(0.20, ctx.currentTime, 0.02);
+      var alto = true;
+      sirenaTimer = setInterval(function () {
+        try { alto = !alto; osc.frequency.setValueAtTime(alto ? 800 : 560, ctx.currentTime); } catch (e) {}
+      }, 450);
+    } catch (e) {}
+  }
+  function parar() {
+    sonando = false;
+    if (vibraTimer) { clearInterval(vibraTimer); vibraTimer = null; }
+    if (sirenaTimer) { clearInterval(sirenaTimer); sirenaTimer = null; }
+    try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+    try {
+      if (gain && ctx) gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.03);
+      if (osc) { var o = osc; setTimeout(function () { try { o.stop(); } catch (e) {} }, 120); }
+    } catch (e) {}
+    osc = null; gain = null;
+  }
+  return { iniciar: iniciar, parar: parar };
+})();
 
 function soportaPush() {
   return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
@@ -2186,7 +2277,7 @@ document.getElementById('btn-alertas-local').onclick = probarAlertaLocal;
   var caja = document.getElementById('alerta-viva');
   var ok = document.getElementById('alerta-viva-ok');
   if (!caja || !ok) return;
-  function cerrar(){ caja.classList.remove('ver'); }
+  function cerrar(){ alarmaFuerte.parar(); caja.classList.remove('ver'); caja.classList.remove('fuerte'); }
   ok.onclick = cerrar;
   caja.onclick = function (e) { if (e.target === caja) cerrar(); };
 })();
@@ -2693,6 +2784,9 @@ if ('serviceWorker' in navigator) {
     // El service worker acaba de checar desde una notificación: la pantalla
     // no se entera sola porque nadie la tocó. Se le pide que se refresque.
     if (d.tipo === 'refrescar') { try { refrescarHoy(); } catch (e) {} return; }
+    // Alerta fuerte llegada con la app abierta pero en 2º plano: el service
+    // worker la reenvía para disparar el overlay rojo + alarma aquí.
+    if (d.tipo === 'fuerte') { try { avisoAlerta(d.title || 'Checador', d.body || '', true); } catch (e) {} return; }
     if (d.tipo !== 'accion' || !d.accion) return;
     try {
       accionRemota({ accion: String(d.accion).toUpperCase(), pin: d.pin || '' });
