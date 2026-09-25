@@ -534,7 +534,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v749</span> · buscar actualización
+      <span id="pie">v750</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -584,6 +584,10 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
          golpe "el aparato no sabe mostrar notificaciones" de "el mensaje no
          llegó". Sin esto uno se queda adivinando cuál de los dos es. -->
     <button class="opcion" id="btn-alertas-local" type="button">Probar aquí mismo, sin internet</button>
+    <!-- Prueba de la ALARMA FUERTE: dispara el overlay rojo + sirena tal cual
+         se ve con una alerta urgente (regreso desayuno/comida o salida). Sirve
+         para revisar que el sonido no esté silenciado en este aparato. -->
+    <button class="opcion" id="btn-alarma-fuerte" type="button">🚨 Probar alarma fuerte</button>
     <button class="cerrar" id="cerrar-alertas" type="button">Cerrar</button>
   </div>
 </div>
@@ -636,7 +640,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v749';
+var VERSION = 'v750';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -2271,6 +2275,14 @@ var fondoAlertas = document.getElementById('fondo-alertas');
 document.getElementById('cerrar-alertas').onclick = function(){ fondoAlertas.classList.remove('ver'); };
 
 document.getElementById('btn-alertas-local').onclick = probarAlertaLocal;
+
+// Prueba de la alarma fuerte: enseña el overlay rojo + sirena aquí mismo,
+// sin pasar por el servidor. Es la forma de confirmar que el sonido suena
+// en este aparato (si está en silencio, aquí se nota).
+document.getElementById('btn-alarma-fuerte').onclick = function () {
+  avisoAlerta('Prueba de alarma fuerte',
+    'Así se ve y suena una alerta urgente. Toca Entendido para apagarla.', true);
+};
 
 // El aviso grande de una alerta recibida con la app abierta.
 (function () {
