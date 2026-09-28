@@ -351,6 +351,17 @@ function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio, fuerte) {
   // comida o salida) vibran más largo con la app cerrada y, con la app
   // abierta, disparan el overlay rojo con alarma sonora en checar.html.
   var vibra = fuerte ? [500, 200, 500, 200, 500, 200, 500] : [400, 150, 400, 150, 400];
+  // Botón "Checar ahora" DENTRO de la notificación (solo Android; iOS ignora
+  // los botones). Solo en las alertas fuertes que llevan un movimiento que se
+  // puede registrar de un toque: regreso de desayuno y regreso de comida. Al
+  // tocarlo, el service worker checa desde el aviso, sin abrir la app.
+  var _MOV_CHECABLE = { REGRESO_DESAYUNO: 1, REGRESO_COMIDA: 1, SALIDA_DESAYUNO: 1,
+                        SALIDA_COMIDA: 1, ENTRADA: 1, SALIDA: 1 };
+  var _accBtn = (urlAccion || '').match(/[?&]accion=([^&]+)/);
+  var _accTipo = _accBtn ? decodeURIComponent(_accBtn[1]).toUpperCase() : '';
+  var acciones = (fuerte && _MOV_CHECABLE[_accTipo])
+    ? [{ action: 'checar', title: '✅ Checar ahora' }]
+    : undefined;
   return JSON.stringify({
     message: {
       token: token,
@@ -411,6 +422,7 @@ function _payloadFCM_(sa, token, titulo, cuerpo, urlAccion, idEnvio, fuerte) {
           renotify: true,
           requireInteraction: true,
           vibrate: vibra,
+          actions: acciones,
           data: { url: urlAccion || '', envio: idEnvio || '', fuerte: fuerte ? '1' : '' }
         },
         fcm_options: { link: destino }
