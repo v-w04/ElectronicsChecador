@@ -504,64 +504,6 @@ function crearHojaPrefsAlertas() {
   return sheet;
 }
 
-function getPrefsAlertas(pin) {
-  try {
-    const sheet = crearHojaPrefsAlertas();
-    const data = sheet.getDataRange().getValues();
-    // De abajo hacia arriba: si quedaron duplicados viejos, vale el reciente
-    for (let i = data.length - 1; i >= 1; i--) {
-      if (_normId(data[i][0]) === _normId(pin)) {
-        return { ok: true, prefs: {
-          entrada:        (data[i][3] || 'SI').toString(),
-          desayuno:       (data[i][4] || 'SI').toString(),
-          comida:         (data[i][5] || 'SI').toString(),
-          comida_nohecha: (data[i][6] || 'SI').toString(),
-          salida:         (data[i][7] || 'SI').toString()
-        }};
-      }
-    }
-    return { ok: true, prefs: { entrada: 'SI', desayuno: 'SI', comida: 'SI', comida_nohecha: 'SI', salida: 'SI' } };
-  } catch (e) {
-    return { ok: false, message: e.message };
-  }
-}
-
-function guardarPrefsAlertas(pin, prefs) {
-  try {
-    if (!pin || !prefs) return { ok: false, message: 'pin y prefs requeridos' };
-    const usuarios = getTodosLosUsuarios();
-    let emp = null;
-    (usuarios.usuarios || []).forEach(function(u) { if (_normId(u.pin) === _normId(pin)) emp = u; });
-    if (!emp) return { ok: false, message: 'PIN no encontrado' };
-
-    // ⭐ CANDADO: dos guardados simultáneos (toggle rápido) creaban filas
-    // duplicadas del mismo PIN, una con SI y otra con NO.
-    const lock = LockService.getScriptLock();
-    lock.waitLock(10000);
-    try {
-      const sheet = crearHojaPrefsAlertas();
-      const data = sheet.getDataRange().getValues();
-      const fila = [
-        emp.pin, emp.idUsuario, emp.nombre,
-        prefs.entrada === 'NO' ? 'NO' : 'SI',
-        prefs.desayuno === 'NO' ? 'NO' : 'SI',
-        prefs.comida === 'NO' ? 'NO' : 'SI',
-        prefs.comida_nohecha === 'NO' ? 'NO' : 'SI',
-        prefs.salida === 'NO' ? 'NO' : 'SI',
-        Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm')
-      ];
-      for (let i = data.length - 1; i >= 1; i--) {
-        if (_normId(data[i][0]) === _normId(pin)) sheet.deleteRow(i + 1);
-      }
-      sheet.appendRow(fila);
-      return { ok: true, message: 'Preferencias guardadas' };
-    } finally {
-      lock.releaseLock();
-    }
-  } catch (e) {
-    return { ok: false, message: e.message };
-  }
-}
 
 // ============================================================================
 // TEST DE NOTIFICACIONES
@@ -616,115 +558,6 @@ function testPushEmpleado(pin) {
 // DIAGNÓSTICO DE ALERTAS — "¿por qué no me llega nada?"
 // ============================================================================
 
-function diagnosticoAlertas(pin) {
-  try {
-    const usuarios = getTodosLosUsuarios();
-    let emp = null;
-    (usuarios.usuarios || []).forEach(function(u) { if (_normId(u.pin) === _normId(pin)) emp = u; });
-    if (!emp) return { ok: false, message: 'PIN no encontrado' };
-
-    const d = [];
-    const ahora = new Date();
-    const hoy = Utilities.formatDate(ahora, TIMEZONE, 'yyyy-MM-dd');
-    const hAct = parseInt(Utilities.formatDate(ahora, TIMEZONE, 'H'), 10);
-    const minAhora = hAct * 60 + parseInt(Utilities.formatDate(ahora, TIMEZONE, 'm'), 10);
-
-    const cfg = (getConfigAlertas().config) || {};
-    d.push(((cfg.alertas_activas || 'SI') === 'SI' ? '✅' : '❌') +
-           ' Interruptor general (CONFIG_ALERTAS): ' + (cfg.alertas_activas || 'SI'));
-
-    const dentroVentana = (hAct >= ALERTAS_HORA_INICIO && hAct < ALERTAS_HORA_FIN);
-    d.push((dentroVentana ? '✅' : '❌') + ' Ventana del motor (' + ALERTAS_HORA_INICIO + ':00–' +
-           ALERTAS_HORA_FIN + ':00): ' + (dentroVentana ? 'dentro' : 'FUERA, el motor no revisa a esta hora'));
-
-    const nT = ScriptApp.getProjectTriggers().filter(function(t) { return t.getHandlerFunction() === 'revisarAlertas'; }).length;
-    d.push((nT ? '✅' : '❌') + ' Motor corriendo cada minuto: ' + (nT ? 'sí' : 'NO — menú Checador › Activar alertas'));
-
-    d.push((_firebaseSA_() ? '✅' : '❌') + ' Firebase configurado: ' +
-           (_firebaseSA_() ? 'sí' : 'NO — menú Checador › Configurar Firebase'));
-
-    // OJO: aqui estaba el fin de semana escrito a mano (dow >= 6), el mismo
-    // bug que el motor ya tenia corregido. A quien trabaja sabado le decia
-    // "hoy no hay alertas" y a quien descansa el martes no lo detectaba.
-    // Ahora se le pregunta lo mismo que pregunta el motor.
-    const trabajaHoy = _turnoTrabajaHoy_(_cfgEmpleadoServ(_normId(emp.idUsuario)) || {}, ahora);
-    d.push((trabajaHoy ? '✅' : '❌') + ' Hoy trabajas: ' +
-           (trabajaHoy ? 'sí' : 'NO según tu turno — por eso no hay alertas'));
-
-    const excs = _leerExcepciones();
-    const exc = _excepcionDe(excs, hoy, emp.pin);
-    d.push((exc ? '❌' : '✅') + ' Excepción hoy: ' + (exc ? exc + ' (por eso no hay alertas)' : 'ninguna'));
-
-    const prefs = (getPrefsAlertas(emp.pin).prefs) || {};
-    const off = Object.keys(prefs).filter(function(k) { return prefs[k] === 'NO'; });
-    d.push((off.length ? '⚠️' : '✅') + ' Tus alertas: ' + (off.length ? 'APAGADAS → ' + off.join(', ') : 'todas encendidas'));
-
-    const st = crearHojaPushTokens();
-    let disp = 0;
-    if (st.getLastRow() > 1) {
-      st.getRange(2, 1, st.getLastRow() - 1, 5).getValues().forEach(function(r) {
-        if (_normId(r[0]) === _normId(emp.pin)) disp++;
-      });
-    }
-    d.push((disp ? '✅' : '❌') + ' Dispositivos vinculados: ' + disp);
-
-    const cfgT = _cfgEmpleadoServ(emp.idUsuario) || {};
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('CHECADOR_CHOFERES');
-    const previas = [];
-    if (sheet && sheet.getLastRow() >= 3) {
-      sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues().forEach(function(r) {
-        if (_normId(r[0]) !== _normId(emp.idUsuario)) return;
-        if ((r[2] || '').toString() !== hoy) return;
-        const hm = (r[3] || '').toString().match(/(\d{1,2}):(\d{2})/);
-        previas.push({ tipo: (r[9] || '').toString().toUpperCase(),
-                       min: hm ? parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10) : 0 });
-      });
-    }
-    previas.sort(function(a, b) { return a.min - b.min; });
-    const ult = previas.length ? previas[previas.length - 1] : null;
-    d.push('📋 Checadas hoy: ' + (previas.length ? previas.map(function(c) { return c.tipo; }).join(' → ') : 'ninguna'));
-
-    if (ult && (ult.tipo === 'SALIDA_DESAYUNO' || ult.tipo === 'SALIDA_COMIDA')) {
-      const esDes = ult.tipo === 'SALIDA_DESAYUNO';
-      const dur = esDes ? (cfgT.desDur || cfg.duracion_desayuno_min || 20) : (cfgT.comDur || cfg.duracion_comida_min || 60);
-      const aviso = esDes ? (cfg.aviso_desayuno_min_antes || 5) : (cfg.aviso_comida_min_antes || 10);
-      const trans = minAhora - ult.min;
-      const avisoEn = ult.min + dur - aviso;
-      d.push('⏱️ ' + (esDes ? 'Desayuno' : 'Comida') + ' iniciado a las ' + _minAHora(ult.min) +
-             ' · límite ' + dur + ' min (' + _minAHora(ult.min + dur) + ')');
-      d.push('🔔 El aviso se manda a las ' + _minAHora(avisoEn) +
-             (trans >= dur - aviso ? ' — ya debió llegar' : ' — faltan ' + (avisoEn - minAhora) + ' min'));
-    } else if (ult) {
-      d.push('ℹ️ Tu última checada es ' + ult.tipo + ': no hay descanso en curso.');
-    }
-
-    const turnoD = (cfgT.inicioMin != null && cfgT.finMin != null)
-      ? { inicioMin: cfgT.inicioMin, finMin: cfgT.finMin } : _obtenerTurnoServ(emp.idUsuario);
-    if (turnoD) {
-      const tieneEnt = previas.some(function(c) { return c.tipo === 'ENTRADA'; });
-      const tieneSal = previas.some(function(c) { return c.tipo === 'SALIDA'; });
-      d.push('🏠 Tu salida hoy: ' + _minAHora(turnoD.finMin) +
-             ' · entrada registrada: ' + (tieneEnt ? 'sí' : '❌ NO (sin entrada NO hay alertas de salida)') +
-             ' · salida checada: ' + (tieneSal ? 'sí (ya no hay alertas)' : 'no'));
-      if (tieneEnt && !tieneSal) {
-        const avisoSal = (cfg.aviso_salida_min_antes || 5);
-        const marcaAviso = PropertiesService.getScriptProperties()
-          .getProperty('alerta_' + hoy + '|' + _normId(emp.idUsuario) + '|salida_aviso@' + turnoD.finMin);
-        d.push('🔔 Aviso previo (' + _minAHora(turnoD.finMin - avisoSal) + '): ' +
-               (marcaAviso ? 'ya enviado ✅'
-                           : (minAhora < turnoD.finMin - avisoSal ? 'pendiente — llegará a esa hora'
-                                                                  : '⚠️ no enviado y la ventana ya pasó (revisa Ejecuciones)')));
-      }
-    } else {
-      d.push('❌ Sin turno detectado en TURNOS_DEFAULT — sin turno no hay alertas de salida.');
-    }
-    d.push('🕐 Hora del servidor: ' + Utilities.formatDate(ahora, TIMEZONE, 'HH:mm:ss'));
-
-    return { ok: true, lineas: d };
-  } catch (e) {
-    return { ok: false, message: e.message };
-  }
-}
 
 /* ===========================================================================
    DIRECCIÓN CON ACCIÓN
@@ -732,10 +565,10 @@ function diagnosticoAlertas(pin) {
    Arma la dirección que abre la app YA haciendo algo. Es lo que convierte
    una notificación en un botón.
 
-     accion  'DIA' abre la hoja para marcar el día (vacaciones, permiso,
-             incapacidad, festivo). Cualquier otro valor es un tipo de
-             movimiento: SALIDA, REGRESO_DESAYUNO, REGRESO_COMIDA,
-             SALIDA_COMIDA, SALIDA_DESAYUNO.
+     accion  'DECIDIR' abre la hoja de decisión (entrada tarde o no viene).
+             Cualquier otro valor es un tipo de movimiento: ENTRADA, SALIDA,
+             REGRESO_DESAYUNO, REGRESO_COMIDA, SALIDA_COMIDA,
+             SALIDA_DESAYUNO.
      id      el ID del empleado, ya normalizado. La app lo compara contra
              el ID del perfil que trae cargado (normId(a.pin) vs
              normId(YO.id) en checar.html): si no es la misma persona, no

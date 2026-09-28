@@ -3,19 +3,19 @@
 // ============================================================================
 // Objetivo de esta versión: que la app ABRA Y SIRVA SIN INTERNET.
 //
-//   1. Al instalarse guarda las pantallas nuevas (checar, tablero, juegos) y
-//      los íconos. Son archivos chicos: se guardan completos y de inmediato.
+//   1. Al instalarse guarda las dos pantallas (checar y juegos) y los
+//      íconos. Son archivos chicos: se guardan completos y de inmediato.
 //   2. Las navegaciones se sirven del caché PRIMERO (la app abre al instante,
 //      con o sin señal) y en segundo plano se refresca la copia guardada.
-//   3. El respaldo es por página: si se abre tablero.html sin señal contesta
-//      tablero.html, no index.html. Ese era el 404.
+//   3. El respaldo es por página: sin señal contesta la página pedida, y si
+//      no la tiene, la pantalla del empleado (checar.html).
 //   4. Las llamadas al servidor (Apps Script) nunca se cachean.
 //   5. Background Sync: si el celular se queda sin señal con checadas
 //      pendientes, el navegador despierta este archivo cuando vuelve la red
 //      y las manda solo, aunque la app esté cerrada.
 // ============================================================================
 
-var CACHE_NAME = 'em-checador-v754';
+var CACHE_NAME = 'em-checador-v755';
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
 
@@ -36,22 +36,6 @@ var NUCLEO = [
   './logo-electronics.png'
 ];
 
-// El panel viejo y el tablero de checadas, que ya salió de la navegación.
-// Se intentan guardar, pero si fallan no se cae la instalación.
-var EXTRAS = [
-  './index.html',
-  './tablero.html',
-  './Styles.css',
-  './WebApp.js',
-  './api.js',
-  './PushNotifications.js',
-  './Perfil.js',
-  './OfflineQueue.js',
-  './Avatares.js',
-  './ChecadorChoferes.js',
-  './Module.js',
-  './Sidebar.js'
-];
 
 var HOSTS_SIN_CACHE = [
   'script.google.com',
@@ -73,11 +57,6 @@ self.addEventListener('install', function (event) {
       // El núcleo sí debe quedar completo.
       return cache.addAll(NUCLEO).catch(function () {
         return Promise.all(NUCLEO.map(function (u) {
-          return cache.add(u).catch(function () {});
-        }));
-      }).then(function () {
-        // Los extras van aparte y sin bloquear.
-        return Promise.all(EXTRAS.map(function (u) {
           return cache.add(u).catch(function () {});
         }));
       });
@@ -175,7 +154,6 @@ self.addEventListener('fetch', function (event) {
           var nombre = url.pathname.split('/').pop() || 'checar.html';
           return caches.match('./' + nombre, { ignoreSearch: true })
             .then(function (r) { return r || caches.match('./checar.html'); })
-            .then(function (r) { return r || caches.match('./index.html'); })
             .then(function (r) {
               return r || new Response(
                 '<!doctype html><meta charset="utf-8"><title>Sin conexión</title>' +

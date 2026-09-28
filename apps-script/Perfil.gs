@@ -217,40 +217,4 @@ function _contarDispositivos(pin) {
   } catch (e) { return 0; }
 }
 
-function getMisDispositivos(pin, tokenActual) {
-  try {
-    const sheet = crearHojaPushTokens();
-    const data = sheet.getDataRange().getValues();
-    const lista = [];
-    for (let i = 1; i < data.length; i++) {
-      if (_normId(data[i][0]) !== _normId(pin)) continue;
-      const tk = (data[i][3] || '').toString();
-      if (!tk) continue;
-      lista.push({
-        token: tk,
-        dispositivo: (data[i][4] || 'Dispositivo').toString(),
-        registrado: (data[i][5] || '').toString(),
-        esActual: !!(tokenActual && tk === tokenActual)
-      });
-    }
-    return { ok: true, dispositivos: lista };
-  } catch (e) {
-    return { ok: false, message: e.message };
-  }
-}
 
-function desvincularDispositivo(pin, token) {
-  try {
-    const sheet = crearHojaPushTokens();
-    const data = sheet.getDataRange().getValues();
-    for (let i = data.length - 1; i >= 1; i--) {
-      if (_normId(data[i][0]) === _normId(pin) && (data[i][3] || '').toString() === token) {
-        sheet.deleteRow(i + 1);
-        return { ok: true, message: 'Dispositivo desvinculado' };
-      }
-    }
-    return { ok: false, message: 'No se encontró ese dispositivo' };
-  } catch (e) {
-    return { ok: false, message: e.message };
-  }
-}

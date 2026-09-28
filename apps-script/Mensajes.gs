@@ -36,12 +36,6 @@ function _variante_(lista, semilla) {
   return lista[s % lista.length];
 }
 
-/** Hora en formato 08:05 a partir de minutos desde medianoche. */
-function _hora_(totalMin) {
-  var h = Math.floor(totalMin / 60) % 24;
-  var m = totalMin % 60;
-  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
-}
 
 // ============================================================================
 // ENTRADA
@@ -232,7 +226,3 @@ function msgSalidaSinChecar(horaSalida, minutosExtra, semilla) {
 // CONFIRMACIONES (lo que ve al checar, no son push)
 // ============================================================================
 
-function msgVeredictoPuntual()        { return 'Llegaste a tiempo. Bono a salvo.'; }
-function msgVeredictoTolerancia(min)  { return min + ' min de tolerancia usados. El bono sigue a salvo.'; }
-function msgVeredictoSinBono(min)     { return min + ' min tarde: se pierde el bono de hoy. Todavía no cuenta como retardo.'; }
-function msgVeredictoRetardo(min)     { return min + ' min tarde: cuenta como retardo. 3 retardos en la quincena son medio día.'; }

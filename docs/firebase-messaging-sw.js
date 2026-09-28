@@ -269,12 +269,6 @@ self.addEventListener('notificationclick', function (event) {
 
   var acc = (destino.match(/[?&]accion=([^&]+)/) || [])[1] || '';
   var pin = (destino.match(/[?&]pin=([^&]+)/) || [])[1] || '';
-  if (!acc) {
-    // Direcciones viejas, de notificaciones que ya estaban en el celular.
-    var v = (destino.match(/[?&]salidaRemota=([^&]+)/) || [])[1];
-    if (v) { acc = 'SALIDA'; pin = v; }
-    else if (destino.indexOf('diaLibre') !== -1) { acc = 'DECIDIR'; }
-  }
   acc = acc ? decodeURIComponent(acc).toUpperCase() : '';
   pin = pin ? decodeURIComponent(pin) : '';
 

@@ -39,70 +39,28 @@ function doGet(e) {
 // aunque alguien agregue un nombre por error, no hay forma de que se
 // convierta en ejecución de código arbitrario.
 function _funcionesExpuestas() {
+  // Solo lo que de verdad llaman checar.html, juegos.html y el service worker.
   return {
-    // Empleados que aparecen en la app (hoja APP_EMPLEADOS)
-    getEmpleadosApp:          getEmpleadosApp,
-
-    // Login / usuarios
-    getTodosLosUsuarios:      getTodosLosUsuarios,
-    getVersionUsuarios:       getVersionUsuarios,
-    validarPin:               validarPin,
-    validarContrasena:        validarContrasena,
-    guardarContrasena:        guardarContrasena,
-    verificarTieneContrasena: verificarTieneContrasena,
-
-    // Checadas
-    guardarChecadaChofer:     guardarChecadaChofer,
-    checadaSalidaRemota:      checadaSalidaRemota,
-    borrarChecadaPropia:      borrarChecadaPropia,
-
-    // Perfil del empleado
-    getPerfilEmpleado:        getPerfilEmpleado,
-    getHistorialQuincena:     getHistorialQuincena,
-
-    // Configuración
-    getConfigAlertas:         getConfigAlertas,
-    getZonasValidas:          getZonasValidas,
-    getAvatarOverrides:       getAvatarOverrides,
-
-    // Notificaciones push
-    registrarPushToken:       registrarPushToken,
-    eliminarPushToken:        eliminarPushToken,
-    testPushEmpleado:         testPushEmpleado,
-    getMisDispositivos:       getMisDispositivos,
-    desvincularDispositivo:   desvincularDispositivo,
-    podarTokens:              podarTokens,
-
-    // Preferencias de alertas
-    getPrefsAlertas:          getPrefsAlertas,
-    guardarPrefsAlertas:      guardarPrefsAlertas,
-
-    // Excepciones y ausencias
-    guardarExcepcionDia:      guardarExcepcionDia,
-    quitarExcepcionDia:       quitarExcepcionDia,
-    getExcepcionHoy:          getExcepcionHoy,
-    registrarAusencia:        registrarAusencia,
-
-    // Tablero de juegos
-    registrarPartidas:        registrarPartidas,
-    actualizarPosiciones:     actualizarPosiciones,
-    getJuegosTablero:         getJuegosTablero,
-    registrarPartida:         registrarPartida,
-    borrarPartida:            borrarPartida,
-    agregarJuego:             agregarJuego,
-    limpiarTableroJuegos:     limpiarTableroJuegos,
-    reabrirTableroJuegos:     reabrirTableroJuegos,
-
-    // Acuse de recibo de las notificaciones (lo llama el service worker)
-    confirmarEntregaPush:     confirmarEntregaPush,
-
-    // Diagnóstico
-    diagnosticoCompleto:      diagnosticoCompleto,
-    diagnosticoAlertas:       diagnosticoAlertas
-
-    // ⛔ limpiarTodoChecador YA NO se expone. Borraba todas las checadas y
-    // cualquiera con la URL podía llamarla: la URL vive en el repo público.
-    // Sigue existiendo en Mantenimiento.gs y se corre desde el editor.
+    getEmpleadosApp       : getEmpleadosApp,
+    getPerfilEmpleado     : getPerfilEmpleado,
+    getHistorialQuincena  : getHistorialQuincena,
+    getConfigAlertas      : getConfigAlertas,
+    guardarChecadaChofer  : guardarChecadaChofer,
+    borrarChecadaPropia   : borrarChecadaPropia,
+    guardarExcepcionDia   : guardarExcepcionDia,
+    quitarExcepcionDia    : quitarExcepcionDia,
+    getExcepcionHoy       : getExcepcionHoy,
+    registrarPushToken    : registrarPushToken,
+    eliminarPushToken     : eliminarPushToken,
+    testPushEmpleado      : testPushEmpleado,
+    confirmarEntregaPush  : confirmarEntregaPush,
+    getJuegosTablero      : getJuegosTablero,
+    registrarPartidas     : registrarPartidas,
+    actualizarPosiciones  : actualizarPosiciones,
+    borrarPartida         : borrarPartida,
+    agregarJuego          : agregarJuego,
+    limpiarTableroJuegos  : limpiarTableroJuegos,
+    reabrirTableroJuegos  : reabrirTableroJuegos
   };
 }
 

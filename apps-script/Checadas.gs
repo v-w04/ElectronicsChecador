@@ -218,11 +218,6 @@ function guardarChecadaChofer(datos) {
   }
 }
 
-function getZonasValidas() {
-  // El GPS ya no valida nada. Se devuelve lista vacía para que las versiones
-  // viejas del frontend que aún llaman esta función no fallen.
-  return { ok: true, zonas: [] };
-}
 
 // ── DETECCIÓN POR HORA + ESTADO ────────────────────────────────────────────
 // La hora del día manda: checar a las 14:59 (ventana de comida) sin registros
@@ -400,50 +395,6 @@ function _calcularVeredictoServ(tipo, idUsuario, horaServidor, checadasPrevias, 
 // SALIDA REMOTA — desde la notificación ("ando fuera de la oficina")
 // ============================================================================
 
-function checadaSalidaRemota(idUsuario) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    if (!idUsuario) return { ok: false, message: 'ID requerido' };
-    const usuarios = getTodosLosUsuarios();
-    let emp = null;
-    (usuarios.usuarios || []).forEach(function(u) {
-      if (_normId(u.idUsuario) === _normId(idUsuario)) emp = u;
-    });
-    if (!emp) return { ok: false, message: 'Empleado no encontrado' };
-
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('CHECADOR_CHOFERES');
-    if (!sheet) return { ok: false, message: 'Hoja no encontrada' };
-
-    const hoy = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
-    const hora = Utilities.formatDate(new Date(), TIMEZONE, 'HH:mm:ss');
-
-    if (sheet.getLastRow() >= 3) {
-      const data = sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues();
-      for (let i = 0; i < data.length; i++) {
-        if (_normId(data[i][0]) === _normId(idUsuario) &&
-            (data[i][2] || '').toString() === hoy &&
-            (data[i][9] || '').toString().toUpperCase() === 'SALIDA') {
-          return { ok: true, yaExistia: true,
-                   message: 'Tu salida de hoy ya estaba registrada (' +
-                            (data[i][3] || '').toString().substring(0, 5) + ').' };
-        }
-      }
-    }
-
-    const fila = sheet.getLastRow() + 1;
-    sheet.getRange(fila, 1, 1, 10).setValues([[
-      emp.idUsuario, emp.nombre, hoy, hora, new Date().toISOString(),
-      '', '', 'REMOTA', 'REM-' + Date.now(), 'SALIDA'
-    ]]);
-    Logger.log('🏠 Salida remota: ' + emp.nombre + ' ' + hora);
-    return { ok: true, hora: hora.substring(0, 5), nombre: emp.nombre,
-             message: 'Salida registrada a las ' + hora.substring(0, 5) +
-                      ' (remota). Ya no recibirás más avisos hoy.' };
-  } catch (e) {
-    return { ok: false, message: e.message };
-  } finally { lock.releaseLock(); }
-}
 
 /* ===========================================================================
    EL NOMBRE DE LA COLUMNA B

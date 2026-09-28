@@ -172,59 +172,6 @@ function getJuegosTablero(limite) {
 // ESCRITURA
 // ============================================================================
 
-/**
- * Guarda una partida completa.
- *
- * @param {Object} p
- *   p.juego      nombre tal como está en el catálogo
- *   p.nota       texto libre: "torneo", "revancha", lo que sea
- *   p.fecha      'yyyy-MM-dd'; si no viene, hoy
- *   p.jugadores  [{ id, nombre, posicion, puntos }]
- */
-function registrarPartida(p) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    if (!p || !p.juego) return { ok: false, message: 'Falta el juego' };
-    var lista = p.jugadores || [];
-    if (lista.length < 2) return { ok: false, message: 'Una partida necesita al menos 2 jugadores' };
-
-    var sheet = crearHojaPartidas();
-    var ahora = new Date();
-    var fecha = (p.fecha || '').toString().trim() ||
-                Utilities.formatDate(ahora, TIMEZONE, 'yyyy-MM-dd');
-    var hora  = Utilities.formatDate(ahora, TIMEZONE, 'HH:mm');
-    var sello = Utilities.formatDate(ahora, TIMEZONE, 'dd/MM/yyyy HH:mm');
-
-    // El ID amarra las filas de una misma partida. Lleva la hora para que
-    // dos partidas del mismo juego el mismo día no se confundan.
-    var idPartida = 'P' + Utilities.formatDate(ahora, TIMEZONE, 'yyyyMMdd-HHmmss');
-
-    var filas = lista.map(function (j) {
-      return [
-        idPartida, fecha, hora, p.juego, (p.nota || '').toString(),
-        (j.id || '').toString(), (j.nombre || '').toString(),
-        (j.posicion === '' || j.posicion === null || j.posicion === undefined) ? '' : Number(j.posicion),
-        (j.puntos   === '' || j.puntos   === null || j.puntos   === undefined) ? '' : Number(j.puntos),
-        sello
-      ];
-    });
-
-    var fila = sheet.getLastRow() + 1;
-    sheet.getRange(fila, 1, filas.length, 10).setValues(filas);
-    sheet.getRange(fila, 1, filas.length, 3).setNumberFormat('@');
-
-    Logger.log('🎮 Partida ' + idPartida + ' · ' + p.juego + ' · ' + filas.length + ' jugadores');
-    return { ok: true, idPartida: idPartida, jugadores: filas.length,
-             message: 'Partida guardada' };
-
-  } catch (e) {
-    Logger.log('❌ registrarPartida: ' + e.message);
-    return { ok: false, message: e.message };
-  } finally {
-    lock.releaseLock();
-  }
-}
 
 /**
  * VARIAS PARTIDAS DE UN JALON.
@@ -236,7 +183,7 @@ function registrarPartida(p) {
  * Aqui se escribe todo con un solo setValues y un solo candado. Las horas
  * siguen saliendo en orden porque el orden se respeta en el arreglo.
  *
- * @param {Array} lista partidas, cada una como las recibe registrarPartida
+ * @param {Array} lista partidas: { juego, nota, fecha?, jugadores:[{id, nombre, posicion, puntos}] }
  */
 function registrarPartidas(lista) {
   var lock = LockService.getScriptLock();

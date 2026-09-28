@@ -65,12 +65,6 @@ function configurarFirebase() {
     ui.ButtonSet.OK);
 }
 
-function borrarConfigFirebase() {
-  PropertiesService.getScriptProperties().deleteProperty(PROP_FIREBASE_SA);
-  CacheService.getScriptCache().remove('fcm_access_token');
-  Logger.log('🔥 Configuración de Firebase borrada');
-  return { ok: true };
-}
 
 // ============================================================================
 // PUSH_TOKENS — un DISPOSITIVO por FILA

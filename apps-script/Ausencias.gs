@@ -2,16 +2,6 @@
 // AUSENCIAS — vacaciones / enfermedad / evento
 // ============================================================================
 
-function crearHojaAusencias() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName('AUSENCIAS');
-  if (sheet) return sheet;
-  sheet = ss.insertSheet('AUSENCIAS');
-  sheet.getRange(1, 1, 1, 6).setValues([['PIN', 'ID Usuario', 'Nombre', 'Fecha', 'Tipo', 'Registrado']])
-    .setBackground('#3f51b5').setFontColor('#fff').setFontWeight('bold');
-  sheet.setFrozenRows(1);
-  return sheet;
-}
 
 var _AUSENCIA_TIPOS = {
   VACACIONES: { emoji: '🌴', label: 'Vacaciones' },
@@ -19,62 +9,6 @@ var _AUSENCIA_TIPOS = {
   EVENTO:     { emoji: '📅', label: 'Evento' }
 };
 
-function registrarAusencia(pin, tipo) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const usuarios = getTodosLosUsuarios();
-    let emp = null;
-    (usuarios.usuarios || []).forEach(function(u) { if (_normId(u.pin) === _normId(pin)) emp = u; });
-    if (!emp) return { ok: false, message: 'PIN no encontrado' };
-
-    const t = (tipo || '').toString().toUpperCase();
-    if (t && !_AUSENCIA_TIPOS[t]) return { ok: false, message: 'Tipo inválido' };
-
-    const sheet = crearHojaAusencias();
-    const hoy = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
-    const data = sheet.getDataRange().getValues();
-
-    for (let i = data.length - 1; i >= 1; i--) {
-      if (_normId(data[i][0]) === _normId(pin) && (data[i][3] || '').toString() === hoy) {
-        sheet.deleteRow(i + 1);
-      }
-    }
-    if (!t) return { ok: true, tipo: '', message: 'Día normal restablecido' };
-
-    sheet.appendRow([emp.pin, emp.idUsuario, emp.nombre, hoy, t,
-                     Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm')]);
-
-    // Silenciar también las alertas ya marcadas de hoy
-    const props = PropertiesService.getScriptProperties();
-    const all = props.getProperties();
-    for (var k in all) {
-      if (k.indexOf('alerta_' + hoy + '|' + _normId(emp.idUsuario) + '|') === 0) props.deleteProperty(k);
-    }
-    return { ok: true, tipo: t, message: _AUSENCIA_TIPOS[t].label + ' registrado. No recibirás alertas hoy.' };
-  } catch (e) {
-    return { ok: false, message: e.message };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function _ausenciasDe(idUsuario, iniStr, finStr) {
-  const mapa = {};
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AUSENCIAS');
-    if (!sheet || sheet.getLastRow() < 2) return mapa;
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
-    const idN = _normId(idUsuario);
-    data.forEach(function(r) {
-      if (_normId(r[1]) !== idN) return;
-      const f = (r[3] || '').toString();
-      if (iniStr && (f < iniStr || f > finStr)) return;
-      mapa[f] = (r[4] || '').toString().toUpperCase();
-    });
-  } catch (e) {}
-  return mapa;
-}
 
 // ============================================================================
 // EXCEPCIONES DEL DÍA
