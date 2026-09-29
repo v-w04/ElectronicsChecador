@@ -456,6 +456,26 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 }
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===========================================================================
+   ESPERA — pantalla oscura con rueda mientras una ACCIÓN va al servidor.
+   Bloquea los toques al instante; lo oscuro aparece si tarda más de 0.12 s
+   (así no parpadea cuando el servidor contesta rápido).
+   =========================================================================== */
+#espera{position:fixed;inset:0;z-index:75;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;
+  background:rgba(1,4,9,.62);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .15s ease .12s,visibility 0s linear .27s}
+#espera.ver{opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity .15s ease .12s,visibility 0s}
+#espera .rueda{width:66px;height:66px;border-radius:50%;
+  border:6px solid rgba(255,255,255,.25);border-top-color:#fff;
+  animation:espera-gira .8s linear infinite}
+#espera .txt{color:#fff;font-size:21px;font-weight:800;text-align:center;
+  padding:0 24px;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+@keyframes espera-gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#espera .rueda{animation-duration:2s}}
 </style>
 </head>
 <body>
@@ -540,7 +560,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v755</span> · buscar actualización
+      <span id="pie">v756</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -646,7 +666,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v755';
+var VERSION = 'v756';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -756,8 +776,44 @@ function nombreCorto(n) {
   return p.slice(0, 2).join(' ');
 }
 
-function gas(fn, args) {
-  return fetch(GAS_URL, {
+/* ===========================================================================
+   ESPERA — la pantalla se oscurece mientras una ACCIÓN va al servidor
+   ===========================================================================
+   Sin esto, al tocar un botón parecía que no pasaba nada 2–3 segundos y la
+   gente le volvía a picar, o picaba otro botón. Mientras dura, no se puede
+   tocar nada. Solo la usan las acciones que dispara la persona (checar,
+   borrar, marcar el día, guardar partidas…): las lecturas y la cola de
+   checadas sin señal van por detrás sin congelar la pantalla. Tope de 15 s
+   por si la red se queda colgada: nunca se queda congelada para siempre.
+   =========================================================================== */
+var _espera = { n: 0, el: null, tope: null };
+function esperaInicio(txt) {
+  if (!_espera.el) {
+    _espera.el = document.createElement('div');
+    _espera.el.id = 'espera';
+    _espera.el.setAttribute('role', 'status');
+    _espera.el.setAttribute('aria-live', 'polite');
+    _espera.el.innerHTML = '<div class="rueda"></div><div class="txt"></div>';
+    document.body.appendChild(_espera.el);
+  }
+  _espera.n++;
+  _espera.el.querySelector('.txt').textContent = txt || 'Un momento…';
+  _espera.el.classList.add('ver');
+  clearTimeout(_espera.tope);
+  _espera.tope = setTimeout(function () { _espera.n = 0; esperaFin(); }, 15000);
+}
+function esperaFin() {
+  _espera.n = Math.max(0, _espera.n - 1);
+  if (_espera.n > 0 || !_espera.el) return;
+  clearTimeout(_espera.tope);
+  _espera.el.classList.remove('ver');
+}
+
+/** Llama al servidor. Si se le pasa `espera` (el texto a mostrar), la
+ *  pantalla se oscurece y se bloquea hasta que conteste. */
+function gas(fn, args, espera) {
+  if (espera) esperaInicio(espera);
+  var p = fetch(GAS_URL, {
     method:'POST',
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({ fn: fn, args: args || [] }),
@@ -765,6 +821,8 @@ function gas(fn, args) {
   }).then(function(r){ return r.text(); }).then(function(t){
     try { return JSON.parse(t); } catch (e) { throw new Error('Respuesta inválida del servidor'); }
   });
+  if (espera) p.then(esperaFin, esperaFin);
+  return p;
 }
 
 var elAviso = document.getElementById('aviso');
@@ -1581,7 +1639,7 @@ function borrarChecada(c) {
 
   fondoCorregir.classList.remove('ver');
   aviso('Borrando…', '', 0);
-  gas('borrarChecadaPropia', [YO.pin, c.hora, c.tipo]).then(function (r) {
+  gas('borrarChecadaPropia', [YO.pin, c.hora, c.tipo], 'Borrando…').then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     HOY.checadas = HOY.checadas.filter(function (x) {
       return !(x.tipo === c.tipo && hhmm(x.hora) === hhmm(c.hora));
@@ -1646,7 +1704,7 @@ function marcarDia(t) {
   if (navigator.onLine === false) { aviso('Necesitas señal para marcar el día.', 'warn', 4000); return; }
   fondoDia.classList.remove('ver');
   aviso('Registrando…', '', 0);
-  gas('guardarExcepcionDia', [YO.pin, t.tipo]).then(function(r){
+  gas('guardarExcepcionDia', [YO.pin, t.tipo], 'Guardando…').then(function(r){
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     EXC = { fecha: hoyStr(), tipo: t.tipo, global: t.tipo === 'FESTIVO' };
     ls(LS_EXC, EXC);
@@ -1660,7 +1718,7 @@ function marcarDia(t) {
 function quitarDia() {
   if (navigator.onLine === false) { aviso('Necesitas señal para quitar la marca.', 'warn', 4000); return; }
   fondoDia.classList.remove('ver');
-  gas('quitarExcepcionDia', [YO.pin]).then(function(r){
+  gas('quitarExcepcionDia', [YO.pin], 'Quitando…').then(function(r){
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     EXC = { fecha: hoyStr(), tipo:'', global:false };
     ls(LS_EXC, EXC);
@@ -1996,7 +2054,7 @@ function registrar(mov) {
   }
 
   aviso('Registrando…', '', 0);
-  gas('guardarChecadaChofer', [datos]).then(function(r){
+  gas('guardarChecadaChofer', [datos], 'Registrando tu ' + mov.nom.toLowerCase() + '…').then(function(r){
     if (!r || r.error) throw new Error((r && r.message) || 'el servidor no la aceptó');
 
     if (r.noRegistrada) {

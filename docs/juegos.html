@@ -557,6 +557,26 @@ h1{font-size:32px;letter-spacing:-.03em}
   #lug-cuenta{font-size:20px}
   .acciones .btn{min-height:78px;font-size:24px}
 }
+
+/* ===========================================================================
+   ESPERA — pantalla oscura con rueda mientras una ACCIÓN va al servidor.
+   Bloquea los toques al instante; lo oscuro aparece si tarda más de 0.12 s
+   (así no parpadea cuando el servidor contesta rápido).
+   =========================================================================== */
+#espera{position:fixed;inset:0;z-index:75;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;
+  background:rgba(1,4,9,.62);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .15s ease .12s,visibility 0s linear .27s}
+#espera.ver{opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity .15s ease .12s,visibility 0s}
+#espera .rueda{width:66px;height:66px;border-radius:50%;
+  border:6px solid rgba(255,255,255,.25);border-top-color:#fff;
+  animation:espera-gira .8s linear infinite}
+#espera .txt{color:#fff;font-size:21px;font-weight:800;text-align:center;
+  padding:0 24px;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+@keyframes espera-gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#espera .rueda{animation-duration:2s}}
 </style>
 </head>
 <body>
@@ -707,8 +727,44 @@ var COLORES = ['#e4002b','#0a7cff','#0f9d58','#7b3fe4','#e8a800','#00b3a4','#ff6
    text/plain a propósito: con application/json el navegador manda una
    petición previa que Apps Script no contesta.
    =========================================================================== */
-function gas(fn, args) {
-  return fetch(GAS_URL, {
+/* ===========================================================================
+   ESPERA — la pantalla se oscurece mientras una ACCIÓN va al servidor
+   ===========================================================================
+   Sin esto, al tocar un botón parecía que no pasaba nada 2–3 segundos y la
+   gente le volvía a picar, o picaba otro botón. Mientras dura, no se puede
+   tocar nada. Solo la usan las acciones que dispara la persona (checar,
+   borrar, marcar el día, guardar partidas…): las lecturas y la cola de
+   checadas sin señal van por detrás sin congelar la pantalla. Tope de 15 s
+   por si la red se queda colgada: nunca se queda congelada para siempre.
+   =========================================================================== */
+var _espera = { n: 0, el: null, tope: null };
+function esperaInicio(txt) {
+  if (!_espera.el) {
+    _espera.el = document.createElement('div');
+    _espera.el.id = 'espera';
+    _espera.el.setAttribute('role', 'status');
+    _espera.el.setAttribute('aria-live', 'polite');
+    _espera.el.innerHTML = '<div class="rueda"></div><div class="txt"></div>';
+    document.body.appendChild(_espera.el);
+  }
+  _espera.n++;
+  _espera.el.querySelector('.txt').textContent = txt || 'Un momento…';
+  _espera.el.classList.add('ver');
+  clearTimeout(_espera.tope);
+  _espera.tope = setTimeout(function () { _espera.n = 0; esperaFin(); }, 15000);
+}
+function esperaFin() {
+  _espera.n = Math.max(0, _espera.n - 1);
+  if (_espera.n > 0 || !_espera.el) return;
+  clearTimeout(_espera.tope);
+  _espera.el.classList.remove('ver');
+}
+
+/** Llama al servidor. Si se le pasa `espera` (el texto a mostrar), la
+ *  pantalla se oscurece y se bloquea hasta que conteste. */
+function gas(fn, args, espera) {
+  if (espera) esperaInicio(espera);
+  var p = fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ fn: fn, args: args || [] }),
@@ -719,6 +775,8 @@ function gas(fn, args) {
     try { return JSON.parse(t); }
     catch (e) { throw new Error('Respuesta rara del servidor: ' + t.slice(0, 120)); }
   });
+  if (espera) p.then(esperaFin, esperaFin);
+  return p;
 }
 
 /* ===========================================================================
@@ -1001,7 +1059,7 @@ function nuevoJuego() {
   if (!nombre) return;
   var icono = prompt('Un emoji para su caja (Enter para 🎮)') || '🎮';
   aviso('Agregando ' + nombre + '…', '', 0);
-  gas('agregarJuego', [nombre, icono, 'POSICION'])
+  gas('agregarJuego', [nombre, icono, 'POSICION'], 'Agregando juego…')
     .then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
       aviso('✓ ' + r.message, 'ok');
@@ -1245,7 +1303,7 @@ function borrar(par) {
                ' ' + (par.hora || '') + '\n' + quienes + '\n\nNo se puede deshacer.')) return;
 
   aviso('Borrando…', '', 0);
-  gas('borrarPartida', [par.id]).then(function (r) {
+  gas('borrarPartida', [par.id], 'Borrando partida…').then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     PARTIDAS = PARTIDAS.filter(function (p) { return p.id !== par.id; });
     pintarTodo();
@@ -1334,7 +1392,7 @@ document.getElementById('btn-limpiar').onclick = function () {
   var btn = this;
   if (corteDeHoy()) {
     btn.disabled = true;
-    gas('reabrirTableroJuegos', []).then(function (r) {
+    gas('reabrirTableroJuegos', [], 'Recuperando…').then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
       tableroDesde = '';
       pintarTodo();
@@ -1346,7 +1404,7 @@ document.getElementById('btn-limpiar').onclick = function () {
   }
 
   btn.disabled = true;
-  gas('limpiarTableroJuegos', []).then(function (r) {
+  gas('limpiarTableroJuegos', [], 'Limpiando tablero…').then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     tableroDesde = r.tableroDesde || '';
     periodo = 'hoy';
@@ -1594,7 +1652,7 @@ document.getElementById('lug-guardar').onclick = function () {
     return { id: j.idJugador, posicion: lugarDe[j.idJugador] || '' };
   });
 
-  gas('actualizarPosiciones', [par.id, lista]).then(function (r) {
+  gas('actualizarPosiciones', [par.id, lista], 'Guardando lugares…').then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     // Se refleja en memoria para no volver a bajar todo el historico.
     PARTIDAS.forEach(function (f) {
@@ -1657,7 +1715,7 @@ document.getElementById('m-guardar').onclick = function () {
   // Eso era lo que hacia que guardar se sintiera eterno. El orden se respeta
   // igual, porque va en el arreglo.
   var guardadas = 0;
-  gas('registrarPartidas', [sesion])
+  gas('registrarPartidas', [sesion], 'Guardando partida…')
   .then(function (r) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'el servidor la rechazó');
     guardadas = r.partidas || sesion.length;
@@ -1772,7 +1830,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v755');
+Actualizar.iniciar('v756');
 </script>
 </body>
 </html>
