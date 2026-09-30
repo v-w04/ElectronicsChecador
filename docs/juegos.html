@@ -86,11 +86,13 @@ button{font-family:inherit}
   width:max-content;max-width:min(420px,calc(100vw - 32px));
   z-index:70;border-radius:14px;padding:12px 16px;font-size:13.5px;
   line-height:1.45;white-space:pre-line;text-align:center;pointer-events:none;
+  touch-action:manipulation;
   border:1px solid #d7dce3;background:#ffffff;color:#1f2933;
   box-shadow:0 12px 34px rgba(0,0,0,.18);
   opacity:0;visibility:hidden;
   transition:opacity .18s ease,transform .18s ease,visibility .18s}
-#aviso.ver{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+#aviso.ver{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);
+  pointer-events:auto;cursor:pointer}
 @media (prefers-reduced-motion:reduce){#aviso{transition:none}}
 #aviso.ok{background:#e9f7ee;border-color:#bfe6cd;color:#0b6b3a}
 #aviso.err{background:#fdecef;border-color:#f7c3cd;color:#9b0020}
@@ -883,11 +885,21 @@ function aviso(t, clase, ms) {
     return;
   }
   if (ms === undefined) ms = (clase === 'err') ? 6000 : 4000;
-  _avisoTimer = setTimeout(quitarAviso, Math.min(ms, 10000));
+  // Tope corto: estorbaba tener un aviso encima varios segundos.
+  var tope = (clase === 'err' || clase === 'warn') ? 6000 : 4000;
+  _avisoTimer = setTimeout(quitarAviso, Math.min(ms, tope));
 }
 
 /** Quita el aviso ya. Se queda por las llamadas que ya existian. */
 function quitarAviso() { clearTimeout(_avisoTimer); elAviso.className = ''; }
+
+/* Tocarlo lo quita. Antes era `pointer-events:none` siempre: los toques lo
+   atravesaban, así que si tapaba algo no había forma de quitarlo y solo
+   quedaba esperar. Solo acepta toques mientras se ve. */
+function quitarAvisoAlTocar(e) { if (e) e.preventDefault(); quitarAviso(); }
+elAviso.addEventListener('pointerdown', quitarAvisoAlTocar);
+elAviso.addEventListener('click', quitarAvisoAlTocar);
+
 
 
 /* ===========================================================================
@@ -1830,7 +1842,7 @@ cargar();
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function(){});
-Actualizar.iniciar('v756');
+Actualizar.iniciar('v757');
 </script>
 </body>
 </html>
