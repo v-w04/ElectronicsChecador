@@ -13,7 +13,7 @@ function doGet(e) {
       info.checadorChoferes = { filasDeDatos: filas };
       if (filas > 0) {
         var hoy = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
-        var data = sheet.getRange(3, 1, filas, 10).getValues();
+        var data = _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS);
         var deHoy = data.filter(function(r) { return (r[2] || '').toString() === hoy; });
         info.checadorChoferes.checadasHoy = deHoy.length;
         info.checadorChoferes.ultimasHoy = deHoy.slice(-5).map(function(r) {

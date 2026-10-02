@@ -92,7 +92,7 @@ function getJuegosTablero(limite) {
     // ── Catálogo ──────────────────────────────────────────────────────────
     var juegos = [];
     if (cat.getLastRow() > 1) {
-      cat.getRange(2, 1, cat.getLastRow() - 1, 4).getValues().forEach(function (r) {
+      _leerOrdenado_(cat, 1, 2, ENC_JUEGOS_CAT).forEach(function (r) {
         var nombre = (r[0] || '').toString().trim();
         if (!nombre) return;
         var activo = (r[3] || 'SÍ').toString().trim().toUpperCase();
@@ -122,7 +122,7 @@ function getJuegosTablero(limite) {
     try {
       var hojaEmp = crearHojaAppEmpleados();
       if (hojaEmp.getLastRow() > 1) {
-        hojaEmp.getRange(2, 1, hojaEmp.getLastRow() - 1, 5).getValues().forEach(function (r) {
+        _leerOrdenado_(hojaEmp, 1, 2, ENC_APP_EMPLEADOS).forEach(function (r) {
           var marca = (r[3] || '').toString().trim().toUpperCase();
           if (marca !== 'SÍ' && marca !== 'SI') return;
           var id = _normId(r[0]);
@@ -142,7 +142,7 @@ function getJuegosTablero(limite) {
       var total = ultima - 1;
       var tope = (limite && limite > 0 && limite < total) ? limite : total;
       var desde = ultima - tope + 1;
-      par.getRange(desde, 1, tope, 10).getValues().forEach(function (r) {
+      _leerOrdenado_(par, 1, desde, ENC_JUEGOS_PAR).forEach(function (r) {
         if (!r[0]) return;
         partidas.push({
           id:       (r[0] || '').toString(),
@@ -277,9 +277,10 @@ function actualizarPosiciones(idPartida, lugares) {
     // Se leen las columnas 1 (ID Partida) y 6 (ID Jugador) de un jalon, y se
     // escribe solo la 8. Nada de una llamada por fila.
     var n = sheet.getLastRow() - 1;
-    var ids   = sheet.getRange(2, 1, n, 1).getValues();
-    var quien = sheet.getRange(2, 6, n, 1).getValues();
-    var pos   = sheet.getRange(2, 8, n, 1).getValues();
+    var ixP   = _colsPorNombre_(sheet, 1, ENC_JUEGOS_PAR).idx;
+    var ids   = sheet.getRange(2, ixP[0] + 1, n, 1).getValues();
+    var quien = sheet.getRange(2, ixP[5] + 1, n, 1).getValues();
+    var pos   = sheet.getRange(2, ixP[7] + 1, n, 1).getValues();
 
     var tocadas = 0;
     for (var i = 0; i < n; i++) {
@@ -291,7 +292,7 @@ function actualizarPosiciones(idPartida, lugares) {
     }
     if (!tocadas) return { ok: false, message: 'Esa partida ya no existe' };
 
-    sheet.getRange(2, 8, n, 1).setValues(pos);
+    sheet.getRange(2, ixP[7] + 1, n, 1).setValues(pos);
     Logger.log('\ud83c\udfc1 Lugares de ' + idPartida + ': ' + tocadas + ' filas');
     return { ok: true, filas: tocadas, message: 'Lugares guardados' };
 
@@ -311,7 +312,7 @@ function borrarPartida(idPartida) {
     var sheet = crearHojaPartidas();
     if (sheet.getLastRow() < 2) return { ok: true, borradas: 0 };
 
-    var datos = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    var datos = _leerOrdenado_(sheet, 1, 2, ENC_JUEGOS_PAR);
     var borradas = 0;
     // De abajo hacia arriba: borrar filas de arriba recorre las de abajo.
     for (var i = datos.length - 1; i >= 0; i--) {
@@ -336,7 +337,7 @@ function agregarJuego(nombre, icono, modo) {
 
     var sheet = crearHojaJuegos();
     var existentes = sheet.getLastRow() > 1
-      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().map(function (r) {
+      ? _leerOrdenado_(sheet, 1, 2, ENC_JUEGOS_CAT).map(function (r) {
           return (r[0] || '').toString().trim().toLowerCase();
         })
       : [];

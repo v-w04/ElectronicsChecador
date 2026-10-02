@@ -15,7 +15,7 @@ function getTodosLosUsuarios() {
     // ── 1. Mapa PIN → contraseña ──────────────────────────────────────────
     const mapaContrasenas = {};
     if (sheetContrasenas && sheetContrasenas.getLastRow() >= 3) {
-      const dataC = sheetContrasenas.getRange(3, 1, sheetContrasenas.getLastRow() - 2, 3).getValues();
+      const dataC = _leerOrdenado_(sheetContrasenas, 2, 3, ['PIN', 'Nombre', 'Contraseña']);
       dataC.forEach(row => {
         const pin = (row[0] || '').toString().trim();
         const cont = (row[2] || '').toString().trim();
@@ -48,7 +48,7 @@ function getTodosLosUsuarios() {
     // ── 3. Leer USUARIOS y armar el listado final ────────────────────────
     const usuarios = [];
     if (sheetUsuarios && sheetUsuarios.getLastRow() >= 2) {
-      const dataU = sheetUsuarios.getRange(2, 1, sheetUsuarios.getLastRow() - 1, 2).getValues();
+      const dataU = _leerOrdenado_(sheetUsuarios, 2, 3, ENC_USUARIOS);
       dataU.forEach(row => {
         const pin = (row[0] || '').toString().trim();
         const idUsuario = (row[1] || '').toString().trim();

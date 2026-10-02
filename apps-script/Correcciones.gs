@@ -66,7 +66,7 @@ function borrarChecadaPropia(pin, hora, tipo) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('CHECADOR_CHOFERES');
     if (!sheet || sheet.getLastRow() < 3) return { ok: false, message: 'No hay checadas' };
 
-    var datos = sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues();
+    var datos = _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS);
 
     // De abajo hacia arriba: se borra la más reciente que coincida y se
     // evita que los índices se recorran a media pasada.

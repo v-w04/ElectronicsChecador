@@ -16,6 +16,7 @@ function onOpen() {
     .addItem('Entregas de hoy', 'menuEntregasHoy')
     .addItem('Limpiar aparatos que ya nadie usa', 'menuPodarTokens')
     .addItem('Diagnóstico', 'menuDiagnostico')
+    .addItem('Revisar fórmulas', 'menuRevisarFormulas')
     .addSeparator()
     .addItem('Configurar Firebase', 'configurarFirebase')
     .addItem('Verificar Firebase', 'menuVerificarFirebase')
@@ -107,4 +108,10 @@ function menuEmpleadosApp() {
 function menuPodarTokens() {
   var r = podarTokens();
   _aviso_(r.ok ? '🧹 Aparatos' : '❌ No se pudo', r.message);
+}
+
+/** Lista las fórmulas que se romperían si se mueve una columna. */
+function menuRevisarFormulas() {
+  var r = revisarFormulas();
+  _aviso_(r.enRiesgo ? '⚠️ Fórmulas con columna fija' : '✅ Fórmulas', r.message);
 }

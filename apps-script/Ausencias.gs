@@ -39,7 +39,7 @@ function _leerExcepciones() {
   try {
     const sheet = crearHojaExcepciones();
     if (sheet.getLastRow() < 2) return mapa;
-    sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues().forEach(function(r) {
+    _leerOrdenado_(sheet, 1, 2, ENC_EXCEPCIONES).forEach(function(r) {
       const f = (r[0] instanceof Date)
         ? Utilities.formatDate(r[0], TIMEZONE, 'yyyy-MM-dd')
         : (r[0] || '').toString().trim();
@@ -71,12 +71,13 @@ function guardarExcepcionDia(pin, tipo) {
     const clavePin = (tipo === 'FESTIVO') ? 'TODOS' : emp.pin.toString();
     const sheet = crearHojaExcepciones();
     const data = sheet.getDataRange().getValues();
+    const ixE = _colsPorNombre_(sheet, 1, ENC_EXCEPCIONES).idx;
 
     for (let i = data.length - 1; i >= 1; i--) {
-      const f = (data[i][0] instanceof Date)
-        ? Utilities.formatDate(data[i][0], TIMEZONE, 'yyyy-MM-dd')
-        : (data[i][0] || '').toString().trim();
-      const p = (data[i][1] || '').toString().trim().toUpperCase();
+      const f = (data[i][ixE[0]] instanceof Date)
+        ? Utilities.formatDate(data[i][ixE[0]], TIMEZONE, 'yyyy-MM-dd')
+        : (data[i][ixE[0]] || '').toString().trim();
+      const p = (data[i][ixE[1]] || '').toString().trim().toUpperCase();
       const mismaPersona = (clavePin === 'TODOS') ? (p === 'TODOS') : (_normId(p) === _normId(clavePin));
       if (f === hoy && mismaPersona) sheet.deleteRow(i + 1);
     }
@@ -96,12 +97,13 @@ function quitarExcepcionDia(pin) {
     const hoy = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
     const sheet = crearHojaExcepciones();
     const data = sheet.getDataRange().getValues();
+    const ixE = _colsPorNombre_(sheet, 1, ENC_EXCEPCIONES).idx;
     let n = 0;
     for (let i = data.length - 1; i >= 1; i--) {
-      const f = (data[i][0] instanceof Date)
-        ? Utilities.formatDate(data[i][0], TIMEZONE, 'yyyy-MM-dd')
-        : (data[i][0] || '').toString().trim();
-      const p = (data[i][1] || '').toString().trim().toUpperCase();
+      const f = (data[i][ixE[0]] instanceof Date)
+        ? Utilities.formatDate(data[i][ixE[0]], TIMEZONE, 'yyyy-MM-dd')
+        : (data[i][ixE[0]] || '').toString().trim();
+      const p = (data[i][ixE[1]] || '').toString().trim().toUpperCase();
       // OJO: el renglon 'TODOS' es el dia festivo de TODA la empresa. Antes
       // entraba en este if, asi que cualquiera que quitara SU excepcion
       // borraba el festivo de los 40 y les revolvia las alertas.

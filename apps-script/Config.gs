@@ -43,7 +43,7 @@
 
 const TIMEZONE = 'America/Mexico_City';
 
-const BACKEND_VERSION = 'v700';  // ← debe coincidir con el frontend desplegado
+const BACKEND_VERSION = 'v758';  // ← súbelo junto con la versión del frontend
 
 // Ventana en que el motor de alertas tiene algo que hacer. Fuera de aquí
 // no hay turnos activos, así que revisar cuesta y no sirve.
@@ -215,3 +215,123 @@ function _turnoTrabajaHoy_(cfg, fecha) {
            : ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
   return dias.indexOf(dia) !== -1;
 }
+
+/* ===========================================================================
+   COLUMNAS POR NOMBRE — que mover una columna no rompa nada
+   ===========================================================================
+   El problema: casi todo el código lee las filas por POSICIÓN (r[0] es el ID,
+   r[2] la fecha…). Si alguien inserta, borra o reordena una columna en el
+   Sheet —o una importación lo hace sola— todo se recorre y la app empieza a
+   leer basura, sin un solo error en el log.
+
+   La solución, sin tocar los cientos de r[0]/r[2] repartidos por el código:
+   aquí se lee la fila de encabezados, se ubica cada columna POR SU NOMBRE y
+   se devuelven las filas YA ACOMODADAS en el orden de siempre. Para el resto
+   del código nada cambió; para el Sheet, las columnas pueden andar donde
+   quieran.
+
+   Si un encabezado no aparece (lo renombraron o lo borraron), se cae a la
+   posición de toda la vida y se deja dicho en el log — nunca en silencio,
+   que fue justo lo que tumbó la app el 24-sep con "Admin" en blanco.
+   =========================================================================== */
+
+/** Normaliza un encabezado para comparar: sin acentos, sin dobles espacios. */
+function _normEnc_(v) {
+  return (v === null || v === undefined ? '' : v).toString()
+    .trim().toLowerCase()
+    .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i')
+    .replace(/ó/g, 'o').replace(/ú/g, 'u')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Dónde está cada columna, buscándola por nombre.
+ * @param {Sheet}    sheet
+ * @param {number}   filaEnc      fila donde viven los encabezados (1 o 2)
+ * @param {string[]} encabezados  nombres en el ORDEN CANÓNICO que espera el código
+ * @return {{idx:number[], identidad:boolean, faltan:string[]}}
+ */
+function _colsPorNombre_(sheet, filaEnc, encabezados) {
+  var idx = [], faltan = [], identidad = true;
+  var fila = [];
+  try {
+    var ancho = Math.max(sheet.getLastColumn(), encabezados.length);
+    fila = sheet.getRange(filaEnc, 1, 1, ancho).getValues()[0].map(_normEnc_);
+  } catch (e) { fila = []; }
+
+  for (var i = 0; i < encabezados.length; i++) {
+    var donde = fila.indexOf(_normEnc_(encabezados[i]));
+    if (donde === -1) { donde = i; faltan.push(encabezados[i]); }   // respaldo: la de siempre
+    idx.push(donde);
+    if (donde !== i) identidad = false;
+  }
+  if (faltan.length) {
+    Logger.log('⚠️ ' + sheet.getName() + ': no encontre el encabezado ' +
+               faltan.join(', ') + ' en la fila ' + filaEnc +
+               '. Uso la posicion de siempre. Revisa esa fila.');
+  }
+  return { idx: idx, identidad: identidad, faltan: faltan };
+}
+
+/**
+ * Lee la hoja y devuelve las filas SIEMPRE en el orden canónico de columnas,
+ * esté donde esté cada una en el Sheet.
+ * @param {Sheet}    sheet
+ * @param {number}   filaEnc     fila de los encabezados
+ * @param {number}   filaInicio  primera fila de datos
+ * @param {string[]} encabezados orden canónico
+ * @return {Array[]} filas acomodadas (vacío si no hay datos)
+ */
+function _leerOrdenado_(sheet, filaEnc, filaInicio, encabezados) {
+  if (!sheet) return [];
+  var ultima = sheet.getLastRow();
+  if (ultima < filaInicio) return [];
+
+  var c = _colsPorNombre_(sheet, filaEnc, encabezados);
+  var ancho = Math.max(sheet.getLastColumn(), encabezados.length);
+  var crudo = sheet.getRange(filaInicio, 1, ultima - filaInicio + 1, ancho).getValues();
+
+  // Si las columnas están justo donde siempre, no hay nada que acomodar.
+  if (c.identidad) {
+    return (ancho === encabezados.length)
+      ? crudo
+      : crudo.map(function (r) { return r.slice(0, encabezados.length); });
+  }
+  return crudo.map(function (r) {
+    var out = [];
+    for (var i = 0; i < c.idx.length; i++) out.push(r[c.idx[i]]);
+    return out;
+  });
+}
+
+/**
+ * Acomoda una fila del orden canónico al orden REAL de la hoja, para escribir.
+ * Devuelve { fila: valores listos para setValues, ancho: cuántas columnas }.
+ */
+function _filaParaHoja_(sheet, filaEnc, encabezados, valores) {
+  var c = _colsPorNombre_(sheet, filaEnc, encabezados);
+  if (c.identidad) return { fila: valores.slice(), ancho: encabezados.length };
+  var ancho = 0;
+  for (var i = 0; i < c.idx.length; i++) ancho = Math.max(ancho, c.idx[i] + 1);
+  var out = new Array(ancho);
+  for (var j = 0; j < ancho; j++) out[j] = '';
+  for (var k = 0; k < c.idx.length; k++) out[c.idx[k]] = valores[k];
+  return { fila: out, ancho: ancho };
+}
+
+/* --- Los encabezados canónicos de cada hoja, en un solo lugar ------------- */
+var ENC_CHECADAS = ['ID Usuario', 'Nombre', 'Fecha', 'Hora', 'Timestamp Completo',
+                    'Latitud', 'Longitud', 'Estado Zona', 'UUID Cliente', 'Tipo Checada'];
+var ENC_APP_EMPLEADOS = ['ID', 'Empleado', 'Turno', 'En la app', 'Área'];
+var ENC_USUARIOS      = ['PIN', 'ID Usuario'];
+var ENC_EXCEPCIONES   = ['Fecha', 'PIN', 'ID Usuario', 'Nombre', 'Tipo', 'Registrado'];
+var ENC_AUSENCIAS     = ['PIN', 'ID Usuario', 'Nombre', 'Fecha', 'Tipo', 'Registrado'];
+var ENC_PUSH_TOKENS   = ['PIN', 'ID Usuario', 'Nombre', 'Token', 'Dispositivo',
+                         'Registrado', 'Último uso'];
+var ENC_JUEGOS_CAT    = ['Juego', 'Icono', 'Modo', 'Activo'];
+var ENC_JUEGOS_PAR    = ['ID Partida', 'Fecha', 'Hora', 'Juego', 'Nota',
+                         'ID Jugador', 'Jugador', 'Posición', 'Puntos', 'Registrado'];
+var ENC_PREFS_ALERTAS = ['PIN', 'ID Usuario', 'Nombre', 'Entrada', 'Desayuno', 'Comida',
+                         'Comida no tomada', 'Salida', 'Actualizado'];
+var ENC_PUSH_LOG      = ['ID Envío', 'Fecha', 'Hora', 'ID Usuario', 'Empleado', 'Alerta',
+                         'Título', 'Código FCM', 'Detalle', 'Entregada', 'Hora entrega', 'Token'];

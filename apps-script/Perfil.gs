@@ -23,7 +23,7 @@ function getPerfilEmpleado(pin) {
     const historial = {};
 
     if (sheet && sheet.getLastRow() >= 3) {
-      const data = sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues();
+      const data = _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS);
       const idEmpleado = (empleado.idUsuario || '').toString();
 
       data.forEach(function(row) {
@@ -94,7 +94,7 @@ function _analisisEntradaQuincena(idUsuario, cfg, fechaHoyStr) {
     const tol = cfg.tolerancia || 15;
     const idN = _normId(idUsuario);
 
-    sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues().forEach(function(row) {
+    _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS).forEach(function(row) {
       if (_normId(row[0]) !== idN) return;
       if ((row[9] || '').toString().trim().toUpperCase() !== 'ENTRADA') return;
       const f = (row[2] || '').toString();
@@ -154,7 +154,7 @@ function getHistorialQuincena(pin, offset) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('CHECADOR_CHOFERES');
     if (sheet && sheet.getLastRow() >= 3) {
       const idN = _normId(emp.idUsuario);
-      sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues().forEach(function(r) {
+      _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS).forEach(function(r) {
         if (_normId(r[0]) !== idN) return;
         const f = (r[2] || '').toString();
         if (f < iniStr || f > finStr) return;
@@ -209,9 +209,10 @@ function _contarDispositivos(pin) {
   try {
     const sheet = crearHojaPushTokens();
     const data = sheet.getDataRange().getValues();
+    const ixT = _colsPorNombre_(sheet, 1, ENC_PUSH_TOKENS).idx;
     let n = 0;
     for (let i = 1; i < data.length; i++) {
-      if (_normId(data[i][0]) === _normId(pin) && (data[i][3] || '')) n++;
+      if (_normId(data[i][ixT[0]]) === _normId(pin) && (data[i][ixT[3]] || '')) n++;
     }
     return n;
   } catch (e) { return 0; }

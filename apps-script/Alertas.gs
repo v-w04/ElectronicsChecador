@@ -166,7 +166,7 @@ function revisarAlertas() {
     if (!sheet || sheet.getLastRow() < 3) return;
 
     // ── Checadas de HOY agrupadas por empleado ────────────────────────────
-    var data = sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues();
+    var data = _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS);
     var porUsuario = {};
     data.forEach(function (r) {
       if ((r[2] || '').toString() !== hoy) return;
@@ -183,10 +183,11 @@ function revisarAlertas() {
     // ── Dispositivos por empleado ─────────────────────────────────────────
     var sheetTokens = crearHojaPushTokens();
     var tokensData = sheetTokens.getDataRange().getValues();
+    var ixTok = _colsPorNombre_(sheetTokens, 1, ENC_PUSH_TOKENS).idx;
     var tokensPorId = {};
     for (var i = 1; i < tokensData.length; i++) {
-      var idT = _normId(tokensData[i][1]);
-      var tk = (tokensData[i][3] || '').toString();
+      var idT = _normId(tokensData[i][ixTok[1]]);
+      var tk = (tokensData[i][ixTok[3]] || '').toString();
       if (!idT || !tk) continue;
       if (!tokensPorId[idT]) tokensPorId[idT] = [];
       if (tokensPorId[idT].indexOf(tk) === -1) tokensPorId[idT].push(tk);
@@ -211,14 +212,15 @@ function revisarAlertas() {
     // ── Preferencias ──────────────────────────────────────────────────────
     var sheetPrefs = crearHojaPrefsAlertas();
     var prefsData = sheetPrefs.getDataRange().getValues();
+    var ixPref = _colsPorNombre_(sheetPrefs, 1, ENC_PREFS_ALERTAS).idx;
     var prefsPorId = {};
     for (var k = 1; k < prefsData.length; k++) {
-      prefsPorId[_normId(prefsData[k][1])] = {
-        entrada:        (prefsData[k][3] || 'SI').toString(),
-        desayuno:       (prefsData[k][4] || 'SI').toString(),
-        comida:         (prefsData[k][5] || 'SI').toString(),
-        comida_nohecha: (prefsData[k][6] || 'SI').toString(),
-        salida:         (prefsData[k][7] || 'SI').toString()
+      prefsPorId[_normId(prefsData[k][ixPref[1]])] = {
+        entrada:        (prefsData[k][ixPref[3]] || 'SI').toString(),
+        desayuno:       (prefsData[k][ixPref[4]] || 'SI').toString(),
+        comida:         (prefsData[k][ixPref[5]] || 'SI').toString(),
+        comida_nohecha: (prefsData[k][ixPref[6]] || 'SI').toString(),
+        salida:         (prefsData[k][ixPref[7]] || 'SI').toString()
       };
     }
     function prefActiva(id, categoria) {
@@ -231,7 +233,7 @@ function revisarAlertas() {
     try {
       var sa = ss.getSheetByName('AUSENCIAS');
       if (sa && sa.getLastRow() > 1) {
-        sa.getRange(2, 1, sa.getLastRow() - 1, 5).getValues().forEach(function (r) {
+        _leerOrdenado_(sa, 1, 2, ENC_AUSENCIAS).forEach(function (r) {
           if ((r[3] || '').toString() === hoy) ausentesHoy[_normId(r[1])] = true;
         });
       }

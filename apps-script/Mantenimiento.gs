@@ -35,7 +35,7 @@ function diagnosticoCompleto() {
     let filasHoy = 0;
     const ultimas = [];
     if (sheet && sheet.getLastRow() >= 3) {
-      sheet.getRange(3, 1, sheet.getLastRow() - 2, 10).getValues().forEach(function(r) {
+      _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS).forEach(function(r) {
         if ((r[2] || '').toString() === hoy) {
           filasHoy++;
           ultimas.push((r[1] || '').toString().split(' ')[0] + ' ' + (r[3] || '') + ' ' + (r[9] || ''));
@@ -67,3 +67,55 @@ function diagnosticoCompleto() {
 // Borra checadas y marcas de alertas. CONSERVA los dispositivos vinculados
 // y las preferencias de alertas.
 
+
+/* ===========================================================================
+   REVISAR FÓRMULAS — cuáles se romperían si se mueve una columna
+   ===========================================================================
+   Desde fuera del Sheet no se pueden ver las fórmulas (la exportación solo
+   trae los resultados). Esto las recorre TODAS desde adentro y separa:
+
+     · Las que apuntan a una COLUMNA FIJA (A:A, $C$2, IMPORTRANGE con rango
+       cerrado…). Si alguien mueve o inserta una columna, estas se recorren
+       o apuntan a otro lado.
+     · Las que usan BUSCAR/COINCIDIR por nombre, que aguantan el cambio.
+
+   Se corre desde el menú Checador → Revisar fórmulas.
+   =========================================================================== */
+function revisarFormulas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var riesgo = [], seguras = 0, total = 0;
+
+  ss.getSheets().forEach(function (sh) {
+    var fs;
+    try { fs = sh.getDataRange().getFormulas(); } catch (e) { return; }
+    for (var i = 0; i < fs.length; i++) {
+      for (var j = 0; j < fs[i].length; j++) {
+        var f = fs[i][j];
+        if (!f) continue;
+        total++;
+        var porNombre = /COINCIDIR|MATCH|BUSCARH|HLOOKUP|INDIRECTO|INDIRECT/i.test(f);
+        var colFija = /\$[A-Z]{1,3}\$?\d*|\b[A-Z]{1,3}:[A-Z]{1,3}\b|IMPORTRANGE/i.test(f);
+        if (colFija && !porNombre) {
+          riesgo.push(sh.getName() + '!' + sh.getRange(i + 1, j + 1).getA1Notation() +
+                      '  ' + f.substring(0, 90));
+        } else {
+          seguras++;
+        }
+      }
+    }
+  });
+
+  var msg;
+  if (!total) {
+    msg = 'No hay fórmulas en ninguna hoja: nada que se pueda romper por mover una columna.';
+  } else if (!riesgo.length) {
+    msg = total + ' fórmula(s) y ninguna depende de una columna fija.';
+  } else {
+    msg = total + ' fórmula(s). ' + riesgo.length + ' apuntan a una COLUMNA FIJA y se ' +
+          'romperían si mueves columnas:\n\n' + riesgo.slice(0, 25).join('\n') +
+          (riesgo.length > 25 ? '\n\n…y ' + (riesgo.length - 25) + ' más (ver el registro).' : '');
+  }
+  Logger.log(msg);
+  return { ok: true, total: total, enRiesgo: riesgo.length, seguras: seguras,
+           detalle: riesgo, message: msg };
+}

@@ -102,7 +102,7 @@ function sincronizarAppEmpleados() {
   var yaEstan = {};
   var lastRow = sheet.getLastRow();
   if (lastRow >= 2) {
-    var actuales = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var actuales = _leerOrdenado_(sheet, 1, 2, ENC_APP_EMPLEADOS);
     actuales.forEach(function (r) {
       var id = _normId(r[0]);
       if (id) yaEstan[id] = true;
@@ -147,7 +147,7 @@ function getEmpleadosApp() {
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return { ok: true, empleados: [], avatares: {} };
 
-    var filas = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+    var filas = _leerOrdenado_(sheet, 1, 2, ENC_APP_EMPLEADOS);
 
     // PIN y turno vivos, por si cambiaron después de llenar la hoja.
     var pinPorId = {}, turnoPorId = {};

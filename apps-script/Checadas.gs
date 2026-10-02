@@ -102,7 +102,7 @@ function guardarChecadaChofer(datos) {
 
     if (uuid && lastRow >= 3) {
       try {
-        const uuidsExistentes = sheet.getRange(3, 9, lastRow - 2, 1).getValues();
+        const uuidsExistentes = sheet.getRange(3, _colsPorNombre_(sheet, 2, ENC_CHECADAS).idx[8] + 1, lastRow - 2, 1).getValues();
         for (let i = 0; i < uuidsExistentes.length; i++) {
           if ((uuidsExistentes[i][0] || '').toString().trim() === uuid) {
             Logger.log('🔁 UUID ' + uuid + ' ya existe en fila ' + (i + 3) + ' — no se duplica');
@@ -118,7 +118,7 @@ function guardarChecadaChofer(datos) {
     const idBuscado = _normId(datos.idUsuario);
     const checadasPrevias = [];
     if (lastRow >= 3) {
-      const prev = sheet.getRange(3, 1, lastRow - 2, 10).getValues();
+      const prev = _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS);
       prev.forEach(function(r) {
         if (_normId(r[0]) !== idBuscado) return;
         if ((r[2] || '').toString() !== fechaServidor) return;
@@ -170,18 +170,25 @@ function guardarChecadaChofer(datos) {
       veredicto.detalle = '⚠️ Sin entrada registrada hoy. ' + (veredicto.detalle || '');
     }
 
-    // ── Escribir (10 columnas A-J) ──
+    // ── Escribir ──
+    // Los valores van en el orden de siempre y _filaParaHoja_ los acomoda a
+    // donde esten REALMENTE las columnas en la hoja. Si alguien movio una, la
+    // checada cae igual en su lugar y no se recorre todo.
     const fila = lastRow + 1;
-    sheet.getRange(fila, 1, 1, 10).setValues([[
+    const puesta = _filaParaHoja_(sheet, 2, ENC_CHECADAS, [
       datos.idUsuario || '', _nombreParaChecada_(datos, idBuscado),
       fechaServidor, horaServidor, timestampServidor,
       tieneCoords ? latNum : '', tieneCoords ? lngNum : '',
       estadoZonaFinal, uuid, tipoChecada
-    ]]);
+    ]);
+    sheet.getRange(fila, 1, 1, puesta.ancho).setValues([puesta.fila]);
 
     // Texto en Fecha, Hora, Timestamp, UUID y Tipo: evita que Sheets
     // reinterprete las cadenas como fechas.
-    [3, 4, 5, 9, 10].forEach(function(c) { sheet.getRange(fila, c).setNumberFormat('@'); });
+    const ixEsc = _colsPorNombre_(sheet, 2, ENC_CHECADAS).idx;
+    [2, 3, 4, 8, 9].forEach(function (c) {
+      sheet.getRange(fila, ixEsc[c] + 1).setNumberFormat('@');
+    });
 
     Logger.log('✅ Checada' + (esOffline ? ' (OFFLINE)' : '') + ': ' + datos.nombre +
                ' · ' + horaServidor + ' · ' + tipoChecada +
@@ -193,7 +200,7 @@ function guardarChecadaChofer(datos) {
     try {
       const totalFilas = sheet.getLastRow();
       if (totalFilas >= 3) {
-        const todas = sheet.getRange(3, 1, totalFilas - 2, 10).getValues();
+        const todas = _leerOrdenado_(sheet, 2, 3, ENC_CHECADAS);
         todas.forEach(function(row) {
           if (_normId(row[0]) !== idBuscado) return;
           if ((row[2] || '').toString() !== fechaServidor) return;
@@ -410,7 +417,7 @@ function _nombreParaChecada_(datos, idBuscado) {
   try {
     var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(APP_EMPLEADOS_HOJA);
     if (!sh || sh.getLastRow() < 2) return '';
-    var filas = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+    var filas = _leerOrdenado_(sh, 1, 2, ENC_APP_EMPLEADOS);
     for (var i = 0; i < filas.length; i++) {
       if (_normId(filas[i][0]) === _normId(idBuscado)) return (filas[i][1] || '').toString();
     }

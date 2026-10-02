@@ -129,10 +129,11 @@ function registrarPushToken(pin, token, tokenAnterior, dispositivo) {
     const ahora = Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm');
     const disp = (dispositivo || 'Dispositivo').toString().substring(0, 60);
 
+    const ixT = _colsPorNombre_(sheet, 1, ENC_PUSH_TOKENS).idx;
     for (let i = 1; i < data.length; i++) {
-      if ((data[i][3] || '').toString() === token) {
-        sheet.getRange(i + 1, 5).setValue(disp);
-        sheet.getRange(i + 1, 7).setValue(ahora);
+      if ((data[i][ixT[3]] || '').toString() === token) {
+        sheet.getRange(i + 1, ixT[4] + 1).setValue(disp);
+        sheet.getRange(i + 1, ixT[6] + 1).setValue(ahora);
         return { ok: true, message: 'Dispositivo ya vinculado' };
       }
     }
@@ -180,13 +181,14 @@ var PUSH_DIAS_INACTIVO = 45;
 function _dejarUnoPorAparato_(sheet, pin, dispositivo, tokenBueno) {
   try {
     var data = sheet.getDataRange().getValues();
+    var ixT = _colsPorNombre_(sheet, 1, ENC_PUSH_TOKENS).idx;
     var d = (dispositivo || '').toString().trim().toLowerCase();
     if (!d) return 0;
     var borradas = 0;
     for (var i = data.length - 1; i >= 1; i--) {
-      var mismoPin = _normId(data[i][0]) === _normId(pin);
-      var mismoAp  = (data[i][4] || '').toString().trim().toLowerCase() === d;
-      var otroTk   = (data[i][3] || '').toString() !== tokenBueno;
+      var mismoPin = _normId(data[i][ixT[0]]) === _normId(pin);
+      var mismoAp  = (data[i][ixT[4]] || '').toString().trim().toLowerCase() === d;
+      var otroTk   = (data[i][ixT[3]] || '').toString() !== tokenBueno;
       if (mismoPin && mismoAp && otroTk) { sheet.deleteRow(i + 1); borradas++; }
     }
     if (borradas) Logger.log('🧹 ' + borradas + ' token(s) viejo(s) del mismo aparato');
@@ -205,11 +207,12 @@ function podarTokens() {
   try {
     var sheet = crearHojaPushTokens();
     var data = sheet.getDataRange().getValues();
+    var ixT = _colsPorNombre_(sheet, 1, ENC_PUSH_TOKENS).idx;
     var limite = new Date().getTime() - PUSH_DIAS_INACTIVO * 24 * 60 * 60 * 1000;
     var borradas = 0, nombres = [];
 
     for (var i = data.length - 1; i >= 1; i--) {
-      var ult = data[i][6];
+      var ult = data[i][ixT[6]];
       var t = null;
       if (ult instanceof Date) t = ult.getTime();
       else {
@@ -253,8 +256,9 @@ function eliminarPushToken(token) {
   try {
     const sheet = crearHojaPushTokens();
     const data = sheet.getDataRange().getValues();
+    const ixT = _colsPorNombre_(sheet, 1, ENC_PUSH_TOKENS).idx;
     for (let i = data.length - 1; i >= 1; i--) {
-      if ((data[i][3] || '').toString() === token) sheet.deleteRow(i + 1);
+      if ((data[i][ixT[3]] || '').toString() === token) sheet.deleteRow(i + 1);
     }
     return { ok: true };
   } catch (e) {
@@ -546,12 +550,13 @@ function confirmarEntregaPush(idEnvio) {
     // y recorrer miles de filas por cada notificación no tiene sentido.
     var cuantas = Math.min(400, ultima - 1);
     var desde = ultima - cuantas + 1;
-    var ids = sheet.getRange(desde, 1, cuantas, 1).getValues();
+    var ixL = _colsPorNombre_(sheet, 1, ENC_PUSH_LOG).idx;
+    var ids = sheet.getRange(desde, ixL[0] + 1, cuantas, 1).getValues();
     for (var i = ids.length - 1; i >= 0; i--) {
       if ((ids[i][0] || '').toString() === idEnvio.toString()) {
         var fila = desde + i;
-        sheet.getRange(fila, 10).setValue('SÍ');
-        sheet.getRange(fila, 11).setValue(Utilities.formatDate(new Date(), TIMEZONE, 'HH:mm:ss'));
+        sheet.getRange(fila, ixL[9] + 1).setValue('SÍ');
+        sheet.getRange(fila, ixL[10] + 1).setValue(Utilities.formatDate(new Date(), TIMEZONE, 'HH:mm:ss'));
         return { ok: true };
       }
     }
@@ -567,7 +572,7 @@ function resumenEntregasHoy() {
   var hoy = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
   var res = { fecha: hoy, enviadas: 0, aceptadas: 0, entregadas: 0, porEmpleado: {} };
   if (sheet.getLastRow() < 2) return res;
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues().forEach(function (r) {
+  _leerOrdenado_(sheet, 1, 2, ENC_PUSH_LOG).forEach(function (r) {
     if ((r[1] || '').toString() !== hoy) return;
     res.enviadas++;
     var ok = Number(r[7]) >= 200 && Number(r[7]) < 300;
