@@ -224,9 +224,12 @@ function registrarPartidas(lista) {
       }
     }
 
-    var fila = sheet.getLastRow() + 1;
-    sheet.getRange(fila, 1, filas.length, 10).setValues(filas);
-    sheet.getRange(fila, 1, filas.length, 3).setNumberFormat('@');
+    var ixP = _colsPorNombre_(sheet, 1, ENC_JUEGOS_PAR).idx;
+    var fila = _agregarFilas_(sheet, 1, ENC_JUEGOS_PAR, filas);
+    // ID Partida, Fecha y Hora como texto: si no, Sheets las reinterpreta.
+    [0, 1, 2].forEach(function (c) {
+      sheet.getRange(fila, ixP[c] + 1, filas.length, 1).setNumberFormat('@');
+    });
 
     Logger.log('\ud83c\udfae ' + ids.length + ' partida(s), ' + filas.length + ' filas');
     return { ok: true, idPartidas: ids, partidas: ids.length,
@@ -348,7 +351,8 @@ function agregarJuego(nombre, icono, modo) {
     modo = (modo || 'POSICION').toString().toUpperCase();
     if (modo !== 'PUNTOS') modo = 'POSICION';
 
-    sheet.appendRow([nombre, (icono || '🎮').toString(), modo, 'SÍ']);
+    _agregarFila_(sheet, 1, ENC_JUEGOS_CAT,
+      [nombre, (icono || '🎮').toString(), modo, 'SÍ']);
     return { ok: true, message: nombre + ' agregado' };
   } catch (e) {
     return { ok: false, message: e.message };

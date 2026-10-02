@@ -43,7 +43,7 @@
 
 const TIMEZONE = 'America/Mexico_City';
 
-const BACKEND_VERSION = 'v758';  // ← súbelo junto con la versión del frontend
+const BACKEND_VERSION = 'v759';  // ← súbelo junto con la versión del frontend
 
 // Ventana en que el motor de alertas tiene algo que hacer. Fuera de aquí
 // no hay turnos activos, así que revisar cuesta y no sirve.
@@ -148,6 +148,68 @@ function _colIdTurnos_(encabezados) {
   return 0;
 }
 
+/**
+ * LAS 4 COLUMNAS DE TURNOS_DEFAULT, BUSCADAS POR NOMBRE.
+ *
+ * Esta hoja es la mas delicada del libro: de aqui sale el horario de cada
+ * quien, y de ahi salen TODAS las alertas. Tiene dos trampas:
+ *
+ *   1. 'Turno' (el nombre, "T2") y 'TURNO' (el horario, "10:00 - 19:00") solo
+ *      se diferencian por las mayusculas. Por eso primero se busca exacto.
+ *   2. La columna 'TURNO' la genera una formula ARRAYFORMULA que tambien
+ *      escribe su propio encabezado. Si la formula se cae, el encabezado
+ *      desaparece con ella.
+ *
+ * Antes esto era h.indexOf('TURNO') a secas: si el encabezado traia un
+ * espacio de mas o lo escribian distinto, devolvia -1 y la app se iba
+ * callada a los horarios de CONFIG_TURNOS. Ahora avisa en el log.
+ *
+ * Admin y Empleado SI tienen respaldo por posicion (A y B, donde han vivido
+ * siempre) porque sin ellos no hay empleados y no pasa nada en toda la app.
+ * Turno y TURNO NO lo tienen a proposito: leer la columna equivocada como
+ * horario manda alertas a la hora equivocada, y eso es peor que no leerla —
+ * sin ellas se cae a CONFIG_TURNOS, que es un respaldo honesto.
+ *
+ * @return {{id:number, empleado:number, turno:number, horario:number, faltan:string[]}}
+ */
+function _ixTurnos_(encabezados) {
+  var crudo = (encabezados || []).map(function (v) {
+    return (v === null || v === undefined ? '' : v).toString().trim();
+  });
+  var norm = crudo.map(_normEnc_);
+  var usada = {}, faltan = [];
+
+  function buscar(nombre, respaldo) {
+    var c;
+    for (c = 0; c < crudo.length; c++) {                 // exacto
+      if (!usada[c] && crudo[c] === nombre) { usada[c] = true; return c; }
+    }
+    var b = _normEnc_(nombre);
+    for (c = 0; c < norm.length; c++) {                  // normalizado
+      if (!usada[c] && norm[c] === b) { usada[c] = true; return c; }
+    }
+    faltan.push(nombre);
+    if (respaldo !== null && !usada[respaldo]) { usada[respaldo] = true; return respaldo; }
+    return -1;
+  }
+
+  // El ID conserva su buscador de siempre (aguanta 'Admin', 'ID', 'ID Usuario').
+  var id = _colIdTurnos_(crudo);
+  usada[id] = true;
+
+  // El orden importa: 'Turno' se pide ANTES que 'TURNO' para que cada uno se
+  // quede con su columna exacta y no se roben la del otro.
+  var empleado = buscar(ENC_TURNOS_DEFAULT[1], 1);
+  var turno    = buscar(ENC_TURNOS_DEFAULT[2], null);
+  var horario  = buscar(ENC_TURNOS_DEFAULT[3], null);
+
+  if (faltan.length) {
+    Logger.log('⚠️ TURNOS_DEFAULT: no encontre el encabezado ' + faltan.join(', ') +
+               ' en la fila 1. Revisa esa fila — las alertas dependen de ella.');
+  }
+  return { id: id, empleado: empleado, turno: turno, horario: horario, faltan: faltan };
+}
+
 function _cfgEmpleadoServ(idUsuario) {
   try {
     if (_CACHE_TURNOS_DEF === null) {
@@ -156,10 +218,10 @@ function _cfgEmpleadoServ(idUsuario) {
     }
     if (_CACHE_TURNOS_DEF === false) return null;
     const data = _CACHE_TURNOS_DEF;
-    const h = data[0];
-    const iId = _colIdTurnos_(h);
-    const iTurnoNombre = h.indexOf('Turno');
-    const iHorario = h.indexOf('TURNO');
+    const ix = _ixTurnos_(data[0]);
+    const iId = ix.id;
+    const iTurnoNombre = ix.turno;
+    const iHorario = ix.horario;
     for (let i = 1; i < data.length; i++) {
       if (_normId(data[i][iId]) !== _normId(idUsuario)) continue;
       const nombreTurno = iTurnoNombre !== -1 ? (data[i][iTurnoNombre] || '').toString().trim() : '';
@@ -252,19 +314,48 @@ function _normEnc_(v) {
  * @return {{idx:number[], identidad:boolean, faltan:string[]}}
  */
 function _colsPorNombre_(sheet, filaEnc, encabezados) {
-  var idx = [], faltan = [], identidad = true;
-  var fila = [];
+  var idx = new Array(encabezados.length), faltan = [], identidad = true;
+  var usada = {};                 // columna ya apartada por otro encabezado
+  var crudo = [], norm = [];
   try {
     var ancho = Math.max(sheet.getLastColumn(), encabezados.length);
-    fila = sheet.getRange(filaEnc, 1, 1, ancho).getValues()[0].map(_normEnc_);
-  } catch (e) { fila = []; }
+    crudo = sheet.getRange(filaEnc, 1, 1, ancho).getValues()[0].map(function (v) {
+      return (v === null || v === undefined ? '' : v).toString().trim();
+    });
+    norm = crudo.map(_normEnc_);
+  } catch (e) { crudo = []; norm = []; }
 
+  // Pasada 1: coincidencia EXACTA, respetando mayusculas.
+  //
+  // Es la que distingue "Turno" de "TURNO" en TURNOS_DEFAULT: dos encabezados
+  // que al normalizar quedan IGUALES. Sin esta pasada los dos caerian en la
+  // misma columna y el motor leeria el nombre del turno ("T2") donde espera
+  // el horario ("10:00 - 19:00") — alertas a la hora equivocada, sin un error.
   for (var i = 0; i < encabezados.length; i++) {
-    var donde = fila.indexOf(_normEnc_(encabezados[i]));
-    if (donde === -1) { donde = i; faltan.push(encabezados[i]); }   // respaldo: la de siempre
-    idx.push(donde);
-    if (donde !== i) identidad = false;
+    idx[i] = -1;
+    for (var c = 0; c < crudo.length; c++) {
+      if (!usada[c] && crudo[c] === encabezados[i]) { idx[i] = c; usada[c] = true; break; }
+    }
   }
+
+  // Pasada 2: coincidencia normalizada (sin acentos, sin mayusculas).
+  for (var i2 = 0; i2 < encabezados.length; i2++) {
+    if (idx[i2] !== -1) continue;
+    var buscar = _normEnc_(encabezados[i2]);
+    for (var c2 = 0; c2 < norm.length; c2++) {
+      if (!usada[c2] && norm[c2] === buscar) { idx[i2] = c2; usada[c2] = true; break; }
+    }
+  }
+
+  // Pasada 3: no aparecio. Respaldo a la posicion de siempre, y se avisa.
+  for (var i3 = 0; i3 < encabezados.length; i3++) {
+    if (idx[i3] !== -1) continue;
+    idx[i3] = i3;
+    faltan.push(encabezados[i3]);
+  }
+
+  // Una columna no se le puede asignar a dos encabezados distintos.
+  for (var i4 = 0; i4 < idx.length; i4++) if (idx[i4] !== i4) identidad = false;
   if (faltan.length) {
     Logger.log('⚠️ ' + sheet.getName() + ': no encontre el encabezado ' +
                faltan.join(', ') + ' en la fila ' + filaEnc +
@@ -319,6 +410,45 @@ function _filaParaHoja_(sheet, filaEnc, encabezados, valores) {
   return { fila: out, ancho: ancho };
 }
 
+/**
+ * Agrega UNA fila al final de la hoja, cada valor en la columna que le toca
+ * SEGUN SU ENCABEZADO.
+ *
+ * Reemplaza a appendRow(), que siempre escribe en A, B, C... En v758 se
+ * blindaron todas las LECTURAS, pero las escrituras seguian por posicion:
+ * si alguien movia una columna, la app leia bien y escribia mal — se
+ * ensuciaba la hoja en silencio, que es peor que leer mal.
+ *
+ * @return {number} la fila donde quedo
+ */
+function _agregarFila_(sheet, filaEnc, encabezados, valores) {
+  var puesta = _filaParaHoja_(sheet, filaEnc, encabezados, valores);
+  var fila = sheet.getLastRow() + 1;
+  sheet.getRange(fila, 1, 1, puesta.ancho).setValues([puesta.fila]);
+  return fila;
+}
+
+/**
+ * Igual pero para VARIAS filas de un jalon: una sola lectura de encabezados
+ * y una sola escritura.
+ * @return {number} la primera fila donde quedaron (0 si no habia nada)
+ */
+function _agregarFilas_(sheet, filaEnc, encabezados, filasValores) {
+  if (!filasValores || !filasValores.length) return 0;
+  var c = _colsPorNombre_(sheet, filaEnc, encabezados);
+  var ancho = encabezados.length;
+  for (var i = 0; i < c.idx.length; i++) ancho = Math.max(ancho, c.idx[i] + 1);
+  var salida = filasValores.map(function (v) {
+    var out = new Array(ancho);
+    for (var j = 0; j < ancho; j++) out[j] = '';
+    for (var k = 0; k < c.idx.length; k++) out[c.idx[k]] = v[k];
+    return out;
+  });
+  var fila = sheet.getLastRow() + 1;
+  sheet.getRange(fila, 1, salida.length, ancho).setValues(salida);
+  return fila;
+}
+
 /* --- Los encabezados canónicos de cada hoja, en un solo lugar ------------- */
 var ENC_CHECADAS = ['ID Usuario', 'Nombre', 'Fecha', 'Hora', 'Timestamp Completo',
                     'Latitud', 'Longitud', 'Estado Zona', 'UUID Cliente', 'Tipo Checada'];
@@ -335,3 +465,10 @@ var ENC_PREFS_ALERTAS = ['PIN', 'ID Usuario', 'Nombre', 'Entrada', 'Desayuno', '
                          'Comida no tomada', 'Salida', 'Actualizado'];
 var ENC_PUSH_LOG      = ['ID Envío', 'Fecha', 'Hora', 'ID Usuario', 'Empleado', 'Alerta',
                          'Título', 'Código FCM', 'Detalle', 'Entregada', 'Hora entrega', 'Token'];
+var ENC_CONFIG_ALERTAS = ['Parámetro', 'Valor', 'Descripción'];
+var ENC_CHECADAS_BORRADAS = ['Borrado el', 'ID Usuario', 'Nombre', 'Fecha', 'Hora', 'Tipo'];
+
+// TURNOS_DEFAULT no pasa por _leerOrdenado_: 'Turno' y 'TURNO' son DOS
+// columnas distintas que al normalizar quedan iguales, y ademas la hoja se
+// lee en cache completo. Se resuelve con _ixTurnos_(), mas abajo.
+var ENC_TURNOS_DEFAULT = ['Admin', 'Empleado', 'Turno', 'TURNO'];

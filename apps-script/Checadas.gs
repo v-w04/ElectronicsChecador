@@ -275,9 +275,8 @@ function _obtenerTurnoServ(idUsuario) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('TURNOS_DEFAULT');
     if (!sheet) return null;
     const data = sheet.getDataRange().getValues();
-    const h = data[0];
-    const iId = _colIdTurnos_(h);
-    const iHor = h.indexOf('TURNO');
+    const ix = _ixTurnos_(data[0]);
+    const iId = ix.id, iHor = ix.horario;
     if (iId === -1 || iHor === -1) return null;
     for (let i = 1; i < data.length; i++) {
       if (_normId(data[i][iId]) === _normId(idUsuario)) {

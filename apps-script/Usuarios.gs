@@ -27,11 +27,11 @@ function getTodosLosUsuarios() {
     const mapaTurnos = {};
     if (sheetTurnos) {
       const dt = sheetTurnos.getDataRange().getValues();
-      const hT = dt[0];
-      const iId      = _colIdTurnos_(hT);
-      const iNombre  = hT.indexOf('Empleado');
-      const iHorario = hT.indexOf('TURNO'); // formato "10:00 - 19:00"
-      const iTurnoN  = hT.indexOf('Turno'); // nombre del turno, ej. "T2"
+      const ixT      = _ixTurnos_(dt[0]);
+      const iId      = ixT.id;
+      const iNombre  = ixT.empleado;
+      const iHorario = ixT.horario; // formato "10:00 - 19:00"
+      const iTurnoN  = ixT.turno;   // nombre del turno, ej. "T2"
       const cfgTurnos = _leerConfigTurnos();
       for (let i = 1; i < dt.length; i++) {
         const id      = _normId(dt[i][iId]);

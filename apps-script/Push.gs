@@ -137,7 +137,8 @@ function registrarPushToken(pin, token, tokenAnterior, dispositivo) {
         return { ok: true, message: 'Dispositivo ya vinculado' };
       }
     }
-    sheet.appendRow([emp.pin, emp.idUsuario, emp.nombre, token, disp, ahora, ahora]);
+    _agregarFila_(sheet, 1, ENC_PUSH_TOKENS,
+      [emp.pin, emp.idUsuario, emp.nombre, token, disp, ahora, ahora]);
     // Un aparato, un token: fuera los registros viejos de este mismo celular.
     _dejarUnoPorAparato_(sheet, emp.pin, disp, token);
     const total = _contarDispositivos(emp.pin);
@@ -520,7 +521,7 @@ function _logPush_(idEnvio, meta, titulo, codigo, detalle, token) {
   try {
     var sheet = crearHojaPushLog();
     var ahora = new Date();
-    sheet.appendRow([
+    _agregarFila_(sheet, 1, ENC_PUSH_LOG, [
       idEnvio,
       Utilities.formatDate(ahora, TIMEZONE, 'yyyy-MM-dd'),
       Utilities.formatDate(ahora, TIMEZONE, 'HH:mm:ss'),

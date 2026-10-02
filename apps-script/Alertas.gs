@@ -50,15 +50,16 @@ function crearHojaConfigAlertas() {
 function _completarConfigAlertas_(sheet) {
   try {
     const data = sheet.getDataRange().getValues();
+    const ixC = _colsPorNombre_(sheet, 1, ENC_CONFIG_ALERTAS).idx;
     const hay = {};
     for (let i = 1; i < data.length; i++) {
-      const k = (data[i][0] || '').toString().trim();
+      const k = (data[i][ixC[0]] || '').toString().trim();
       if (k) hay[k] = true;
     }
     const faltan = CONFIG_ALERTAS_DEF.filter(function (f) { return !hay[f[0]]; });
     if (!faltan.length) return;
 
-    sheet.getRange(sheet.getLastRow() + 1, 1, faltan.length, 3).setValues(faltan);
+    _agregarFilas_(sheet, 1, ENC_CONFIG_ALERTAS, faltan);
     Logger.log('✅ CONFIG_ALERTAS: agregué ' + faltan.length + ' parámetro(s) nuevo(s)');
   } catch (e) {
     Logger.log('⚠️ _completarConfigAlertas_: ' + e.message);
@@ -70,11 +71,12 @@ function getConfigAlertas() {
     const sheet = crearHojaConfigAlertas();
     _completarConfigAlertas_(sheet);
     const data = sheet.getDataRange().getValues();
+    const ixC = _colsPorNombre_(sheet, 1, ENC_CONFIG_ALERTAS).idx;
     const config = {};
     for (let i = 1; i < data.length; i++) {
-      const clave = (data[i][0] || '').toString().trim();
+      const clave = (data[i][ixC[0]] || '').toString().trim();
       if (!clave) continue;
-      let valor = data[i][1];
+      let valor = data[i][ixC[1]];
       if (typeof valor === 'string') {
         const num = parseFloat(valor);
         valor = isNaN(num) ? valor.trim().toUpperCase() : num;
@@ -524,10 +526,11 @@ function testPushEmpleado(pin) {
 
     const sheet = crearHojaPushTokens();
     const data = sheet.getDataRange().getValues();
+    const ixT = _colsPorNombre_(sheet, 1, ENC_PUSH_TOKENS).idx;
     const tokens = [];
     for (let i = 1; i < data.length; i++) {
-      if (_normId(data[i][0]) === _normId(pin)) {
-        const tk = (data[i][3] || '').toString();
+      if (_normId(data[i][ixT[0]]) === _normId(pin)) {
+        const tk = (data[i][ixT[3]] || '').toString();
         if (tk && tokens.indexOf(tk) === -1) tokens.push(tk);
       }
     }

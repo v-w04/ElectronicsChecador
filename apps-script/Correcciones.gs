@@ -29,7 +29,7 @@ function crearHojaChecadasBorradas() {
 
   sheet = ss.insertSheet(CHECADAS_BORRADAS_HOJA);
   sheet.getRange(1, 1, 1, 6)
-    .setValues([['Borrado el', 'ID Usuario', 'Nombre', 'Fecha', 'Hora', 'Tipo']])
+    .setValues([ENC_CHECADAS_BORRADAS])
     .setBackground('#8c2b26').setFontColor('#ffffff').setFontWeight('bold');
   sheet.setColumnWidth(1, 150);
   sheet.setColumnWidth(3, 220);
@@ -79,7 +79,7 @@ function borrarChecadaPropia(pin, hora, tipo) {
       var hFila = (r[3] || '').toString().match(/(\d{1,2}):(\d{2})/);
       if (!hFila || hFila[0] !== buscada) continue;
 
-      crearHojaChecadasBorradas().appendRow([
+      _agregarFila_(crearHojaChecadasBorradas(), 1, ENC_CHECADAS_BORRADAS, [
         Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm'),
         r[0], r[1], r[2], r[3], r[9]
       ]);

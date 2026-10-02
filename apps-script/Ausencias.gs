@@ -81,8 +81,9 @@ function guardarExcepcionDia(pin, tipo) {
       const mismaPersona = (clavePin === 'TODOS') ? (p === 'TODOS') : (_normId(p) === _normId(clavePin));
       if (f === hoy && mismaPersona) sheet.deleteRow(i + 1);
     }
-    sheet.appendRow([hoy, clavePin, emp.idUsuario, (tipo === 'FESTIVO' ? 'TODOS' : emp.nombre), tipo,
-                     Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm')]);
+    _agregarFila_(sheet, 1, ENC_EXCEPCIONES,
+      [hoy, clavePin, emp.idUsuario, (tipo === 'FESTIVO' ? 'TODOS' : emp.nombre), tipo,
+       Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm')]);
     return { ok: true, tipo: tipo,
              message: _EXC_TIPOS[tipo].emoji + ' ' + _EXC_TIPOS[tipo].label + ' registrado. Hoy no habrá alertas.' };
   } catch (e) {

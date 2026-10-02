@@ -126,7 +126,7 @@ function sincronizarAppEmpleados() {
 
   if (nuevos.length) {
     nuevos.sort(function (a, b) { return a[1].localeCompare(b[1], 'es'); });
-    sheet.getRange(sheet.getLastRow() + 1, 1, nuevos.length, 5).setValues(nuevos);
+    _agregarFilas_(sheet, 1, ENC_APP_EMPLEADOS, nuevos);
     _formatoAppEmpleados_(sheet);
   }
 
