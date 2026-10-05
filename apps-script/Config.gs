@@ -43,7 +43,7 @@
 
 const TIMEZONE = 'America/Mexico_City';
 
-const BACKEND_VERSION = 'v760';  // ← súbelo junto con la versión del frontend
+const BACKEND_VERSION = 'v761';  // ← súbelo junto con la versión del frontend
 
 // Ventana en que el motor de alertas tiene algo que hacer. Fuera de aquí
 // no hay turnos activos, así que revisar cuesta y no sirve.

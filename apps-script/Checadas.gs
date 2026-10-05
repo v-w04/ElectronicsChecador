@@ -216,7 +216,11 @@ function guardarChecadaChofer(datos) {
     // El otro aparato de esta persona se enterará en <=15 s. Se devuelve el
     // sello para que ESTE aparato no se refresque a sí mismo por su propio
     // cambio: ya se pintó solo.
-    var selloNuevo = _marcarCambio_(datos.pin || '');
+    // Se marca por PIN y por ID: la checada desde la notificación manda el PIN
+    // en idUsuario, y la de la app manda los dos. Así el sello cae en la llave
+    // que el otro aparato va a preguntar.
+    var selloNuevo = _marcarCambio_(datos.pin || datos.idUsuario || '');
+    if (datos.pin && datos.idUsuario) _marcarCambio_(datos.idUsuario);
 
     return { ok: true, message: 'Checada registrada', horaServidor: horaServidor,
              estadoZona: estadoZonaFinal, tipo: tipoChecada, veredicto: veredicto,

@@ -562,7 +562,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v760</span> · buscar actualización
+      <span id="pie">v761</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -668,7 +668,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v760';
+var VERSION = 'v761';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -2197,9 +2197,8 @@ function refrescarHoy() {
       TURNO = r.empleado.cfgTurno;
       ls(LS_TURNO, TURNO);
     }
-    sincroApunta(r.sello);
-    _sincroVarios = (r.dispositivos || 0) >= 2;
-    if (_sincroVarios) sincroDespierta(); else sincroPara();
+    sincroApunta(r.sello || '');   // '' = caché vacío; cuenta como "sin cambios aún"
+    sincroDespierta();
     pintar();
     bajarQuincena();
   }).catch(function(){});
@@ -3153,50 +3152,55 @@ try {
    SINCRONIZAR ENTRE APARATOS
    ===========================================================================
    Una persona puede traer la app en dos aparatos: su celular y la tablet de
-   la oficina, por ejemplo. ANTES, si checaba en uno, el otro NO se enteraba
-   NUNCA mientras su pantalla estuviera a la vista — solo al abrir la app o
-   al salir y volver a entrar. Los datos nunca se descuadraban, pero la
-   pantalla se quedaba vieja sin avisar.
+   la oficina, por ejemplo. Cada 15 s esta pantalla pregunta por un sello (la
+   hora del último cambio de esa persona) que el backend guarda en caché. Si
+   cambió, y solo entonces, pide el perfil completo. Preguntar el sello NO
+   abre el Sheet: es la llamada más barata que hay.
 
-   Ahora pregunta cada 15 s por un sello (la hora del último cambio de esa
-   persona) que el backend guarda en caché. Si cambió, y solo entonces, pide
-   el perfil completo. Preguntar el sello NO abre el Sheet: es la llamada más
-   barata que hay.
+   v760 SOLO PREGUNTABA SI LA PERSONA TENÍA 2+ DISPOSITIVOS CON NOTIFICACIONES
+   ACTIVADAS (contaba filas de PUSH_TOKENS). Error: casi nadie tiene las
+   notificaciones puestas —PUSH_TOKENS tenía 3 filas en todo el sistema— así
+   que para la inmensa mayoría la sincronización NUNCA arrancaba. Se quitó ese
+   candado: ahora pregunta todo el mundo.
 
-   TRES CANDADOS para no gastar en balde:
-     1. Solo si esa persona tiene 2 o más aparatos dados de alta. Con uno no
-        hay nada que sincronizar y no pregunta ni una vez.
-     2. Solo con la pantalla a la vista. Oculta no pregunta nada; al volver ya
-        hay un refresco completo por visibilitychange.
-     3. Se apaga sola a los 10 min sin tocar la pantalla, para que una tablet
-        olvidada encendida no se quede preguntando todo el día. Cualquier
-        toque la vuelve a prender.
+   DOS CANDADOS QUE SÍ QUEDAN, para no gastar en balde:
+     1. Solo con la pantalla a la vista. Oculta no pregunta nada.
+     2. Se apaga sola a los 5 min sin tocar la pantalla. Un toque la vuelve a
+        prender Y PREGUNTA DE UNA VEZ, sin esperar los 15 s: así la tablet
+        que estuvo dormida se pone al día en cuanto la tocas.
 
    Y nunca se refresca por su propio cambio: cuando ESTE aparato checa, el
-   servidor le devuelve el sello nuevo y se lo apunta. Así el aviso de
-   "se actualizó" solo sale cuando de verdad fue el otro aparato.
+   servidor devuelve el sello nuevo y se lo apunta.
+
+   TAMBIÉN SE ARREGLÓ UN CAMBIO TRAGADO: si al abrir la app el caché estaba
+   vacío, el primer cambio del otro aparato se tomaba como "sello de
+   arranque" y se ignoraba — el aviso salía hasta el SIGUIENTE cambio. Ahora
+   el sello de arranque vacío cuenta como '' y cualquier sello distinto
+   refresca.
    =========================================================================== */
 var SINCRO_MS   = 15000;
-var SINCRO_VIDA = 10 * 60 * 1000;
+var SINCRO_VIDA = 5 * 60 * 1000;
 
-var _sincroTimer  = null;
-var _sincroSello  = null;     // el último sello que ya vi
-var _sincroVence  = 0;
-var _sincroVarios = false;    // esta persona trae 2+ aparatos
+var _sincroTimer = null;
+var _sincroSello = null;      // null = todavía no cargué mi perfil
+var _sincroVence = 0;
 
 /** Apunta el sello sin reaccionar. Lo llaman las respuestas del servidor. */
 function sincroApunta(sello) {
-  if (sello) _sincroSello = sello;
+  if (sello !== undefined && sello !== null) _sincroSello = String(sello);
 }
 
-/** Hubo actividad: alarga la vida del ciclo y lo prende si estaba apagado. */
+/** Hubo actividad: alarga la vida del ciclo y, si estaba apagado, lo prende
+ *  y pregunta YA. */
 function sincroDespierta() {
+  var estabaApagado = !_sincroTimer;
   _sincroVence = Date.now() + SINCRO_VIDA;
   sincroArranca();
+  if (estabaApagado && _sincroTimer) sincroRevisa();
 }
 
 function sincroArranca() {
-  if (_sincroTimer || !_sincroVarios) return;
+  if (_sincroTimer) return;
   if (!YO || !YO.pin || document.hidden || navigator.onLine === false) return;
   _sincroTimer = setInterval(sincroRevisa, SINCRO_MS);
 }
@@ -3210,10 +3214,13 @@ function sincroRevisa() {
   if (Date.now() > _sincroVence) { sincroPara(); return; }
 
   gas('getSelloUsuario', [YO.pin]).then(function (r) {
-    if (!r || !r.ok || !r.sello) return;               // caché vacío: no hago nada
-    if (_sincroSello === null) { _sincroSello = r.sello; return; }   // primera vez: solo apuntarlo
-    if (r.sello === _sincroSello) return;
-    _sincroSello = r.sello;
+    if (!r || !r.ok) return;
+    var s = r.sello || '';
+    // Mi perfil todavía no cargó: se pide, y ahí mismo queda apuntado el sello.
+    if (_sincroSello === null) { refrescarHoy(); return; }
+    // Caché vacío o sin cambios: no hago nada.
+    if (!s || s === _sincroSello) return;
+    _sincroSello = s;
     refrescarHoy();
     bajarExcepcion();
     aviso('Se actualizó con lo que registraste en tu otro dispositivo.', 'ok', 4000);
