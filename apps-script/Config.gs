@@ -43,7 +43,7 @@
 
 const TIMEZONE = 'America/Mexico_City';
 
-const BACKEND_VERSION = 'v759';  // ← súbelo junto con la versión del frontend
+const BACKEND_VERSION = 'v760';  // ← súbelo junto con la versión del frontend
 
 // Ventana en que el motor de alertas tiene algo que hacer. Fuera de aquí
 // no hay turnos activos, así que revisar cuesta y no sirve.
@@ -447,6 +447,63 @@ function _agregarFilas_(sheet, filaEnc, encabezados, filasValores) {
   var fila = sheet.getLastRow() + 1;
   sheet.getRange(fila, 1, salida.length, ancho).setValues(salida);
   return fila;
+}
+
+/* ===========================================================================
+   SINCRONIZAR ENTRE APARATOS — EL SELLO DE CAMBIOS
+   ===========================================================================
+   Una persona puede traer la app en dos aparatos: su celular y la tablet de
+   la oficina, por ejemplo. Antes, si checaba en uno, el otro NO se enteraba
+   NUNCA mientras su pantalla estuviera a la vista — solo se refrescaba al
+   abrir la app o al salir y volver a entrar. Los datos nunca se descuadraban
+   (hay candado al escribir y el tipo lo decide el Sheet), pero la pantalla
+   se quedaba vieja sin avisar.
+
+   Cada vez que algo cambia para esa persona se guarda un sello —la hora— en
+   CacheService. El aparato pregunta por ese sello cada 15 segundos y, SOLO
+   si cambió, pide el perfil completo.
+
+   POR QUÉ EN CACHE Y NO EN LA HOJA: getSelloUsuario no abre el Sheet. Es la
+   función más barata de todo el backend, y es la única que se llama seguido.
+   Si abriera la hoja sería igual de caro que refrescar y no se habría
+   ganado nada.
+
+   POR QUÉ NO UN PUSH SILENCIOSO: ni Chrome ni Safari permiten un push que no
+   muestre nada — acaban sacando ellos "este sitio se actualizó en segundo
+   plano". Y cada push gasta UrlFetch, que son 20,000 al día COMPARTIDOS
+   entre todos los Apps Script de la cuenta. Esto gasta cero.
+   =========================================================================== */
+
+var SELLO_VIDA_SEG = 21600;        // 6 h, más que una jornada
+
+/**
+ * Algo cambió para esta persona. Lo llaman las funciones que escriben.
+ * @return {string} el sello nuevo, para devolverlo al que hizo el cambio.
+ */
+function _marcarCambio_(pin) {
+  var sello = String(Date.now());
+  try {
+    if (pin) CacheService.getScriptCache().put('sello_' + _normId(pin), sello, SELLO_VIDA_SEG);
+  } catch (e) { /* el cache es un extra: si falla, se cae al refresco de siempre */ }
+  return sello;
+}
+
+/** El sello de esta persona, sin leerlo de la hoja. */
+function _selloDe_(pin) {
+  try { return CacheService.getScriptCache().get('sello_' + _normId(pin)) || ''; }
+  catch (e) { return ''; }
+}
+
+/**
+ * LO QUE EL CELULAR PREGUNTA CADA 15 SEGUNDOS. No abre el Sheet.
+ *
+ * Si devuelve '' es que el cache se vació —Google lo puede tirar cuando
+ * quiera— o que no ha pasado nada. En los dos casos el celular NO hace nada:
+ * más vale quedarse viejo un rato que refrescar en balde cada 15 s. Al salir
+ * y volver a la app hay un refresco completo de todos modos.
+ */
+function getSelloUsuario(pin) {
+  return { ok: true, sello: _selloDe_(pin) };
 }
 
 /* --- Los encabezados canónicos de cada hoja, en un solo lugar ------------- */

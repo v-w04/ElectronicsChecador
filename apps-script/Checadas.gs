@@ -213,9 +213,14 @@ function guardarChecadaChofer(datos) {
       }
     } catch (e) {}
 
+    // El otro aparato de esta persona se enterará en <=15 s. Se devuelve el
+    // sello para que ESTE aparato no se refresque a sí mismo por su propio
+    // cambio: ya se pintó solo.
+    var selloNuevo = _marcarCambio_(datos.pin || '');
+
     return { ok: true, message: 'Checada registrada', horaServidor: horaServidor,
              estadoZona: estadoZonaFinal, tipo: tipoChecada, veredicto: veredicto,
-             checadasHoyServidor: checadasHoyServidor };
+             checadasHoyServidor: checadasHoyServidor, sello: selloNuevo };
 
   } catch (e) {
     Logger.log('❌ Error guardarChecadaChofer: ' + e.message);

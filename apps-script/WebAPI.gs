@@ -43,6 +43,7 @@ function _funcionesExpuestas() {
   return {
     getEmpleadosApp       : getEmpleadosApp,
     getPerfilEmpleado     : getPerfilEmpleado,
+    getSelloUsuario       : getSelloUsuario,
     getHistorialQuincena  : getHistorialQuincena,
     getConfigAlertas      : getConfigAlertas,
     guardarChecadaChofer  : guardarChecadaChofer,

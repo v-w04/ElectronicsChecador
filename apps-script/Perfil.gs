@@ -47,7 +47,12 @@ function getPerfilEmpleado(pin) {
                   // ofrecerle desayuno a las seis de la tarde: sin esto solo
                   // sabia el orden de los movimientos, no la hora de cada uno.
                   cfgTurno: _cfgEmpleadoServ(_normId(empleado.idUsuario)) || null },
-      hoy: hoy, checadasHoy: checadasHoy, historial: historial
+      hoy: hoy, checadasHoy: checadasHoy, historial: historial,
+      // Para sincronizar entre aparatos: el sello de ahora, y cuántos
+      // aparatos trae esta persona. Con uno solo, la app ni se molesta en
+      // preguntar por el sello: no hay nada que sincronizar.
+      sello: _selloDe_(empleado.pin),
+      dispositivos: _contarDispositivos(empleado.pin)
     };
   } catch (e) {
     Logger.log('❌ getPerfilEmpleado: ' + e.message);

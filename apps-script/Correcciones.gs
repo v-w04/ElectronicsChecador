@@ -85,7 +85,7 @@ function borrarChecadaPropia(pin, hora, tipo) {
       ]);
 
       sheet.deleteRow(i + 3);   // los datos empiezan en el renglón 3
-      return { ok: true, message: 'Checada borrada' };
+      return { ok: true, message: 'Checada borrada', sello: _marcarCambio_(pin) };
     }
 
     return { ok: false, message: 'No encontré esa checada' };

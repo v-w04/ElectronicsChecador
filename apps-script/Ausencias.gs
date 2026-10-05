@@ -84,7 +84,7 @@ function guardarExcepcionDia(pin, tipo) {
     _agregarFila_(sheet, 1, ENC_EXCEPCIONES,
       [hoy, clavePin, emp.idUsuario, (tipo === 'FESTIVO' ? 'TODOS' : emp.nombre), tipo,
        Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm')]);
-    return { ok: true, tipo: tipo,
+    return { ok: true, tipo: tipo, sello: _marcarCambio_(pin),
              message: _EXC_TIPOS[tipo].emoji + ' ' + _EXC_TIPOS[tipo].label + ' registrado. Hoy no habrá alertas.' };
   } catch (e) {
     return { ok: false, message: e.message };
@@ -110,7 +110,8 @@ function quitarExcepcionDia(pin) {
       // borraba el festivo de los 40 y les revolvia las alertas.
       if (f === hoy && _normId(p) === _normId(pin)) { sheet.deleteRow(i + 1); n++; }
     }
-    return { ok: true, message: n ? 'Excepción quitada. Las alertas vuelven a estar activas.' : 'No había excepción hoy.' };
+    return { ok: true, sello: _marcarCambio_(pin),
+             message: n ? 'Excepción quitada. Las alertas vuelven a estar activas.' : 'No había excepción hoy.' };
   } catch (e) {
     return { ok: false, message: e.message };
   } finally { lock.releaseLock(); }

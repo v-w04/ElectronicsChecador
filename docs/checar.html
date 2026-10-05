@@ -562,7 +562,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
 
   <div class="pie">
     <button class="ver-boton" id="btn-actualizar" type="button">
-      <span id="pie">v759</span> · buscar actualización
+      <span id="pie">v760</span> · buscar actualización
     </button>
   </div>
 </div>
@@ -668,7 +668,7 @@ h1,h2{margin:0;color:var(--t1);letter-spacing:-.01em}
    CONFIGURACIÓN
    =========================================================================== */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxWu65gJ3jIbRp9WIbvNjia9IFsDJORUggDNyYUUQA_JxLYsbYjsawynN9hbV1kPqU5/exec';
-var VERSION = 'v759';
+var VERSION = 'v760';
 
 /* ===========================================================================
    SERVICE WORKER — LO PRIMERO DE TODO
@@ -1658,6 +1658,7 @@ function borrarChecada(c) {
       return !(x.tipo === c.tipo && hhmm(x.hora) === hhmm(c.hora));
     });
     ls(LS_HOY, HOY);
+    sincroApunta(r.sello);
     pintar();
     aviso('Listo, borré tu ' + nom.toLowerCase() + '.', 'ok', 4000);
     refrescarHoy();
@@ -1721,6 +1722,7 @@ function marcarDia(t) {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     EXC = { fecha: hoyStr(), tipo: t.tipo, global: t.tipo === 'FESTIVO' };
     ls(LS_EXC, EXC);
+    sincroApunta(r.sello);
     pintar();
     aviso(r.message || (t.em + ' ' + t.nom + ' registrado. Hoy no habrá alertas.'), 'ok', 6000);
   }).catch(function(e){
@@ -1735,6 +1737,7 @@ function quitarDia() {
     if (!r || !r.ok) throw new Error((r && r.message) || 'no se pudo');
     EXC = { fecha: hoyStr(), tipo:'', global:false };
     ls(LS_EXC, EXC);
+    sincroApunta(r.sello);
     pintar();
     aviso(r.message || 'Listo, las alertas vuelven.', 'ok', 5000);
   }).catch(function(e){
@@ -2043,6 +2046,7 @@ function registrar(mov) {
   var ahora = new Date();
   var datos = {
     idUsuario: YO.id,
+    pin: YO.pin,          // para el sello de sincronización entre aparatos
     nombre: YO.nombre,
     tipo: mov.tipo,
     uuid: uuid(),
@@ -2077,6 +2081,7 @@ function registrar(mov) {
       return;
     }
     if (r.checadasHoyServidor) fijarChecadas(r.checadasHoyServidor);
+    sincroApunta(r.sello);   // mi propio cambio: no quiero avisarme a mí mismo
     pintar();
     // El veredicto lo arma el servidor y trae su propio color: "✅ Entrada a
     // tiempo", "❌ Retardo #2", "⏱️ 35 min de tiempo extra"… Se muestra
@@ -2192,6 +2197,9 @@ function refrescarHoy() {
       TURNO = r.empleado.cfgTurno;
       ls(LS_TURNO, TURNO);
     }
+    sincroApunta(r.sello);
+    _sincroVarios = (r.dispositivos || 0) >= 2;
+    if (_sincroVarios) sincroDespierta(); else sincroPara();
     pintar();
     bajarQuincena();
   }).catch(function(){});
@@ -3141,6 +3149,81 @@ try {
   }
 } catch (e) {}
 
+/* ===========================================================================
+   SINCRONIZAR ENTRE APARATOS
+   ===========================================================================
+   Una persona puede traer la app en dos aparatos: su celular y la tablet de
+   la oficina, por ejemplo. ANTES, si checaba en uno, el otro NO se enteraba
+   NUNCA mientras su pantalla estuviera a la vista — solo al abrir la app o
+   al salir y volver a entrar. Los datos nunca se descuadraban, pero la
+   pantalla se quedaba vieja sin avisar.
+
+   Ahora pregunta cada 15 s por un sello (la hora del último cambio de esa
+   persona) que el backend guarda en caché. Si cambió, y solo entonces, pide
+   el perfil completo. Preguntar el sello NO abre el Sheet: es la llamada más
+   barata que hay.
+
+   TRES CANDADOS para no gastar en balde:
+     1. Solo si esa persona tiene 2 o más aparatos dados de alta. Con uno no
+        hay nada que sincronizar y no pregunta ni una vez.
+     2. Solo con la pantalla a la vista. Oculta no pregunta nada; al volver ya
+        hay un refresco completo por visibilitychange.
+     3. Se apaga sola a los 10 min sin tocar la pantalla, para que una tablet
+        olvidada encendida no se quede preguntando todo el día. Cualquier
+        toque la vuelve a prender.
+
+   Y nunca se refresca por su propio cambio: cuando ESTE aparato checa, el
+   servidor le devuelve el sello nuevo y se lo apunta. Así el aviso de
+   "se actualizó" solo sale cuando de verdad fue el otro aparato.
+   =========================================================================== */
+var SINCRO_MS   = 15000;
+var SINCRO_VIDA = 10 * 60 * 1000;
+
+var _sincroTimer  = null;
+var _sincroSello  = null;     // el último sello que ya vi
+var _sincroVence  = 0;
+var _sincroVarios = false;    // esta persona trae 2+ aparatos
+
+/** Apunta el sello sin reaccionar. Lo llaman las respuestas del servidor. */
+function sincroApunta(sello) {
+  if (sello) _sincroSello = sello;
+}
+
+/** Hubo actividad: alarga la vida del ciclo y lo prende si estaba apagado. */
+function sincroDespierta() {
+  _sincroVence = Date.now() + SINCRO_VIDA;
+  sincroArranca();
+}
+
+function sincroArranca() {
+  if (_sincroTimer || !_sincroVarios) return;
+  if (!YO || !YO.pin || document.hidden || navigator.onLine === false) return;
+  _sincroTimer = setInterval(sincroRevisa, SINCRO_MS);
+}
+
+function sincroPara() {
+  if (_sincroTimer) { clearInterval(_sincroTimer); _sincroTimer = null; }
+}
+
+function sincroRevisa() {
+  if (document.hidden || navigator.onLine === false || !YO || !YO.pin) { sincroPara(); return; }
+  if (Date.now() > _sincroVence) { sincroPara(); return; }
+
+  gas('getSelloUsuario', [YO.pin]).then(function (r) {
+    if (!r || !r.ok || !r.sello) return;               // caché vacío: no hago nada
+    if (_sincroSello === null) { _sincroSello = r.sello; return; }   // primera vez: solo apuntarlo
+    if (r.sello === _sincroSello) return;
+    _sincroSello = r.sello;
+    refrescarHoy();
+    bajarExcepcion();
+    aviso('Se actualizó con lo que registraste en tu otro dispositivo.', 'ok', 4000);
+  }).catch(function () {});
+}
+
+// Cualquier toque cuenta como actividad. Pasivo para no estorbarle al scroll.
+document.addEventListener('pointerdown', function () { sincroDespierta(); },
+                          { passive: true, capture: true });
+
 window.addEventListener('online', function(){
   document.getElementById('pie').textContent = VERSION;
   vaciarCola();
@@ -3148,9 +3231,12 @@ window.addEventListener('online', function(){
 });
 window.addEventListener('offline', function(){
   document.getElementById('pie').textContent = VERSION + ' · sin internet';
+  sincroPara();   // sin señal no tiene a quién preguntarle
 });
 document.addEventListener('visibilitychange', function(){
-  if (!document.hidden) { vaciarCola(); refrescarHoy(); bajarExcepcion(); }
+  if (document.hidden) { sincroPara(); return; }
+  // Al volver ya hay un refresco completo: el ciclo de 15 s arranca limpio.
+  vaciarCola(); refrescarHoy(); bajarExcepcion(); sincroDespierta();
 });
 </script>
 <!-- Fuera de .wrap a proposito: el zoom de ui.js se aplica al .wrap, y un
