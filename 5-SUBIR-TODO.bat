@@ -23,6 +23,7 @@ echo   %AZUL%[1/4]%FIN%  Credenciales . . . . . . . . . . . .
 call _seguro.bat
 if errorlevel 1 goto FUGA
 echo          limpio
+call :COLUMNAS
 
 echo   %AZUL%[2/4]%FIN%  Apps Script . . . . . . . . . . . .
 if not exist "apps-script\appsscript.json" goto VACIO
@@ -77,11 +78,9 @@ if "!CAMBIOS!"=="0" (
     goto VERIFICA
 )
 "!GIT!" status --short
-echo.
-set "MSG="
-set /p "MSG=   Mensaje [Enter = automatico]: "
-if "!MSG!"=="" set "MSG=%MSG_DEFAULT%"
+set "MSG=%MSG_DEFAULT%"
 "!GIT!" add -A
+if errorlevel 1 goto COMMITFAIL
 "!GIT!" commit -q -m "!MSG!"
 if errorlevel 1 goto COMMITFAIL
 "!GIT!" push origin %GH_BRANCH% > "%TEMP%\chk_push.txt" 2>&1
@@ -230,6 +229,22 @@ for /d %%D in ("%LOCALAPPDATA%\GitHubDesktop\app-*") do (
 )
 if exist "%ProgramFiles%\Git\cmd\git.exe" set "GIT=%ProgramFiles%\Git\cmd\git.exe"
 if "!GIT!"=="git" exit /b 1
+exit /b 0
+
+:COLUMNAS
+where node >nul 2>&1
+if errorlevel 1 exit /b 0
+if not exist "%~dp0_columnas.js" exit /b 0
+node "%~dp0_columnas.js" >"%TEMP%\col_o.txt" 2>&1
+if errorlevel 2 goto COLNOPUDE
+if errorlevel 1 goto COLNUEVAS
+exit /b 0
+:COLNUEVAS
+echo          %ROJO%^^!  columnas por posicion NUEVAS: leer por encabezado%FIN%
+type "%TEMP%\col_o.txt"
+exit /b 0
+:COLNOPUDE
+echo          %ROJO%^^!  no pude revisar columnas%FIN%
 exit /b 0
 
 :LOGO

@@ -1,0 +1,63 @@
+Alertas.gs|if ((r[2] || '').toString() !== hoy) return;
+Alertas.gs|var hp = (r[3] || '').toString().match(/(\d{1,2}):(\d{2})/);
+Alertas.gs|tipo: (r[9] || '').toString().toUpperCase(),
+Alertas.gs|if ((r[3] || '').toString() === hoy) ausentesHoy[_normId(r[1])] = true;
+Alertas.gs|sheet.getRange(1, 7).setValue('Comida no tomada')
+Ausencias.gs|const p = (r[1] || '').toString().trim().toUpperCase();
+Ausencias.gs|const t = (r[4] || '').toString().trim().toUpperCase();
+Checadas.gs|if ((r[2] || '').toString() !== fechaServidor) return;
+Checadas.gs|const t = (r[9] || '').toString().trim().toUpperCase();
+Checadas.gs|const hm = (r[3] || '').toString().match(/(\d{1,2}):(\d{2})/);
+Checadas.gs|if ((row[2] || '').toString() !== fechaServidor) return;
+Checadas.gs|fecha: (row[2] || '').toString(),
+Checadas.gs|hora: (row[3] || '').toString(),
+Checadas.gs|tipo: (row[9] || '').toString()
+Checadas.gs|if (_normId(filas[i][0]) === _normId(idBuscado)) return (filas[i][1] || '').toString();
+Config.gs|r[2] la fecha…). Si alguien inserta, borra o reordena una columna en el
+Config.gs|La solución, sin tocar los cientos de r[0]/r[2] repartidos por el código:
+Correcciones.gs|if ((r[2] || '').toString() !== hoy) continue;
+Correcciones.gs|if ((r[9] || '').toString().trim().toUpperCase() !== tipoN) continue;
+Correcciones.gs|var hFila = (r[3] || '').toString().match(/(\d{1,2}):(\d{2})/);
+Correcciones.gs|r[0], r[1], r[2], r[3], r[9]
+Empleados.gs|var rangoSiNo = sheet.getRange(2, 4, filas, 1);
+Empleados.gs|var rangoArea = sheet.getRange(2, 5, filas, 1);
+Empleados.gs|sheet.getRange(1, 4).setNote(
+Empleados.gs|sheet.getRange(1, 5).setNote('Le da el color al avatar. Se puede dejar vacío.');
+Empleados.gs|var marca = (r[3] || '').toString().trim().toUpperCase();
+Empleados.gs|var nombre = (r[1] || '').toString().trim();
+Empleados.gs|turno: turnoPorId[id] || (r[2] || '').toString().trim(),
+Empleados.gs|area: (r[4] || '').toString().trim().toUpperCase()
+Juegos.gs|var activo = (r[3] || 'SÍ').toString().trim().toUpperCase();
+Juegos.gs|icono: (r[1] || '🎮').toString().trim(),
+Juegos.gs|modo: (r[2] || 'POSICION').toString().trim().toUpperCase(),
+Juegos.gs|var marca = (r[3] || '').toString().trim().toUpperCase();
+Juegos.gs|var nombre = (r[1] || '').toString().trim();
+Juegos.gs|jugadores.push({ id: id, nombre: nombre, area: (r[4] || '').toString().trim().toUpperCase() });
+Juegos.gs|fecha: (r[1] || '').toString(),
+Juegos.gs|hora: (r[2] || '').toString(),
+Juegos.gs|juego: (r[3] || '').toString(),
+Juegos.gs|nota: (r[4] || '').toString(),
+Juegos.gs|idJugador:(r[5] || '').toString(),
+Juegos.gs|jugador: (r[6] || '').toString(),
+Juegos.gs|posicion: r[7] === '' || r[7] === null ? null : Number(r[7]),
+Juegos.gs|puntos: r[8] === '' || r[8] === null ? null : Number(r[8])
+Mantenimiento.gs|if ((r[2] || '').toString() === hoy) {
+Mantenimiento.gs|ultimas.push((r[1] || '').toString().split(' ')[0] + ' ' + (r[3] || '') + ' ' + (r[9] || ''));
+Perfil.gs|const fecha = (row[2] || '').toString();
+Perfil.gs|const checada = { fecha: fecha, hora: (row[3] || '').toString(), tipo: (row[9] || '').toString() };
+Perfil.gs|if ((row[9] || '').toString().trim().toUpperCase() !== 'ENTRADA') return;
+Perfil.gs|const f = (row[2] || '').toString();
+Perfil.gs|const hm = (row[3] || '').toString().match(/(\d{1,2}):(\d{2})/);
+Perfil.gs|const f = (r[2] || '').toString();
+Perfil.gs|porDia[f].push({ tipo: (r[9] || '').toString().toUpperCase(), hora: (r[3] || '').toString() });
+Push.gs|sheet.getRange(1, 5).setValue('Dispositivo');
+Push.gs|sheet.getRange(1, 7).setValue('Último uso');
+Push.gs|nombres.push((data[i][2] || '?') + ' · ' + (data[i][4] || '?'));
+Push.gs|if ((r[1] || '').toString() !== hoy) return;
+Push.gs|var ok = Number(r[7]) >= 200 && Number(r[7]) < 300;
+Push.gs|var entregada = (r[9] || '').toString() === 'SÍ';
+Push.gs|var quien = (r[4] || '?').toString();
+Usuarios.gs|const cont = (row[2] || '').toString().trim();
+Usuarios.gs|const idUsuario = (row[1] || '').toString().trim();
+WebAPI.gs|var deHoy = data.filter(function(r) { return (r[2] || '').toString() === hoy; });
+WebAPI.gs|return { id: r[0], nombre: r[1], hora: r[3], tipo: r[9] };

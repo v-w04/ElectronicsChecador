@@ -57,11 +57,9 @@ if "!CAMBIOS!"=="0" (
     goto VERIFICA
 )
 "!GIT!" status --short
-echo.
-set "MSG="
-set /p "MSG=   Mensaje [Enter = automatico]: "
-if "!MSG!"=="" set "MSG=%MSG_DEFAULT%"
+set "MSG=%MSG_DEFAULT%"
 "!GIT!" add -A
+if errorlevel 1 goto COMMITFAIL
 "!GIT!" commit -q -m "!MSG!"
 if errorlevel 1 goto COMMITFAIL
 "!GIT!" push origin %GH_BRANCH% > "%TEMP%\chk_push.txt" 2>&1

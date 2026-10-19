@@ -21,7 +21,9 @@ echo   %AZUL%----------------------------------------------------%FIN%
 echo.
 call :BUSCARGIT
 if errorlevel 1 goto NOGIT
-if exist ".git\index.lock" del /f /q ".git\index.lock" >nul 2>&1
+del /f /q ".git\index.lock" ".git\HEAD.lock" ".git\config.lock" >nul 2>&1
+del /f /q ".git\objects\maintenance.lock" >nul 2>&1
+del /f /q ".git\refs\heads\*.lock" >nul 2>&1
 
 echo   %AZUL%[1/2]%FIN%  Cambios locales . . . . . . . . . .
 "!GIT!" diff-index --quiet HEAD -- 2>nul

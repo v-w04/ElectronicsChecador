@@ -29,6 +29,7 @@ if exist "apps-script\appsscript.json" (echo   ok backend) else (echo   %ROJO%x 
 if exist "docs\index.html" (echo   ok frontend) else (echo   %ROJO%x  frontend%FIN% & set FALTA=1)
 call _seguro.bat >nul 2>&1
 if errorlevel 1 (echo   %ROJO%x  credenciales en el codigo%FIN% & set FALTA=1) else (echo   ok sin credenciales)
+call :COLUMNAS
 echo.
 echo   %AZUL%----------------------------------------------------%FIN%
 echo.
@@ -41,6 +42,22 @@ if "!FALTA!"=="1" (
 echo %VERDE%  Todo en orden.%FIN%
 echo.
 call :LOGO
+exit /b 0
+
+:COLUMNAS
+where node >nul 2>&1
+if errorlevel 1 exit /b 0
+if not exist "%~dp0_columnas.js" exit /b 0
+node "%~dp0_columnas.js" >"%TEMP%\col_o.txt" 2>&1
+if errorlevel 2 goto COLNOPUDE
+if errorlevel 1 goto COLNUEVAS
+exit /b 0
+:COLNUEVAS
+echo          %ROJO%^^!  columnas por posicion NUEVAS: leer por encabezado%FIN%
+type "%TEMP%\col_o.txt"
+exit /b 0
+:COLNOPUDE
+echo          %ROJO%^^!  no pude revisar columnas%FIN%
 exit /b 0
 
 :LOGO
