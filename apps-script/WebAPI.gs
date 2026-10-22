@@ -48,6 +48,7 @@ function _funcionesExpuestas() {
     getConfigAlertas      : getConfigAlertas,
     guardarChecadaChofer  : guardarChecadaChofer,
     borrarChecadaPropia   : borrarChecadaPropia,
+    corregirHoraChecadaPropia : corregirHoraChecadaPropia,
     guardarExcepcionDia   : guardarExcepcionDia,
     quitarExcepcionDia    : quitarExcepcionDia,
     getExcepcionHoy       : getExcepcionHoy,
